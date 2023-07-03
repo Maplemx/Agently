@@ -1,0 +1,35 @@
+{
+  "name": "agently",
+  "version": "0.0.1",
+  "description": "Agently is a framework for helping developers to create amazing language models based applications by making language models request process more clearly.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Maplemx/agently.git"
+  },
+  "keywords": [
+    "prompt",
+    "llm",
+    "framework",
+    "agenty",
+    "agent",
+    "model"
+  ],
+  "author": "Maplemx",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Maplemx/agently/issues"
+  },
+  "homepage": "https://github.com/Maplemx/agently#readme",
+  "dependencies": {
+    "axios-https-proxy-fix": "^0.17.1",
+    "duck-duck-scrape": "^2.2.4",
+    "html-to-text": "^9.0.5",
+    "node-readability": "^3.0.0",
+    "optionator": "^0.9.3",
+    "sbd": "^1.0.19"
+  }
+}
