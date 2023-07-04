@@ -89,4 +89,6 @@ So I think I'm going to work on a new version to improve it.
 
 **If you want more, please wait the next version and you are always welcome to to [contact me](mailto:maplemx@gmail.com) or post your ideas or suggestions in [issues area](https://github.com/Maplemx/agently/issues).**
 
+⚠️ **But still, I have to warn you, the next version may change current use case a lot, so if you want to use it for product please wait the next version!!!**
+
 Have fun and happy coding with Agently : )
