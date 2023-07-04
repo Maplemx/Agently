@@ -7,7 +7,7 @@
 
 📧 My Email: [Maplemx@gmail.com](mailto:maplemx@gmail.com)
 
-##HOW TO INSTALL
+## HOW TO INSTALL
 
 Recommend to install Agently by npm
 
@@ -15,7 +15,7 @@ Recommend to install Agently by npm
 npm install agently
 ```
 
-##HOW TO USE
+## HOW TO USE
 
 It's easy to use Agently because it is designed to be use like a function in code.
 
