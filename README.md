@@ -85,7 +85,7 @@ Well, you know, this version of Agently (v0.0.1) is a tools I develop for speedi
 
 So I think I'm going to work on a new version to improve it.
 
-**If you want to find a tool to test your ideas in no time, Agently v0.0.1 is your helper.**
+**If you want to find a tool to test your ideas about what can language model do in no time, Agently v0.0.1 is your helper.**
 
 **If you want more, please wait the next version and you are always welcome to to [contact me](mailto:maplemx@gmail.com) or post your ideas or suggestions in [issues area](https://github.com/Maplemx/agently/issues).**
 
