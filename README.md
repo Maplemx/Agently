@@ -30,6 +30,7 @@ const Agently = require('agently')
 ### Step 2. Create a new Agently instance with API Key and other options
 
 ```javascript
+//Default support 'GPT' and 'MiniMax' and you can append more models in '/lib/LLM_PRESET.js'
 const GPT = new Agently('GPT', {
     debug: true,
     auth: { apiKey: 'sk-Your-API-Key' },
@@ -41,8 +42,55 @@ const GPT = new Agently('GPT', {
 
 Remember, you can always consider Agently instance as a function.
 
+**Example 1. simple to generate JSON**
+
 ```javascript
-async function translate () {
+async function generateJSON (input) {
+    const result = await GPT.Smart
+        .inJSON({
+            reply: '<String>,//Your reply to input.question',
+            keywords: '<Array of String>, //Keywords in input.question and output.reply',
+        })
+        .input(input)
+        .start()
+    console.log(result)
+}
+generateJSON({ question: 'What is galaxy?' })
+```
+
+**Example 2. use Agently to role play with one-shot example**
+
+```javascript
+async function rolePlay () {
+    await GPT.Direct
+        .useMemory(true)
+        .remember(true)
+        .instruct('role', 'You are a cute girl who is always think positive and love to chat with emoji😊')
+        .addMemory([
+            { role: 'assistant', content: 'Sure~👌I will always think positive and try to make you laugh and have a good mood~🤭' }
+        ])
+        .ask('Morning, it\'s a nice day for fishing, isn\'t it?')
+        .start()
+
+    await GPT.Direct
+        .useMemory(true)
+        .remember(true)
+        .ask('So, sweet kitty, what shall we do today?')
+        .start()
+
+    await GPT.Direct
+        .useMemory(true)
+        .remember(true)
+        .ask('Wow, do you remember what is the nick name I gave you?')
+        .start()
+}
+rolePlay()
+```
+
+**Example 3. Agently as a transaltor function**
+
+```javascript
+async function translate (input) {
     const result = await GPT.Smart
         //Set agent role and rules
         .instruct('role', 'Translator')
@@ -67,14 +115,12 @@ async function translate () {
                    `[Examples]\n${ result.examples.map( (item) => `${ JSON.stringify(item) }\n` ) }`
         })
         //Adding input information
-        .input({
-            user_input: `zodiac`,
-        })
+        .input(input)
         //Remember using .start() to make this chain command start to work.
         .start()
     console.log(result.content)
 }
-translate()
+translate({ user_input: 'zodiac' })
 ```
 
 You can find more examples [here](https://github.com/Maplemx/agently/blob/main/demo/demo.js).
