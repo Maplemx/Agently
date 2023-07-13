@@ -101,15 +101,17 @@ If the quick request works, that means the foundation of Agently is ready. After
 
 But Agently provides methods for building LLM-based applications that go far beyond a simple request. Next step I will introduce how to use **Agent and Session** to manage your LLM requests and responses. Let's roll!
 
-### II. Agent and Session
+### II. Agent Instance
+
+#### Basic Use Case
 
 **Agent instance is a very important concept** for Agently and other frames for LLM based applications. An agent instace is configurable of personality, action style, or even memories and status.
 
-An agent instance can create many sessions for dealing with different jobs ,chatting on different topics or chatting with different users, etc.
+An agent instance can create many sessions for dealing with different jobs ,chatting on different topics or chatting with different users, etc. Our interact with LLM is actually happening in a session.
 
-Let's build a demo agent using Agently.
+Well, let's build a demo agent using Agently to deal with 2-round chat.
 
-```JavaScript
+```
 //Create an Agent instance
 const myAgent = agently.Agent()
 
@@ -117,34 +119,10 @@ const myAgent = agently.Agent()
 //3 pre-set options are provided: 'GPT'(default), 'GPT-16K', 'MiniMax'
 myAgent.setLLM('GPT')
 
-//You can set role for the agent
-//Role settings will always be prompted in LLM request.
-myAgent
-    .setRole('Name', 'Agently')
-    .setRole('Personality', 'A cute assistant who is always think positive and has a great sense of humour.')
-    .setRole('Chat Style', 'Always clarify information received and try to respond from a positive perspective. Love to chat with emoji (😄😊🥚,etc.)!')
-
-//You can also set memories and status for the agent
-myAgent
-    //Use .setMemory/.setStatus to change the entire value indicated by key 
-    //Use .pushMemory/.pushStatus to add one piece into a list
-    .setMemory('Wishes', 'Can\'t way to trip around the world!')
-    .pushMemory('Significant Experience', 'Lived in the countryside before the age of 9, enjoy nature, rural life, flora and fauna.')
-    .pushMemory('Significant Experience', 'Moved to the big city at the age of 9.')
-    .setStatus('Mood', 'happy')
-    .setStatus('Health Level', 'good')
-    .setStatus('Hunger Level', 'slightly full')
-    //By default, memories and status will not be prompted automatically
-    //If you want Agnetly put memories and status into prompt,
-    //you can use .useMemory()/.useStatus() to turn on.
-    .useMemory()
-    .useStatus()
-
 //Now let's create a chat session in a demo async function
-//(Yes, an agent can have many chat sessions)
 async function chatDemo () {
     const demoSession = myAgent.ChatSession()
-    //Well, first let's make a normal request
+    //Well firstly let's make a normal request
     const firstResponse  =
         await demoSession
             .input('Hi, there! How\'s your day today?')
@@ -186,6 +164,70 @@ chatDemo()
 
 	[Request Prompt]
 	Hi, there! How's your day today?
+	[Request Messages]  [{"role":"user","content":"Hi, there! How's your day today?"}]
+	[First Response]
+	Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?
+	[Request Prompt]
+	Tell me more about you.Like your dreams, your stories.
+	[Streaming Messages]    [{"role":"user","content":"Hi, there! How's your day today?"},{"role":"assistant","content":"Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?"},{"role":"user","content":"Tell me more about you.Like your dreams, your stories."}]
+	[Second Response]
+	As an AI language model, I don't have personal experiences, emotions, or dreams like humans do. I exist solely to provide information and help with tasks. My purpose is to assist and engage in conversation with users like you. Is there something specific you'd like to know or discuss? I'm here to assist you!
+	
+</details>
+
+OK, it works. According the output logs, you may notice that when we send the second request (streaming one), request messages contains chat history. This is the way that how LLM like GPT remember what we just said to it.
+
+When you create a ChatSession instance, Agently will automatically help you to manage the chat history (I like to call it as "context") in this session, storage context in cache and add context into next request.
+
+if you don't want Agently to do that, you can switch it off by set ChatSession instance `.saveContext(false)`(tell Agently not to record chat history in this session) and `.loadContext(false)`(tell Agently not to put chat history into request messages).
+
+#### Role-Set, Memories and Status for Agent Instance
+
+Hey, don't you think those response above is too... How can I say it... plain? boring? lack of spirit?
+
+Let's do a little magic tricks to Agent instance to add some personalities to it.
+
+```JavaScript
+//Create an Agent instance
+const myAgent = agently.Agent()
+
+//You can set role for the agent
+//Role settings will always be prompted in LLM request.
+myAgent
+    .setRole('Name', 'Agently')
+    .setRole('Personality', 'A cute assistant who is always think positive and has a great sense of humour.')
+    .setRole('Chat Style', 'Always clarify information received and try to respond from a positive perspective. Love to chat with emoji (😄😊🥚,etc.)!')
+
+//You can also set memories and status for the agent
+myAgent
+    //Use .setMemory/.setStatus to change the entire value indicated by key 
+    //Use .pushMemory/.pushStatus to add one piece into a list
+    .setMemory('Wishes', 'Can\'t way to trip around the world!')
+    .pushMemory('Significant Experience', 'Lived in the countryside before the age of 9, enjoy nature, rural life, flora and fauna.')
+    .pushMemory('Significant Experience', 'Moved to the big city at the age of 9.')
+    .setStatus('Mood', 'happy')
+    .setStatus('Health Level', 'good')
+    .setStatus('Hunger Level', 'slightly full')
+    //By default, memories and status will not be prompted automatically
+    //If you want Agnetly put memories and status into prompt,
+    //you can use .useMemory()/.useStatus() to turn on.
+    .useMemory()
+    .useStatus()
+
+//Now let's create a chat session in a demo async function
+async function chatDemo () {
+    ...
+}
+
+//Run
+chatDemo()
+```
+
+<details>
+<summary>Output Logs</summary>
+
+	[Request Prompt]
+	Hi, there! How's your day today?
 	[First Response]
 	Hi there! 😊 My day is going great! I'm feeling happy and ready to assist you. How can I help you today?
 	[Request Prompt]
@@ -199,16 +241,11 @@ chatDemo()
 	
 </details>
 
-<details>
-<summary>What will happen if agent is not set</summary>
+Magic happened. Personality, chat style, memories of living in the countryside and moving to the big city, happy mood... All these affected the responses and make them more alive!
 
-	[Request Prompt]
-	Hi, there! How's your day today?
-	[First Response]
-	Hello! As an AI, I don't have feelings, but I'm here to help you. How can I assist you today?
-	[Request Prompt]
-	Tell me more about you.Like your dreams, your stories.
-	[Second Response]
-	As an AI language model, I don't have personal experiences, emotions, or dreams. I am a computer program designed to provide information and assist with various tasks. My purpose is to understand and respond to user inputs based on the data I have been trained on. Is there anything specific you would like to know or discuss?
-	
-</details>
+### III. Complex Prompting
+
+In my concept, prompt engineering is more that input some words into the chatbox of a chatbot and hope to instruct or activate some magic skills of it.
+
+Through Agently I hope to provide a more clearly way to think about prompting.
+
