@@ -103,8 +103,6 @@ But Agently provides methods for building LLM-based applications that go far bey
 
 ### II. Agent Instance
 
-#### Basic Use Case
-
 **Agent instance is a very important concept** for Agently and other frames for LLM based applications. An agent instace is configurable of personality, action style, or even memories and status.
 
 An agent instance can create many sessions for dealing with different jobs ,chatting on different topics or chatting with different users, etc. Our interact with LLM is actually happening in a session.
@@ -181,11 +179,27 @@ When you create a ChatSession instance, Agently will automatically help you to m
 
 if you don't want Agently to do that, you can switch it off by set ChatSession instance `.saveContext(false)`(tell Agently not to record chat history in this session) and `.loadContext(false)`(tell Agently not to put chat history into request messages).
 
-#### Role-Set, Memories and Status for Agent Instance
+### III. Complex Prompting
 
-Hey, don't you think those response above is too... How can I say it... plain? boring? lack of spirit?
+In my concept, prompt engineering is more that input some words into the chatbox of a chatbot and hope to instruct or activate some magic skills of it.
 
-Let's do a little magic tricks to Agent instance to add some personalities to it.
+Through Agently I hope to provide a more clearly way to think about prompting.
+
+#### Role-Set, Memories and Status of Agent Instance
+
+Role settings are very important for LLM responses to act more stable and focus on the right topic.
+
+Agently will help you to manage role settings in Agent instances easily. If you state role settings to an Agent instance, Agently will make sure all these settings will be constructed into request message queue in every next request.
+
+In Agently, 3 types of role settings are defined:
+
+- **Role:** Usually used to state who this agent is, what rules shall this agent follow or what character traits this agent have.
+
+- **Memory:** Usually used to state what stuffs shall this agent remember. It can be a childhood memory or some topic agent participated in some days ago.
+
+- **Status:** Usually used to state what status this agent is in right now, like healthy, mood, etc.
+
+OK, enough talking. Hey, don't you think those response above in Part II is too... How can I say it... plain? boring? lack of spirit? Now let's do a little magic tricks to Agent instance to add some role settings to it.
 
 ```JavaScript
 //Create an Agent instance
@@ -243,9 +257,18 @@ chatDemo()
 
 Magic happened. Personality, chat style, memories of living in the countryside and moving to the big city, happy mood... All these affected the responses and make them more alive!
 
-### III. Complex Prompting
+#### Constructing Request Prompt
 
-In my concept, prompt engineering is more that input some words into the chatbox of a chatbot and hope to instruct or activate some magic skills of it.
+Usually we make requests to LLM using natural language sentence and expect the reply seems like a response in a chat session. However, in computer engineering, we prefer structured reply.
 
-Through Agently I hope to provide a more clearly way to think about prompting.
+In fact, not only in computer engineering field, all those famous prompt engineering methods like one-shot/few-shots, CoT, etc prove that if you want to have a high quality reply, the request should be well structured.
 
+Agently define 3 important parts of prompt:
+
+- **Input:** Sentence, data, information that no matter they are input by user or identified in user interaction behaviors.
+
+- **Prompt:** Your instruction of how LLM should use input information, how the generation work should be carried out, and certain rules in this request that LLM should follow.
+
+- **Output:** Your definition of structured output, including all sections that output should have, the content and expected format of each section, etc.
+
+Let's take a look at how Agently helps you easily make these expressions.
