@@ -77,7 +77,7 @@ module.exports = (Agently) => {
                     return { role: 'user', content: prompt.input }
                 } else {
                     let content = '# INPUT\n'
-                    content += `input = ${ format.toJSONString(prompt.input) }\n\n`
+                    content += `input = ${ JSON.stringify(prompt.input) }\n\n`
                     for (let i = 0; i < prompt.prompt.length; i++) {
                         content += `# ${ prompt.prompt[i].title }\n${ format.toJSONString(prompt.prompt[i].content) }\n`
                     }

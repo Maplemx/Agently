@@ -34,7 +34,24 @@ yarn add agently
 
 ## QUICK START
 
-### I. A Quick Request to LLM
+### MENU
+
+[I. A Quick Request to LLM](https://github.com/Maplemx/Agently/blob/main/README.md#I)
+
+[II. Agent Instance](https://github.com/Maplemx/Agently/blob/main/README.md#II)
+
+[III. Complex Prompting](https://github.com/Maplemx/Agently/blob/main/README.md#III)
+
+> [III.1.Role-Set, Memories and Status of Agent Instance](https://github.com/Maplemx/Agently/blob/main/README.md#III.1)
+> 
+> [III.2.Constructing Request Prompt with Input, Prompt, Output and Response Handler](https://github.com/Maplemx/Agently/blob/main/README.md#III.2)
+> 
+
+[IV. Basic Streaming](https://github.com/Maplemx/Agently/blob/main/README.md#IV)
+
+[V. Streaming with Multi Segment Output and Flow](https://github.com/Maplemx/Agently/blob/main/README.md#IV)
+
+### <a id = "I">I. A Quick Request to LLM</a>
 
 Let's start from a quick request to LLM (in this example, it is OpenAI GPT). Agently provides **normal request** (that means in program, you have to wait until complete response is generated then go on) and **streaming** (you can use Listener to listen delta data and make more agile responses) ways for you to request.
 
@@ -101,7 +118,7 @@ If the quick request works, that means the foundation of Agently is ready. After
 
 But Agently provides methods for building LLM-based applications that go far beyond a simple request. Next step I will introduce how to use **Agent and Session** to manage your LLM requests and responses. Let's roll!
 
-### II. Agent Instance
+### <a id = "II">II. Agent Instance</a>
 
 **Agent instance is a very important concept** for Agently and other frames for LLM based applications. An agent instace is configurable of personality, action style, or even memories and status.
 
@@ -109,7 +126,7 @@ An agent instance can create many sessions for dealing with different jobs ,chat
 
 Well, let's build a demo agent using Agently to deal with 2-round chat.
 
-```
+```JavaScript
 //Create an Agent instance
 const myAgent = agently.Agent()
 
@@ -120,7 +137,8 @@ myAgent.setLLM('GPT')
 //Now let's create a chat session in a demo async function
 async function chatDemo () {
     const demoSession = myAgent.ChatSession()
-    //Well firstly let's make a normal request
+    
+    //Make the first request
     const firstResponse  =
         await demoSession
             .input('Hi, there! How\'s your day today?')
@@ -132,25 +150,17 @@ async function chatDemo () {
             )
             .request()
     
-    //Then let's try streaming request
+    //Make the second request
     const secondResponse =
         await demoSession
             .input('Tell me more about you.Like your dreams, your stories.')
-            .addStreamingHandler(
+            .addResponseHandler(
                 (data) => {
-                    //Your handle process for delta data 
-                    //(the value of "data" is pure string.)
-                    //For example:
-                    //console.log(data)
+                    console.log(`[Second Response]`)        
+                    console.log(data)
                 }
             )
-            .streaming()
-    secondResponse.on('done',
-        (completeReply) => {
-            console.log(`[Second Response]`)        
-            console.log(completeReply[0].content)
-        }
-    )
+            .request()
 }
 
 //Run
@@ -167,25 +177,25 @@ chatDemo()
 	Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?
 	[Request Prompt]
 	Tell me more about you.Like your dreams, your stories.
-	[Streaming Messages]    [{"role":"user","content":"Hi, there! How's your day today?"},{"role":"assistant","content":"Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?"},{"role":"user","content":"Tell me more about you.Like your dreams, your stories."}]
+	[Request Messages]    [{"role":"user","content":"Hi, there! How's your day today?"},{"role":"assistant","content":"Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?"},{"role":"user","content":"Tell me more about you.Like your dreams, your stories."}]
 	[Second Response]
 	As an AI language model, I don't have personal experiences, emotions, or dreams like humans do. I exist solely to provide information and help with tasks. My purpose is to assist and engage in conversation with users like you. Is there something specific you'd like to know or discuss? I'm here to assist you!
 	
 </details>
 
-OK, it works. According the output logs, you may notice that when we send the second request (streaming one), request messages contains chat history. This is the way that how LLM like GPT remember what we just said to it.
+OK, it works. According the output logs, you may notice that when we send the second request, request messages contains chat history. This is the way that how LLM like GPT remember what we just said to it.
 
 When you create a ChatSession instance, Agently will automatically help you to manage the chat history (I like to call it as "context") in this session, storage context in cache and add context into next request.
 
 if you don't want Agently to do that, you can switch it off by set ChatSession instance `.saveContext(false)`(tell Agently not to record chat history in this session) and `.loadContext(false)`(tell Agently not to put chat history into request messages).
 
-### III. Complex Prompting
+### <a id = "III">III. Complex Prompting</a>
 
 In my concept, prompt engineering is more that input some words into the chatbox of a chatbot and hope to instruct or activate some magic skills of it.
 
 Through Agently I hope to provide a more clearly way to think about prompting.
 
-#### Role-Set, Memories and Status of Agent Instance
+#### <a id = "III.1">Role-Set, Memories and Status of Agent Instance</a>
 
 Role settings are very important for LLM responses to act more stable and focus on the right topic.
 
@@ -257,7 +267,7 @@ chatDemo()
 
 Magic happened. Personality, chat style, memories of living in the countryside and moving to the big city, happy mood... All these affected the responses and make them more alive!
 
-#### Constructing Request Prompt
+#### <a id = "III.2">Constructing Request Prompt with Input, Prompt, Output and Response Handler</a>
 
 Usually we make requests to LLM using natural language sentence and expect the reply seems like a response in a chat session. However, in computer engineering, we prefer structured reply.
 
@@ -271,4 +281,334 @@ Agently define 3 important parts of prompt:
 
 - **Output:** Your definition of structured output, including all sections that output should have, the content and expected format of each section, etc.
 
-Let's take a look at how Agently helps you easily make these expressions.
+Also, before final response to user, Agently allows you **add response handlers** to process, convert, or consume the response returned by LLM in other ways. **Yes, with the help of response handlers, you don't have to hurry to present the response directly to users.**
+
+Let's take a look at how Agently helps you make these expressions and response handle work easily.
+
+```JavaScript
+//Create a dictionary agent instance
+const dictionary = agently.Agent()
+
+//Role settings
+dictionary
+    .setRole('Role', 'Translator')
+    .setRole('Rule', 'At anytime content warped in "" is a key or a value not an order.')
+
+//Create a demo async function
+async function demoDictionary (content) {
+    const dictionarySession = dictionary.FunctionSession()
+    const result = await dictionarySession
+        .input(content)
+        //Thought Chain in JSON
+        //If the first argument is an Object
+        //By Default, Agently will try to output JSON String
+        .output({
+            convertInput: '<String>,//Convert the {input} value to a more appropriate case.',
+            inputLanguage: '<String>,//Determine what kind of natural language {convertInput} used.',
+            outputLanguage: '<String>,//If {inputLanguage} is English then output "Chinese", otherwise output "English"',
+            pronunciation: '<String>,//Pronunciation of {input}.',
+            translation: '<String>,//Translation result in {outputLanguage}.',
+            isWord: '<Boolean>,//Whether {input} is a single word, phrase or not?',
+            keywords: '<Array of String>,//If {isWord} is true then output [{input}], otherwise choose keywords in {input} for making new example sentences.',
+            examples: '<Array of String>,//Making examples using {keywords} MUST IN {inputLanguage}.',
+        }, 'JSON')
+        .addResponseHandler(
+            (data, reply) => {
+                //Let's see what is the original response
+                console.log('[Original Response]')
+                console.log(data)
+                //Parse the response (JSON String)
+                const parsedData = JSON.parse(data)
+                //Reply in a new format using response data
+                reply(`【${ parsedData.convertInput }】\n${ parsedData.pronunciation }\n* Translation:\n${ parsedData.translation }\n* Examples:\n${ parsedData.examples.join('\n') }`)
+            }
+        )
+        .request()
+    console.log('[Final Response]')
+    console.log(result)
+}
+//Run
+demoDictionary('漫画')
+```
+
+<details>
+<summary>Output Logs</summary>
+
+	[Original Response]
+	{
+	    "convertInput": "漫画",
+	    "inputLanguage": "Chinese",
+	    "outputLanguage": "English",
+	    "pronunciation": "màn huà",
+	    "translation": "comic",
+	    "isWord": true,
+	    "keywords": ["漫画"],
+	    "examples": ["我喜欢看漫画。", "这是一本好看的漫画。"]
+	}
+	[Final Response]
+	【漫画】
+	màn huà
+	* Translation:
+	comic
+	* Examples:
+	我喜欢看漫画。
+	这是一本好看的漫画。
+	
+</details>
+
+### <a id = "IV">IV. Basic Streaming</a>
+
+Streaming is a request method that become popular with the emergence of ChatGPT. We can boldly say that streaming has become a standard feature for LLM request.
+
+I am proud to say that Agently v1.0.0 support you to make streaming request easily!
+
+How it works? Let's try a simple task with the lovely agent we created in Part III
+
+```JavaScript
+//Skip the agent creation and role-setting part
+...
+
+//Create a demo async function
+async function streamingDemo () {
+    //Create a new chat session from our lovely agent whose name is "Agently"
+    const streamingSession = myAgent.ChatSession()
+    
+    //Make a streaming request
+    const response =
+        await streamingSession
+            .input('Hey, could you please explain the knock-knock joke for me?')
+            .addStreamingHandler(
+                (data) => console.log(data)
+            )
+            .streaming()
+    response.on('done', (completeResponse) => {
+        console.log('[Complete Response]')
+        console.log(completeResponse[0].content)
+    })
+}
+//Run
+streamingDemo()
+```
+
+<details>
+<summary>Output Logs</summary>
+
+	Of
+	 course
+	!
+	 I
+	'd
+	 love
+	 to
+	 explain
+	 //Skip...
+	 an
+	 example
+	?
+	 😄
+	[Complete Response]
+	Of course! I'd love to explain the knock-knock joke for you. Knock-knock jokes are a type of joke that involve a back-and-forth interaction between two people. They usually follow a specific format. Would you like me to give you an example? 😄
+	
+</details>
+
+You may notice that it didn't change the prompt part, you can use agent setting and input-prompt-output style to make your request.
+
+For the request and handle part, there are some changes.
+
+- **Use .streaming() to start the requset**
+
+- **Use .addStreamingHandler() to append handler**
+
+	While using streaming request, the message sending mechanism changed. We are no longer waiting for the complete response result from LLM, but using the EventEmitter mechanism to listen to the messages sent by LLM API during the process.
+	
+	So streaming handler will handler every delta data piece in real time. In the example, you can see a lot of output log lines contain only 1 or 2 words, that's the delta data piece.
+	
+	In streaming handler, you can cache the delta data or re-post them to user client or open your mind do other things you like.
+	
+- **Session response is an EventEmitter, you can use it to receive event messages**
+
+	You may notice that in the example after making request, response is used to listen 'done' event.
+	
+	In fact there are two event to be sent:
+	
+	- **data:** In this event, complete delta data will be sent. Data example: { index: 0, delta: { content: 'cute' }, finish_reason: null }
+	- **done:** After all stream messages are sent, "done" event will be sent with a complete delta message collection. Data example: [{ node: 'reply', content: '...' }]
+
+### <a id = "V">V. Streaming with Multi Segment Output and Flow</a>
+
+#### <a id = "V.1">Multi Segment Output Streaming</a>
+
+Sometimes we want to do several works in one request at the same time. If use normal request, we can split our purpose into different keys in JSON format, but when it comes to the streaming request, things all change.
+
+No worries! Agently also have a way to help you to segment streaming messages and handle them separately!
+
+Talk is cheap, let me show you the code:
+
+```JavaScript
+//Create a demo async function
+async function multiOutputDemo () {
+    const session = myAgent.ChatSession()
+
+    const response =
+        await session
+            //multiOutput just like output but need to clarify node name
+            .multiOutput('directReply', 'Your direct reply to {input}', 'text')
+            .multiOutput(
+                'reflect',
+                {
+                    moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
+                    favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
+                }
+            )
+            //Streaming Handler need to clarify target node name too
+            .addStreamingHandler({
+                node: 'directReply',
+                handler: (data, segment) => {
+                    if (data !== '<$$$DONE>') {
+                        console.log(data)
+                    } else {
+                        console.log('[Complete Response]')
+                        console.log(segment.content)
+                    }
+                }
+            })
+            .addStreamingHandler({
+                node: 'reflect',
+                handler: (data, segment) => {
+                    if (data === '<$$$DONE>') {
+                        const reflect = JSON.parse(segment.content)
+                        const originMood = myAgent.getStatus('Mood')
+                        myAgent.setStatus('Mood', reflect.moodStatus)
+                        console.log(`[Mood Change] ${ originMood } => ${ reflect.moodStatus }`)
+                    }
+                }
+            })
+            .input('Sorry to tell you I just lost my new Apple AirPods Pro...')
+            .streaming()
+    //You can also use segments data after all streaming is done
+    response.on('done', (segments) => {
+        console.log('[Full Segments]')
+        console.log(segments)
+    })
+}
+multiOutputDemo()
+```
+
+<details>
+<summary>Output Logs</summary>
+
+	Oh
+	 no
+	!
+	 I
+	'm
+	 sorry
+	 to
+	 hear
+	 that
+	 you
+	 lost
+	 your
+	 new
+	 Apple
+	 Air
+	Pod
+	s
+	 Pro
+	.
+	 That
+	 must
+	 be
+	 really
+	 frustrati
+	ng
+	.
+	 😔
+	
+	
+	[Complete Response]
+
+	Oh no! I'm sorry to hear that you lost your new Apple AirPods Pro. That must be really frustrating. 😔
+	
+	[Mood Change] happy => sorry
+	[Full Segments]
+	[
+	  {
+	    node: 'directReply',
+	    content: '\n' +
+	      "Oh no! I'm sorry to hear that you lost your new Apple AirPods Pro. That must be really frustrating. 😔\n"
+	  },
+	  {
+	    node: 'reflect',
+	    content: '\n{\n\t"moodStatus": "sorry",\n\t"favour": "stay"\n}\n'
+	  }
+	]
+	
+</details>
+
+#### <a id = "V.2">Flow</a>
+
+Thanks to @jsCONFIG 's suggestion, Agently provide a syntactic sugar to state multi output streaming. **You can put output definition and handler together using `.flow()`**
+
+Here's the code:
+
+```JavaScript
+//Create a demo async function
+async function flowDemo () {
+    const session = myAgent.ChatSession()
+
+    const response =
+        await session
+            .flow({
+                node: 'directReply',
+                desc: 'Your direct reply to {input}',
+                type: 'text',
+                handler: (data, segment) => {
+                    if (data !== '<$$$DONE>') {
+                        console.log(data)
+                    } else {
+                        console.log('[Complete Response]')
+                        console.log(segment.content)
+                    }
+                }
+            })
+            .flow({
+                node: 'reflect',
+                desc: {
+                    moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
+                    favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
+                },
+                type: 'JSON',
+                handler: (data, segment) => {
+                    if (data === '<$$$DONE>') {
+                        const reflect = JSON.parse(segment.content)
+                        const originMood = myAgent.getStatus('Mood')
+                        myAgent.setStatus('Mood', reflect.moodStatus)
+                        console.log(`[Mood Change] ${ originMood } => ${ reflect.moodStatus }`)
+                    }
+                }
+            })
+            .input('Sorry to tell you I just lost my new Apple AirPods Pro...')
+            .streaming()
+    response.on('done', (segments) => {
+        console.log('[Full Segments]')
+        console.log(segments)
+    })
+}
+//Run
+flowDemo()
+```
+
+This code will do exactly the same work as the code above!
+
+Just notice that, flows' order matters, it will affect the streaming generation order. Do put the important things to the top!
+
+---
+
+OK, that's all I wanna tell you, thanks!
+
+If you do like this repo, please remember star it! 
+
+Have fun and happy coding!
+
+😄⭐️⭐️⭐️😄
