@@ -1,5 +1,5 @@
 {
-  "name": "agenty",
+  "name": "agently",
   "version": "1.0.0",
   "description": "🤵 Agently is a framework for helping developers to create amazing LLM based applications.\n🎭 You can easily to use it to create an LLM bansed agent instance with role set and memory.\n⚙️ You can also use Agently agent instance just like an async function and put it anywhere in your code.\n🧩 And with the easy-to-plug-in design, you can easily append new LLM API/private API/memory management methods/skills to your Agently agent instance.",
   "main": "index.js",

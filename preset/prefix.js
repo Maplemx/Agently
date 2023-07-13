@@ -35,7 +35,7 @@ module.exports = (Agently) => {
             (memories) => {
                 let content = `I remember:\n`
                 for (let key in memories.memories) {
-                    content += `**${ key }**: ${ memories.memories[key] }\n`
+                    content += `**${ key }**: ${ format.toJSONString(memories.memories[key]) }\n`
                 }
                 return { role: 'assistant', content: content }
             }

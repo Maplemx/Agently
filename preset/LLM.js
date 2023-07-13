@@ -80,7 +80,11 @@ module.exports = (Agently) => {
         .extractStreamingData(
             data => {
                 if (data !== '[DONE]\n\n') {
-                    return { type: 'data', data: JSON.parse(data).choices[0] }
+                    try {
+                        return { type: 'data', data: JSON.parse(data).choices[0] }
+                    } catch (e) {
+                        console.error(e)
+                    }
                 } else {
                     return { type: 'done', data: null }
                 }
