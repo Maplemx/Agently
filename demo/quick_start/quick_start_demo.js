@@ -1,9 +1,17 @@
+//HOW TO USE
+// Step 1. Set your authentication (by default it is your OpenAI API KEY)
+// Step 2. Read code and remove the "//" comment symbols before each demo function call
+
 /**
  * Preparation
  */
-const Agently = require('../../index')
+// REMEMBER TO INSTALL Agently FROM npm OR yarn
+// RUN: npm install --save agently
+// OR RUN: yarn add agently
+// IN SHELL
+const Agently = require('agently')
 
-//Create a new agently instance
+//Create a new Agently instance
 const agently = new Agently(
     {
         debug: true,//turn on debug will display Prompt and Request Messages in console
