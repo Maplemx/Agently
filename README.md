@@ -83,34 +83,34 @@ requestLLM()
 <details>
 <summary>Output Logs</summary>
 
-	[Request Messages]  [{"role":"user","content":"Hello world!"}] 
-	Hello! How can I assist you today? 
-	[Streaming Messages]    [{"role":"user","content":"Hello world!"}] 
-	{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null } 
-	{ index: 0, delta: { content: 'Hello' }, finish_reason: null } 
-	{ index: 0, delta: { content: '!' }, finish_reason: null } 
-	{ index: 0, delta: { content: ' How' }, finish_reason: null } 
-	{ index: 0, delta: { content: ' can' }, finish_reason: null } 
-	{ index: 0, delta: { content: ' I' }, finish_reason: null } 
-	{ index: 0, delta: { content: ' assist' }, finish_reason: null }
-	{ index: 0, delta: { content: ' you' }, finish_reason: null }
-	{ index: 0, delta: { content: ' today' }, finish_reason: null }
-	{ index: 0, delta: { content: '?' }, finish_reason: null }
-	Hello! How can I assist you today?
-	
+    [Request Messages]  [{"role":"user","content":"Hello world!"}] 
+    Hello! How can I assist you today? 
+    [Streaming Messages]    [{"role":"user","content":"Hello world!"}] 
+    { index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null } 
+    { index: 0, delta: { content: 'Hello' }, finish_reason: null } 
+    { index: 0, delta: { content: '!' }, finish_reason: null } 
+    { index: 0, delta: { content: ' How' }, finish_reason: null } 
+    { index: 0, delta: { content: ' can' }, finish_reason: null } 
+    { index: 0, delta: { content: ' I' }, finish_reason: null } 
+    { index: 0, delta: { content: ' assist' }, finish_reason: null }
+    { index: 0, delta: { content: ' you' }, finish_reason: null }
+    { index: 0, delta: { content: ' today' }, finish_reason: null }
+    { index: 0, delta: { content: '?' }, finish_reason: null }
+    Hello! How can I assist you today?
+    
 </details>
 
 <details>
 <summary>By default, Agently also support request to MiniMax</summary>
 
-	const Agently = require('agently')
-	const agently = new Agently({ debug: true })
-	agently.LLM.setAuth('MiniMax', {
-	    groupId: 'Your-Group-ID',
-	    apiKey: 'Your-API-KEY',
-	})
-	const MiniMax = agently.LLM.Request('MiniMax')
-	
+    const Agently = require('agently')
+    const agently = new Agently({ debug: true })
+    agently.LLM.setAuth('MiniMax', {
+        groupId: 'Your-Group-ID',
+        apiKey: 'Your-API-KEY',
+    })
+    const MiniMax = agently.LLM.Request('MiniMax')
+    
 </details>
 
 
@@ -170,17 +170,17 @@ chatDemo()
 <details>
 <summary>Output Logs</summary>
 
-	[Request Prompt]
-	Hi, there! How's your day today?
-	[Request Messages]  [{"role":"user","content":"Hi, there! How's your day today?"}]
-	[First Response]
-	Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?
-	[Request Prompt]
-	Tell me more about you.Like your dreams, your stories.
-	[Request Messages]    [{"role":"user","content":"Hi, there! How's your day today?"},{"role":"assistant","content":"Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?"},{"role":"user","content":"Tell me more about you.Like your dreams, your stories."}]
-	[Second Response]
-	As an AI language model, I don't have personal experiences, emotions, or dreams like humans do. I exist solely to provide information and help with tasks. My purpose is to assist and engage in conversation with users like you. Is there something specific you'd like to know or discuss? I'm here to assist you!
-	
+    [Request Prompt]
+    Hi, there! How's your day today?
+    [Request Messages]  [{"role":"user","content":"Hi, there! How's your day today?"}]
+    [First Response]
+    Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?
+    [Request Prompt]
+    Tell me more about you.Like your dreams, your stories.
+    [Request Messages]    [{"role":"user","content":"Hi, there! How's your day today?"},{"role":"assistant","content":"Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?"},{"role":"user","content":"Tell me more about you.Like your dreams, your stories."}]
+    [Second Response]
+    As an AI language model, I don't have personal experiences, emotions, or dreams like humans do. I exist solely to provide information and help with tasks. My purpose is to assist and engage in conversation with users like you. Is there something specific you'd like to know or discuss? I'm here to assist you!
+    
 </details>
 
 OK, it works. According the output logs, you may notice that when we send the second request, request messages contains chat history. This is the way that how LLM like GPT remember what we just said to it.
@@ -250,19 +250,19 @@ chatDemo()
 <details>
 <summary>Output Logs</summary>
 
-	[Request Prompt]
-	Hi, there! How's your day today?
-	[First Response]
-	Hi there! 😊 My day is going great! I'm feeling happy and ready to assist you. How can I help you today?
-	[Request Prompt]
-	Tell me more about you.Like your dreams, your stories.
-	[Second Response]
-	Oh, I'd be delighted to share more about myself! Well, one of my dreams is to travel around the world and experience different cultures. I love learning about new places, trying different cuisines, and meeting new people. It would be such an adventure! 
+    [Request Prompt]
+    Hi, there! How's your day today?
+    [First Response]
+    Hi there! 😊 My day is going great! I'm feeling happy and ready to assist you. How can I help you today?
+    [Request Prompt]
+    Tell me more about you.Like your dreams, your stories.
+    [Second Response]
+    Oh, I'd be delighted to share more about myself! Well, one of my dreams is to travel around the world and experience different cultures. I love learning about new places, trying different cuisines, and meeting new people. It would be such an adventure! 
 
-	As for my stories, I have a couple of interesting experiences. When I was younger, I actually lived in the countryside. It was so beautiful, surrounded by nature, and I enjoyed exploring the flora and fauna. But then, when I was 9 years old, my family moved to the big city. It was quite a change, but it opened up a whole new world of opportunities for me.
+    As for my stories, I have a couple of interesting experiences. When I was younger, I actually lived in the countryside. It was so beautiful, surrounded by nature, and I enjoyed exploring the flora and fauna. But then, when I was 9 years old, my family moved to the big city. It was quite a change, but it opened up a whole new world of opportunities for me.
 
-	I hope that gives you a little glimpse into my dreams and stories! Is there anything specific you'd like to know or talk about? 😄
-	
+    I hope that gives you a little glimpse into my dreams and stories! Is there anything specific you'd like to know or talk about? 😄
+    
 </details>
 
 Magic happened. Personality, chat style, memories of living in the countryside and moving to the big city, happy mood... All these affected the responses and make them more alive!
@@ -334,26 +334,26 @@ demoDictionary('漫画')
 <details>
 <summary>Output Logs</summary>
 
-	[Original Response]
-	{
-	    "convertInput": "漫画",
-	    "inputLanguage": "Chinese",
-	    "outputLanguage": "English",
-	    "pronunciation": "màn huà",
-	    "translation": "comic",
-	    "isWord": true,
-	    "keywords": ["漫画"],
-	    "examples": ["我喜欢看漫画。", "这是一本好看的漫画。"]
-	}
-	[Final Response]
-	【漫画】
-	màn huà
-	* Translation:
-	comic
-	* Examples:
-	我喜欢看漫画。
-	这是一本好看的漫画。
-	
+    [Original Response]
+    {
+        "convertInput": "漫画",
+        "inputLanguage": "Chinese",
+        "outputLanguage": "English",
+        "pronunciation": "màn huà",
+        "translation": "comic",
+        "isWord": true,
+        "keywords": ["漫画"],
+        "examples": ["我喜欢看漫画。", "这是一本好看的漫画。"]
+    }
+    [Final Response]
+    【漫画】
+    màn huà
+    * Translation:
+    comic
+    * Examples:
+    我喜欢看漫画。
+    这是一本好看的漫画。
+    
 </details>
 
 ### <a id = "IV">IV. Basic Streaming</a>
@@ -393,22 +393,22 @@ streamingDemo()
 <details>
 <summary>Output Logs</summary>
 
-	Of
-	 course
-	!
-	 I
-	'd
-	 love
-	 to
-	 explain
-	 //Skip...
-	 an
-	 example
-	?
-	 😄
-	[Complete Response]
-	Of course! I'd love to explain the knock-knock joke for you. Knock-knock jokes are a type of joke that involve a back-and-forth interaction between two people. They usually follow a specific format. Would you like me to give you an example? 😄
-	
+    Of
+     course
+    !
+     I
+    'd
+     love
+     to
+     explain
+     //Skip...
+     an
+     example
+    ?
+     😄
+    [Complete Response]
+    Of course! I'd love to explain the knock-knock joke for you. Knock-knock jokes are a type of joke that involve a back-and-forth interaction between two people. They usually follow a specific format. Would you like me to give you an example? 😄
+    
 </details>
 
 You may notice that it didn't change the prompt part, you can use agent setting and input-prompt-output style to make your request.
@@ -419,20 +419,20 @@ For the request and handle part, there are some changes.
 
 - **Use .addStreamingHandler() to append handler**
 
-	While using streaming request, the message sending mechanism changed. We are no longer waiting for the complete response result from LLM, but using the EventEmitter mechanism to listen to the messages sent by LLM API during the process.
-	
-	So streaming handler will handler every delta data piece in real time. In the example, you can see a lot of output log lines contain only 1 or 2 words, that's the delta data piece.
-	
-	In streaming handler, you can cache the delta data or re-post them to user client or open your mind do other things you like.
-	
+    While using streaming request, the message sending mechanism changed. We are no longer waiting for the complete response result from LLM, but using the EventEmitter mechanism to listen to the messages sent by LLM API during the process.
+    
+    So streaming handler will handler every delta data piece in real time. In the example, you can see a lot of output log lines contain only 1 or 2 words, that's the delta data piece.
+    
+    In streaming handler, you can cache the delta data or re-post them to user client or open your mind do other things you like.
+    
 - **Session response is an EventEmitter, you can use it to receive event messages**
 
-	You may notice that in the example after making request, response is used to listen 'done' event.
-	
-	In fact there are two event to be sent:
-	
-	- **data:** In this event, complete delta data will be sent. Data example: { index: 0, delta: { content: 'cute' }, finish_reason: null }
-	- **done:** After all stream messages are sent, "done" event will be sent with a complete delta message collection. Data example: [{ node: 'reply', content: '...' }]
+    You may notice that in the example after making request, response is used to listen 'done' event.
+    
+    In fact there are two event to be sent:
+    
+    - **data:** In this event, complete delta data will be sent. Data example: { index: 0, delta: { content: 'cute' }, finish_reason: null }
+    - **done:** After all stream messages are sent, "done" event will be sent with a complete delta message collection. Data example: [{ node: 'reply', content: '...' }]
 
 ### <a id = "V">V. Streaming with Multi Segment Output and Flow</a>
 
@@ -497,53 +497,53 @@ multiOutputDemo()
 <details>
 <summary>Output Logs</summary>
 
-	Oh
-	 no
-	!
-	 I
-	'm
-	 sorry
-	 to
-	 hear
-	 that
-	 you
-	 lost
-	 your
-	 new
-	 Apple
-	 Air
-	Pod
-	s
-	 Pro
-	.
-	 That
-	 must
-	 be
-	 really
-	 frustrati
-	ng
-	.
-	 😔
-	
-	
-	[Complete Response]
+    Oh
+     no
+    !
+     I
+    'm
+     sorry
+     to
+     hear
+     that
+     you
+     lost
+     your
+     new
+     Apple
+     Air
+    Pod
+    s
+     Pro
+    .
+     That
+     must
+     be
+     really
+     frustrati
+    ng
+    .
+     😔
+    
+    
+    [Complete Response]
 
-	Oh no! I'm sorry to hear that you lost your new Apple AirPods Pro. That must be really frustrating. 😔
-	
-	[Mood Change] happy => sorry
-	[Full Segments]
-	[
-	  {
-	    node: 'directReply',
-	    content: '\n' +
-	      "Oh no! I'm sorry to hear that you lost your new Apple AirPods Pro. That must be really frustrating. 😔\n"
-	  },
-	  {
-	    node: 'reflect',
-	    content: '\n{\n\t"moodStatus": "sorry",\n\t"favour": "stay"\n}\n'
-	  }
-	]
-	
+    Oh no! I'm sorry to hear that you lost your new Apple AirPods Pro. That must be really frustrating. 😔
+    
+    [Mood Change] happy => sorry
+    [Full Segments]
+    [
+      {
+        node: 'directReply',
+        content: '\n' +
+          "Oh no! I'm sorry to hear that you lost your new Apple AirPods Pro. That must be really frustrating. 😔\n"
+      },
+      {
+        node: 'reflect',
+        content: '\n{\n\t"moodStatus": "sorry",\n\t"favour": "stay"\n}\n'
+      }
+    ]
+    
 </details>
 
 #### <a id = "V.2">Flow</a>
