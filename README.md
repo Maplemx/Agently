@@ -8,15 +8,15 @@
 > 
 >  ⭐️ Star this repo if you like it, thanks!
 
-🤵 Agently is a framework for helping developers to create amazing LLM based applications.
+🤵 Agently is a framework helps developers to create amazing LLM based applications.
 
-🎭 You can easily to use it to create an LLM bansed agent instance with role set and memory.
+🎭 You can use it to create an LLM bansed agent instance with role set and memory easily.
 
-⚙️ You can also use Agently agent instance just like an async function and put it anywhere in your code.
+⚙️ You can use Agently agent instance just like an async function and put it anywhere in your code.
 
 🧩 With the easy-to-plug-in design, you can easily append new LLM API/private API/memory management methods/skills to your Agently agent instance.
 
-⚠️ Notice: Agently is a node.js package works on the server-side.
+⚠️ Notice: Agently is a node.js package only works on the server-side.
 
 ## HOW TO INSTALL
 
@@ -32,24 +32,33 @@ or by yarn:
 yarn add agently
 ```
 
-## QUICK START
+## TOO MUCH WORDS, JUST SHOW ME THE CODE
+
+[Quick Start Demo](https://github.com/Maplemx/Agently/tree/main/demo/quick_start) (Contains all demo in Guide)
+
+## GUIDE
 
 ### MENU
 
-[I. A Quick Request to LLM](https://github.com/Maplemx/Agently/blob/main/README.md#I)
+[I. A Quick Request to LLM](https://github.com/Maplemx/Agently#i-a-quick-request-to-llm)
 
-[II. Agent Instance](https://github.com/Maplemx/Agently/blob/main/README.md#II)
+[II. Agent Instance](https://github.com/Maplemx/Agently#ii-agent-instance)
 
-[III. Complex Prompting](https://github.com/Maplemx/Agently/blob/main/README.md#III)
+[III. Complex Prompting](https://github.com/Maplemx/Agently#iii-complex-prompting)
 
-> [III.1.Role-Set, Memories and Status of Agent Instance](https://github.com/Maplemx/Agently/blob/main/README.md#III.1)
+> [III.1.Role-Set, Memories and Status of Agent Instance](https://github.com/Maplemx/Agently#role-set-memories-and-status-of-agent-instance)
 > 
-> [III.2.Constructing Request Prompt with Input, Prompt, Output and Response Handler](https://github.com/Maplemx/Agently/blob/main/README.md#III.2)
+> [III.2.Constructing Request Prompt with Input, Prompt, Output and Response Handler](https://github.com/Maplemx/Agently#constructing-request-prompt-with-input-prompt-output-and-response-handler)
 > 
 
-[IV. Basic Streaming](https://github.com/Maplemx/Agently/blob/main/README.md#IV)
+[IV. Basic Streaming](https://github.com/Maplemx/Agently#iv-basic-streaming)
 
-[V. Streaming with Multi Segment Output and Flow](https://github.com/Maplemx/Agently/blob/main/README.md#IV)
+[V. Streaming with Multi Segment Output and Flow](https://github.com/Maplemx/Agently#v-streaming-with-multi-segment-output-and-flow)
+
+> 
+> [V.1.Multi Segment Output Streaming](https://github.com/Maplemx/Agently#multi-segment-output-streaming)
+> 
+> [V.2.Flow](https://github.com/Maplemx/Agently#flow)
 
 ### <a id = "I">I. A Quick Request to LLM</a>
 
