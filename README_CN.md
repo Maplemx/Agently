@@ -49,7 +49,29 @@ yarn安装方法：`yarn add agently`
 
 ### 目录
 
+一、[直接请求大语言模型：这是一切的基础](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E4%B8%80%E7%9B%B4%E6%8E%A5%E8%AF%B7%E6%B1%82%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B%E8%BF%99%E6%98%AF%E4%B8%80%E5%88%87%E7%9A%84%E5%9F%BA%E7%A1%80)
 
+> [普通请求和流式请求](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E6%99%AE%E9%80%9A%E8%AF%B7%E6%B1%82%E5%92%8C%E6%B5%81%E5%BC%8F%E8%AF%B7%E6%B1%82)
+> 
+> [通过配置自己的模型请求方案，支持在更多模型间切换使用](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E9%80%9A%E8%BF%87%E9%85%8D%E7%BD%AE%E8%87%AA%E5%B7%B1%E7%9A%84%E6%A8%A1%E5%9E%8B%E8%AF%B7%E6%B1%82%E6%96%B9%E6%A1%88%E6%94%AF%E6%8C%81%E5%9C%A8%E6%9B%B4%E5%A4%9A%E6%A8%A1%E5%9E%8B%E9%97%B4%E5%88%87%E6%8D%A2%E4%BD%BF%E7%94%A8)
+> 
+
+二、[Agent实例以及会话（Session）：多轮对话管理是如此简单](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E4%BA%8Cagent%E5%AE%9E%E4%BE%8B%E4%BB%A5%E5%8F%8A%E4%BC%9A%E8%AF%9Dsession%E5%A4%9A%E8%BD%AE%E5%AF%B9%E8%AF%9D%E7%AE%A1%E7%90%86%E6%98%AF%E5%A6%82%E6%AD%A4%E7%AE%80%E5%8D%95)
+
+三、[复杂的提示词（Prompt）：为Agent注入灵魂和更专业的工作方法](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E4%B8%89%E5%A4%8D%E6%9D%82%E7%9A%84%E6%8F%90%E7%A4%BA%E8%AF%8Dprompt%E4%B8%BAagent%E6%B3%A8%E5%85%A5%E7%81%B5%E9%AD%82%E5%92%8C%E6%9B%B4%E4%B8%93%E4%B8%9A%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%96%B9%E6%B3%95)
+
+>[Agent实例的角色设定、记忆、状态](https://github.com/Maplemx/Agently/blob/main/README_CN.md#agent%E5%AE%9E%E4%BE%8B%E7%9A%84%E8%A7%92%E8%89%B2%E8%AE%BE%E5%AE%9A%E8%AE%B0%E5%BF%86%E7%8A%B6%E6%80%81)
+>
+>[用"Input-Prompt-Output"结构构造请求，并用Response Handler来处理请求](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E7%94%A8input-prompt-output%E7%BB%93%E6%9E%84%E6%9E%84%E9%80%A0%E8%AF%B7%E6%B1%82%E5%B9%B6%E7%94%A8response-handler%E6%9D%A5%E5%A4%84%E7%90%86%E8%AF%B7%E6%B1%82)
+>
+
+四、[基础的流式消息请求：让回复快些，更快些！](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E5%9B%9B%E5%9F%BA%E7%A1%80%E7%9A%84%E6%B5%81%E5%BC%8F%E6%B6%88%E6%81%AF%E8%AF%B7%E6%B1%82%E8%AE%A9%E5%9B%9E%E5%A4%8D%E5%BF%AB%E4%BA%9B%E6%9B%B4%E5%BF%AB%E4%BA%9B)
+
+五、[使用支持多输出块的方法进行流式消息请求（以及它的语法糖）：流式请求也能创建多个下游分支，并且“思考和表达”分离？！](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E4%BA%94%E4%BD%BF%E7%94%A8%E6%94%AF%E6%8C%81%E5%A4%9A%E8%BE%93%E5%87%BA%E5%9D%97%E7%9A%84%E6%96%B9%E6%B3%95%E8%BF%9B%E8%A1%8C%E6%B5%81%E5%BC%8F%E6%B6%88%E6%81%AF%E8%AF%B7%E6%B1%82%E4%BB%A5%E5%8F%8A%E5%AE%83%E7%9A%84%E8%AF%AD%E6%B3%95%E7%B3%96%E6%B5%81%E5%BC%8F%E8%AF%B7%E6%B1%82%E4%B9%9F%E8%83%BD%E5%88%9B%E5%BB%BA%E5%A4%9A%E4%B8%AA%E4%B8%8B%E6%B8%B8%E5%88%86%E6%94%AF%E5%B9%B6%E4%B8%94%E6%80%9D%E8%80%83%E5%92%8C%E8%A1%A8%E8%BE%BE%E5%88%86%E7%A6%BB)
+
+> [支持多输出块的流式消息请求方法](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E6%94%AF%E6%8C%81%E5%A4%9A%E8%BE%93%E5%87%BA%E5%9D%97%E7%9A%84%E6%B5%81%E5%BC%8F%E6%B6%88%E6%81%AF%E8%AF%B7%E6%B1%82%E6%96%B9%E6%B3%95)
+> 
+>[Flow，一个更轻松表达的语法糖] (https://github.com/Maplemx/Agently/blob/main/README_CN.md#flow%E4%B8%80%E4%B8%AA%E6%9B%B4%E8%BD%BB%E6%9D%BE%E8%A1%A8%E8%BE%BE%E7%9A%84%E8%AF%AD%E6%B3%95%E7%B3%96)
 
 ### 一、直接请求大语言模型：这是一切的基础
 
@@ -190,7 +212,7 @@ console.log(myNewRequestSolution)
 
 在Agently或其他大语言模型应用的概念中，Agent实例是一个非常重要的概念。**一个Agent实例能够在性格特点、行动风格，甚至记忆、状态等方面被定义和管理。**
 
-**一个Agent实例下，能够创建多个会话（Session）。**这些Session可以被用于处理不同的任务，在不同的主题下与不同的用户进行交互。事实上，**我们每一次和大语言模型的互动，都发生在Session中。**
+**一个Agent实例下，能够创建多个会话（Session）**。这些Session可以被用于处理不同的任务，在不同的主题下与不同的用户进行交互。事实上，**我们每一次和大语言模型的互动，都发生在Session中。**
 
 那么，让我们从使用Agently构造一次简单的两轮对话开始，看看使用Agently能够用多么简单的方式来进行表达：
 
@@ -272,11 +294,11 @@ Agently将帮助你简单轻松地管理好Agent实例的角色设定，并确�
 
 Agently定义了三种类型的角色设定：
 
-- **人设（Role）：**通常用于表达Agent的姓名、身份，行动所遵循的规则，以及所扮演的角色的性格特点；人设也适用于不需要拟人化的工作节点，可以通过人设强调工作节点所需要的技能、工作流程等
+- **人设（Role）**：通常用于表达Agent的姓名、身份，行动所遵循的规则，以及所扮演的角色的性格特点；人设也适用于不需要拟人化的工作节点，可以通过人设强调工作节点所需要的技能、工作流程等
 
-- **记忆（Memory）：**通常用于表达Agent所应该记住的事情，可以是角色扮演时的人物经历，也可以是几天之前Agent参与处理过的工作任务，也可以是很长的对话里，需要记住的对话主题和关键信息
+- **记忆（Memory）**：通常用于表达Agent所应该记住的事情，可以是角色扮演时的人物经历，也可以是几天之前Agent参与处理过的工作任务，也可以是很长的对话里，需要记住的对话主题和关键信息
 
-- **状态（Status）：**通常用来表达Agent当前的状态情况，比如健康度、魔法值、心情、处理任务负载等信息
+- **状态（Status）**：通常用来表达Agent当前的状态情况，比如健康度、魔法值、心情、处理任务负载等信息
 
 嗯嗯，说了那么多，估计你也听烦了。那么……让我想想……
 
@@ -345,11 +367,11 @@ function setAgentRole () {
 
 在Agently中，提出了在提示词构造中三个重要的组成部分：
 
-**输入信息（Input）：**包括用户直接输入的提问信息，从上游系统直接输入的数据，也包括用户没有显性表达但是可以从他们的交互行为中读取的，或是在系统数据可以获得的额外信息
+**输入信息（Input）**：包括用户直接输入的提问信息，从上游系统直接输入的数据，也包括用户没有显性表达但是可以从他们的交互行为中读取的，或是在系统数据可以获得的额外信息
 
-**处理提示(Prompt)：**你对本次处理任务的额外说明，例如模型应该如何理解输入的信息，模型应该按哪些步骤去执行任务，以及在本次任务中是否有应该特别注意的需要遵守的规则等
+**处理提示(Prompt)**：你对本次处理任务的额外说明，例如模型应该如何理解输入的信息，模型应该按哪些步骤去执行任务，以及在本次任务中是否有应该特别注意的需要遵守的规则等
 
-**输出要求(Output)：**你对模型输出的期望和要求，包括整体输出期望的格式，需要输出哪些不同的内容节点，这些内容节点的内部格式和具体内容要求等
+**输出要求(Output)**：你对模型输出的期望和要求，包括整体输出期望的格式，需要输出哪些不同的内容节点，这些内容节点的内部格式和具体内容要求等
 
 > 💡在实践中，我发现在输出要求的表达结构和顺序足够合理的情况下，甚至不需要再补充额外的处理提示。这真的很有意思。
 
@@ -629,7 +651,7 @@ setAgentRole(multiOutputDemo)
     
 </details>
 
-### Flow，一个更轻松表达的语法糖
+#### Flow，一个更轻松表达的语法糖
 
 这是来自@jsCONFIG 的改进建议，首先要对他表示感谢！
 
