@@ -39,7 +39,7 @@ yarn安装方法：`yarn add agently`
 
 当然可以：
 
-- [快速上手DEMO，不爱看说明书的实践党的最佳选择](https://github.com/Maplemx/Agently/tree/main/demo/quick_start/quick_start/quick_start_demo_cn.js)
+- [快速上手DEMO，不爱看说明书的实践党的最佳选择](https://github.com/Maplemx/Agently/tree/main/demo/quick_start/quick_start_demo_cn.js)
 
  这个DEMO里包含了接下来的详细说明中的全部DEMO代码，只需要配置一下API KEY等授权信息，就可以直接开玩
  
