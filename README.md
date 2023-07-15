@@ -10,7 +10,7 @@
 
 🤵 Agently is a framework helps developers to create amazing LLM based applications.
 
-🎭 You can use it to create an LLM bansed agent instance with role set and memory easily.
+🎭 You can use it to create an LLM based agent instance with role set and memory easily.
 
 ⚙️ You can use Agently agent instance just like an async function and put it anywhere in your code.
 
@@ -34,7 +34,7 @@ yarn add agently
 
 ## TOO MUCH WORDS, JUST SHOW ME THE CODE
 
-[Quick Start Demo](https://github.com/Maplemx/Agently/tree/main/demo/quick_start) (Contains all demo in Guide)
+- [Quick Start Demo](https://github.com/Maplemx/Agently/tree/main/demo/quick_start/quick_start_demo.js) (Contains all demo in Guide)
 
 ## GUIDE
 
@@ -42,7 +42,7 @@ yarn add agently
 
 [I. A Quick Request to LLM](https://github.com/Maplemx/Agently#i-a-quick-request-to-llm)
 
-[II. Agent Instance](https://github.com/Maplemx/Agently#ii-agent-instance)
+[II. Agent Instance and Session](https://github.com/Maplemx/Agently#ii-agent-instance)
 
 [III. Complex Prompting](https://github.com/Maplemx/Agently#iii-complex-prompting)
 
@@ -62,6 +62,8 @@ yarn add agently
 
 ### <a id = "I">I. A Quick Request to LLM</a>
 
+
+
 Let's start from a quick request to LLM (in this example, it is OpenAI GPT). Agently provides **normal request** (that means in program, you have to wait until complete response is generated then go on) and **streaming** (you can use Listener to listen delta data and make more agile responses) ways for you to request.
 
 ```JavaScript
@@ -69,6 +71,13 @@ const Agently = require('agently')
 
 //Create a new agently instance
 const agently = new Agently({ debug: true })
+
+//If you want to use a forwarding API / proxy, you can upate preset here.
+//agently.LLM.Manage
+    //.name('GPT')
+    //.url('Your-Forwarding-API-URL')
+    //.proxy({ host: '127.0.0.1', port: 7890 })
+    //.update()
 
 //Set your authentication
 agently.LLM.setAuth('GPT', 'Your-OpenAI-API-KEY')
@@ -105,7 +114,7 @@ requestLLM()
     { index: 0, delta: { content: ' you' }, finish_reason: null }
     { index: 0, delta: { content: ' today' }, finish_reason: null }
     { index: 0, delta: { content: '?' }, finish_reason: null }
-    Hello! How can I assist you today?
+    { role: 'assistant', content: 'Hello! How can I assist you today?' }
     
 </details>
 
@@ -127,11 +136,11 @@ If the quick request works, that means the foundation of Agently is ready. After
 
 But Agently provides methods for building LLM-based applications that go far beyond a simple request. Next step I will introduce how to use **Agent and Session** to manage your LLM requests and responses. Let's roll!
 
-### <a id = "II">II. Agent Instance</a>
+### <a id = "II">II. Agent Instance and Session</a>
 
-**Agent instance is a very important concept** for Agently and other frames for LLM based applications. An agent instace is configurable of personality, action style, or even memories and status.
+Agent instance is a very important concept for Agently and other frames for LLM based applications. **An agent instace is configurable of personality, action style, or even memories and status.**
 
-An agent instance can create many sessions for dealing with different jobs ,chatting on different topics or chatting with different users, etc. Our interact with LLM is actually happening in a session.
+**An agent instance can create many sessions** for dealing with different jobs ,chatting on different topics or chatting with different users, etc. **Our interact with LLM is actually happening in a session.**
 
 Well, let's build a demo agent using Agently to deal with 2-round chat.
 
@@ -151,25 +160,20 @@ async function chatDemo () {
     const firstResponse  =
         await demoSession
             .input('Hi, there! How\'s your day today?')
-            .addResponseHandler(
-                (data) => {
-                    console.log(`[First Response]`)        
-                    console.log(data)
-                }
-            )
             .request()
+    //Print response
+    //.request() will return complete response content from LLM
+    console.log(`[First Response]`)        
+    console.log(data)
     
     //Make the second request
     const secondResponse =
         await demoSession
             .input('Tell me more about you.Like your dreams, your stories.')
-            .addResponseHandler(
-                (data) => {
-                    console.log(`[Second Response]`)        
-                    console.log(data)
-                }
-            )
             .request()
+    //Print response
+    console.log(`[Second Response]`)        
+    console.log(data)
 }
 
 //Run
@@ -440,8 +444,8 @@ For the request and handle part, there are some changes.
     
     In fact there are two event to be sent:
     
-    - **data:** In this event, complete delta data will be sent. Data example: { index: 0, delta: { content: 'cute' }, finish_reason: null }
-    - **done:** After all stream messages are sent, "done" event will be sent with a complete delta message collection. Data example: [{ node: 'reply', content: '...' }]
+    - **data:** In this event, complete delta data will be sent. Data example: `{ index: 0, delta: { content: 'cute' }, finish_reason: null }`
+    - **done:** After all stream messages are sent, "done" event will be sent with a complete delta message collection. Data example: `[{ node: 'reply', content: '...' }]`
 
 ### <a id = "V">V. Streaming with Multi Segment Output and Flow</a>
 
@@ -455,23 +459,15 @@ Talk is cheap, let me show you the code:
 
 ```JavaScript
 //Create a demo async function
-async function multiOutputDemo () {
+async function flowDemo () {
     const session = myAgent.ChatSession()
 
     const response =
         await session
-            //multiOutput just like output but need to clarify node name
-            .multiOutput('directReply', 'Your direct reply to {input}', 'text')
-            .multiOutput(
-                'reflect',
-                {
-                    moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
-                    favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
-                }
-            )
-            //Streaming Handler need to clarify target node name too
-            .addStreamingHandler({
+            .flow({
                 node: 'directReply',
+                desc: '<String>,//Your direct reply to {input}',
+                type: 'text',
                 handler: (data, segment) => {
                     if (data !== '<$$$DONE>') {
                         console.log(data)
@@ -481,8 +477,13 @@ async function multiOutputDemo () {
                     }
                 }
             })
-            .addStreamingHandler({
+            .flow({
                 node: 'reflect',
+                desc: {
+                    moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
+                    favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
+                },
+                type: 'JSON',
                 handler: (data, segment) => {
                     if (data === '<$$$DONE>') {
                         const reflect = JSON.parse(segment.content)
@@ -494,7 +495,6 @@ async function multiOutputDemo () {
             })
             .input('Sorry to tell you I just lost my new Apple AirPods Pro...')
             .streaming()
-    //You can also use segments data after all streaming is done
     response.on('done', (segments) => {
         console.log('[Full Segments]')
         console.log(segments)
