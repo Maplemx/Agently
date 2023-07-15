@@ -71,7 +71,7 @@ yarn安装方法：`yarn add agently`
 
 > [支持多输出块的流式消息请求方法](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E6%94%AF%E6%8C%81%E5%A4%9A%E8%BE%93%E5%87%BA%E5%9D%97%E7%9A%84%E6%B5%81%E5%BC%8F%E6%B6%88%E6%81%AF%E8%AF%B7%E6%B1%82%E6%96%B9%E6%B3%95)
 > 
->[Flow，一个更轻松表达的语法糖] (https://github.com/Maplemx/Agently/blob/main/README_CN.md#flow%E4%B8%80%E4%B8%AA%E6%9B%B4%E8%BD%BB%E6%9D%BE%E8%A1%A8%E8%BE%BE%E7%9A%84%E8%AF%AD%E6%B3%95%E7%B3%96)
+>[Flow，一个更轻松表达的语法糖](https://github.com/Maplemx/Agently/blob/main/README_CN.md#flow%E4%B8%80%E4%B8%AA%E6%9B%B4%E8%BD%BB%E6%9D%BE%E8%A1%A8%E8%BE%BE%E7%9A%84%E8%AF%AD%E6%B3%95%E7%B3%96)
 
 ### 一、直接请求大语言模型：这是一切的基础
 
