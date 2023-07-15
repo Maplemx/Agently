@@ -26,7 +26,7 @@ const agently = new Agently(
     //.update()
 
 //Set your authentication
-//agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
+agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
 
 /**
  * DEMO: Direct Request to LLM
@@ -64,25 +64,20 @@ async function chatDemo () {
     const firstResponse  =
         await demoSession
             .input('Hi, there! How\'s your day today?')
-            .addResponseHandler(
-                (data) => {
-                    console.log(`[First Response]`)        
-                    console.log(data)
-                }
-            )
             .request()
+    //Print response
+    //.request() will return complete response content from LLM
+    console.log(`[First Response]`)        
+    console.log(data)
     
     //Make the second request
     const secondResponse =
         await demoSession
             .input('Tell me more about you.Like your dreams, your stories.')
-            .addResponseHandler(
-                (data) => {
-                    console.log(`[Second Response]`)        
-                    console.log(data)
-                }
-            )
             .request()
+    //Print response
+    console.log(`[Second Response]`)        
+    console.log(data)
 }
 
 //Run
@@ -93,7 +88,7 @@ async function chatDemo () {
  * Let's inject some soul into the agent!
  */
 
-function setAgentRole () {
+function setAgentRole (next) {
     //You can set role for the agent
     //Role settings will always be prompted in LLM request.
     myAgent
@@ -117,11 +112,11 @@ function setAgentRole () {
         .useMemory()
         .useStatus()
 
-    //Let's run the chatDemo again!
-    chatDemo()
+    //Let's run next (the chatDemo) again!
+    next()
  }
  //Run
- //setAgentRole()
+ //setAgentRole(chatDemo)
 
 /**
  * DEMO: "Input-Prompt-Output" Pattern and Response Handler
@@ -192,8 +187,8 @@ async function streamingDemo () {
         console.log(completeResponse[0].content)
     })
 }
-//Run
-//streamingDemo()
+//Run with setAgentRole()
+//setAgentRole(streamingDemo)
 
 /**
  * DEMO: Streaming with Multi Segment Output
@@ -211,13 +206,16 @@ async function multiOutputDemo () {
                 {
                     moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
                     favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
-                }
+                },
+                'JSON'
             )
             //Streaming Handler need to clarify target node name too
             .addStreamingHandler({
                 node: 'directReply',
                 handler: (data, segment) => {
-                    if (data !== '<$$$DONE>') {
+                    //Use data.done to judge if streaming is done.
+                    //Attention: at this time, data is not a String but an Obejct { done: true }
+                    if (!data.done) {
                         console.log(data)
                     } else {
                         console.log('[Complete Response]')
@@ -228,8 +226,9 @@ async function multiOutputDemo () {
             .addStreamingHandler({
                 node: 'reflect',
                 handler: (data, segment) => {
-                    if (data === '<$$$DONE>') {
+                    if (data.done) {
                         const reflect = JSON.parse(segment.content)
+                        //You can use `reflect` value to reset Agent's role
                         const originMood = myAgent.getStatus('Mood')
                         myAgent.setStatus('Mood', reflect.moodStatus)
                         console.log(`[Mood Change] ${ originMood } => ${ reflect.moodStatus }`)
@@ -245,7 +244,7 @@ async function multiOutputDemo () {
     })
 }
 //Run
-multiOutputDemo()
+//setAgentRole(multiOutputDemo)
 
 
 /**
@@ -262,7 +261,7 @@ async function flowDemo () {
                 desc: '<String>,//Your direct reply to {input}',
                 type: 'text',
                 handler: (data, segment) => {
-                    if (data !== '<$$$DONE>') {
+                    if (!data.done) {
                         console.log(data)
                     } else {
                         console.log('[Complete Response]')
@@ -278,7 +277,7 @@ async function flowDemo () {
                 },
                 type: 'JSON',
                 handler: (data, segment) => {
-                    if (data === '<$$$DONE>') {
+                    if (data.done) {
                         const reflect = JSON.parse(segment.content)
                         const originMood = myAgent.getStatus('Mood')
                         myAgent.setStatus('Mood', reflect.moodStatus)
@@ -294,4 +293,4 @@ async function flowDemo () {
     })
 }
 //Run
-//flowDemo()
+//setAgentRole(flowDemo)
