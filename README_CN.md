@@ -9,8 +9,9 @@
 >  ⭐️ 如果您觉得这个项目对您有帮助，请给项目加星，感谢您的肯定和支持！
 >
 >  👥 微信讨论群二维码：
+>
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/1cefed40-e79d-4f6b-968f-3ec6546e8882" width="128px" height="128px">
 > 
-> ![31689395701_ pic](https://github.com/Maplemx/Agently/assets/4413155/1cefed40-e79d-4f6b-968f-3ec6546e8882)
 
 ## 什么是Agently？
 
