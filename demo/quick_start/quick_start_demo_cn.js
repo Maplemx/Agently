@@ -272,9 +272,9 @@ async function multiOutputDemo () {
 
 
 /**
- * DEMO: Flow, a Syntactic Sugar to State Multi Output Streaming
+ * DEMO 7: Flow，多输出块的流式消息请求的语法糖
  */
-//Create a demo async function
+//下面这种表达方式的工作效果和DEMO 6完全一致
 async function flowDemo () {
     const session = myAgent.ChatSession()
 
@@ -316,5 +316,5 @@ async function flowDemo () {
         console.log(segments)
     })
 }
-//Run
+//运行
 //setAgentRole(flowDemo)
