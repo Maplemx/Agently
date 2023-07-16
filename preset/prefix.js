@@ -56,7 +56,7 @@ module.exports = (Agently) => {
                     }
                     return { role: 'system', content: content }
                 } else {
-                    return null
+                    return []
                 }
             }
         )
