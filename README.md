@@ -62,6 +62,8 @@ yarn add agently
 > 
 > [V.2.Flow](https://github.com/Maplemx/Agently#flow)
 
+[VI. Use Skills to Enhance Your Agent](https://github.com/Maplemx/Agently#vi-use-skills-to-enhance-your-agent)
+
 ### <a id = "I">I. A Quick Request to LLM</a>
 
 
@@ -613,6 +615,76 @@ flowDemo()
 This code will do exactly the same work as the code above!
 
 Just notice that, flows' order matters, it will affect the streaming generation order. Do put the important things to the top!
+
+### <a id = "VI">VI. Use Skills to Enhance Your Agent</a>
+
+Do you know the full name of GPT is "Generatvie Pre-trained Transformer"? From "Pre-trained" we know, LLM is not that kind of model can keep up current news and events. As we all well-known that when GPT3.5 just born, its knowledge can just reach up to the year 2021. Because it's "Pre-trained", before its next training, it will stay to its status.
+
+If we want LLM models to catch up in some areas, what can we do? One idea could be to **equip the LLM-based agents with some skills**.
+
+In fact, to catch up is only a small thing that skills can enchane the agent. Just think, what can an agent do when it can browse webpages or write down some to-dos into the list for you for real.
+
+Agently provides a convenient way to do that, let's see how to do that:
+
+```JavaScript
+//First of all, let register a simple skill to agently
+//After registration, this skill can be used by any agent created by this agently instance
+agently.Skills.Manage
+    .name('current time')
+    .desc('check what time is it now?')
+    .activeFormat(null)
+    .handler(
+        () => new Date().toLocaleString()
+    )
+    .register()
+
+async function skillDemo () {
+    //Lovly Agently comes again~
+    //Let's tell Agently to add skill "current time" to its skill list
+    myAgent
+        .addSkill('current time')
+        .useSkills()
+
+    //OK, let's try if Agently can find out what time is it now?
+    const session = myAgent.ChatSession()
+
+    const response = await session
+        .input('Hey, Agently, what time is it now?')
+        .request()
+    console.log(response)
+}
+//Run
+setAgentRole(skillDemo)
+```
+
+<details>
+<summary>Output Logs</summary>
+
+	[Skill Judge Result]
+	[{"skillName":"current time"}]
+	[Request Prompt]
+	Hey, Agently, what time is it now?
+	[Request Messages]  [{"role":"system","content":"# Role\n**Name**: Agently\n**Personality**: A cute assistant who is always think positive and has a great sense of humour.\n**Chat Style**: Always clarify information received and try to respond from a positive perspective. Love to chat with emoji (😄😊🥚,etc.)!\n"},{"role":"system","content":"# Assistant Status\n{\n\t\"Mood\": happy\n\t\"Health Level\": good\n\t\"Hunger Level\": slightly full\n},"},{"role":"assistant","content":"I remember:\n* [Wishes]: Can't way to trip around the world!\n* [Significant Experience]: [\"Lived in the countryside before the age of 9, enjoy nature, rural life, flora and fauna.\",\"Moved to the big city at the age of 9.\"]\n"},{"role":"system","content":"YOU MUST KNOW: \n\n-[current time]: \"7/16/2023, 7:46:42 PM\"\n\n"},{"role":"user","content":"Hey, Agently, what time is it now?"}]
+	Hi there! It's currently 7:46 PM on July 16, 2023. How can I assist you today? 😄🕒
+
+</details>
+
+<details>
+<summary>What will Agently reply without "current time" skill?</summary>
+
+	Hello! 🌞 It's always a good time to chat with you! However, I don't have access to the current time. But no worries, you can easily check the time on your computer or mobile device. Let me know if there's anything else I can help you with! 😊🕒
+
+</details>
+
+That's right! It is 7:46 PM on July 16, 2023 when I write these words down indeed! You may also notice that this information is automatically put into request messages: 
+
+`{"role":"system","content":"YOU MUST KNOW: \n\n-[current time]: \"7/16/2023, 7:46:42 PM\"\n\n"}`
+
+Yes, that's how this magic is done.
+
+Aware of current time is just a minor enhancement to the agent. Can't wait to see what powerful skills that you guys can build for agent~
+
+If you do so, please DO LET ME KNOW!!!
 
 ---
 

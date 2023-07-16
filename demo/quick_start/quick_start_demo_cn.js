@@ -7,14 +7,14 @@
  * 准备和配置
  */
 //引入Agently
-const Agently = ('agently')
+const Agently = require('agently')
 
 //创建一个新的Agently实例
 const agently = new Agently(
     {
         debug: true,//如果打开了debug，在控制台里会输出每次请求的Prompt构造结果以及Request Messages消息列
     }
-) 
+)
 
 //如果想把模型请求的API换成转发URL或者希望使用代理，可以用下面的方法进行修改，然后通过.update()更新
 //agently.LLM.Manage
@@ -318,3 +318,35 @@ async function flowDemo () {
 }
 //运行
 //setAgentRole(flowDemo)
+
+/**
+ * DEMO 8: 使用技能（Skills）来增强你的agent吧!
+ */
+//首先，让我们在agently上注册一个超简单的技能
+//注册之后，这个技能就能被agently这个实例创造的所有agent使用到
+agently.Skills.Manage
+    .name('当前时间')
+    .desc('确定当前时间')
+    .activeFormat(null)
+    .handler(
+        () => new Date().toLocaleString()
+    )
+    .register()
+
+async function skillDemo () {
+    //现在，让我们再次请出可爱的Agently小助理~
+    //我们需要让小助理先把'当前时间'技能加到自己的技能清单里
+    myAgent
+        .addSkill('当前时间')//⚠️这里一定要保证技能名称和注册的技能名称一致哦，不然可能会出现预期之外的错误
+        .useSkills()
+
+    //好，然后我们试试Agently小助理能不能告诉我们正确的时间？
+    const session = myAgent.ChatSession()
+
+    const response = await session
+        .input('嘿，Agently小助理，现在几点了？')
+        .request()
+    console.log(response)
+}
+//Run
+//setAgentRole(skillDemo)

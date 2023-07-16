@@ -26,7 +26,7 @@ const agently = new Agently(
     //.update()
 
 //Set your authentication
-agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
+//agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
 
 /**
  * DEMO: Direct Request to LLM
@@ -294,3 +294,36 @@ async function flowDemo () {
 }
 //Run
 //setAgentRole(flowDemo)
+
+
+/**
+ * DEMO: Skills, a Method to Enhance Your Agent!
+ */
+//First of all, let register a simple skill to agently
+//After registration, this skill can be used by any agent created by this agently instance
+agently.Skills.Manage
+    .name('current time')
+    .desc('check what time is it now?')
+    .activeFormat(null)
+    .handler(
+        () => new Date().toLocaleString()
+    )
+    .register()
+
+async function skillDemo () {
+    //Lovly Agently comes again~
+    //Let's tell Agently to add skill "current time" to its skill list
+    myAgent
+        .addSkill('current time')
+        .useSkills()
+
+    //OK, let's try if Agently can find out what time is it now?
+    const session = myAgent.ChatSession()
+
+    const response = await session
+        .input('Hey, Agently, what time is it now?')
+        .request()
+    console.log(response)
+}
+//Run
+//setAgentRole(skillDemo)
