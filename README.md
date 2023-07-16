@@ -16,7 +16,7 @@
 
 🧩 With the easy-to-plug-in design, you can easily append new LLM API/private API/memory management methods/skills to your Agently agent instance.
 
-⚠️ Notice: Agently is a node.js package only works on the server-side.
+> ⚠️ Notice: Agently is a node.js package only works on the server-side.
 
 ## HOW TO INSTALL
 
@@ -31,6 +31,8 @@ or by yarn:
 ```shell
 yarn add agently
 ```
+
+> ⚠️ Latest Version on NPM is 1.0.0-0715-2, if you came across trouble unexpected, try update first.
 
 ## TOO MUCH WORDS, JUST SHOW ME THE CODE
 
