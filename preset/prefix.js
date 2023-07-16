@@ -35,9 +35,55 @@ module.exports = (Agently) => {
             (memories) => {
                 let content = `I remember:\n`
                 for (let key in memories.memories) {
-                    content += `**${ key }**: ${ format.toJSONString(memories.memories[key]) }\n`
+                    content += `* [${ key }]: ${ format.toJSONString(memories.memories[key]) }\n`
                 }
                 return { role: 'assistant', content: content }
+            }
+        )
+        //Generate assistant message to tell agent all skills it can use
+        //ONLY WORKS WHEN Agent.useSkills() IS STATED
+        .generateSkillTips(
+            (agentUsedSkillNameList, completeSkillList) => {
+                if (agentUsedSkillNameList.length > 0) {
+                    let content = `You can use skills list below:\n# SKILL_LIST\n\n`
+                    for (let i = 0; i < agentUsedSkillNameList.length; i++) {
+                        const skill = completeSkillList[agentUsedSkillNameList[i]]
+                        if (skill) {
+                            content += `## [${ skill.name }]: \n` +
+                            `* desc: ${ skill.desc }\n` +
+                            `* ACTIVE_DATA_FORMAT: ${ format.toJSONString(skill.activeFormat) }\n\n`
+                        }
+                    }
+                    return { role: 'system', content: content }
+                } else {
+                    return null
+                }
+            }
+        )
+        .generateSkillJudgePrompt(
+            (prompt, skillList) => {
+                return {
+                    role: 'user',
+                    content : `# INPUT\n` +
+                        `input = ${ JSON.stringify(prompt.input) }\n\n` +
+                        `# OUTPUT PROCESS RULE\n` +
+                        `Judge if to reply #INPUT, which skills you want to use?\n` +
+                        `OUTPUT JSON ONLY that can be parsed by python.\n` +
+                        `If you don't want to use skills, output []\n\n` +
+                        `# OUTPUT FORMAT\n\n` +
+                        `TYPE: JSON\n\n` +
+                        `FORMAT DEFINITION:\n\n` +
+                        `\`\`\`JSON\n` +
+                        format.toJSONString([
+                            {
+                                skillName: '<String>,//MUST USE skill name in #SKILL_LIST',
+                                data: '<any>,//MUST IN ##{callSkillName}.{ACTIVE_DATA_FORMAT} IF IT IS NOT null!'
+                            },
+                        ]) +
+                        `\n\`\`\`\n\n` +
+                        `# OUTPUT\n` +
+                        `output = `
+                }
             }
         )
         //Generate context messages (usually saved in multi-round chat or appendContext()/coverContext() by user)
