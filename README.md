@@ -32,7 +32,7 @@ or by yarn:
 yarn add agently
 ```
 
-> ⚠️ Latest Version on NPM is 1.0.0-0715-2, if you came across trouble unexpected, try update first.
+> ⚠️ Latest Version on NPM is 1.1.0, if you came across trouble unexpected, try update first.
 
 ## TOO MUCH WORDS, JUST SHOW ME THE CODE
 
@@ -62,7 +62,7 @@ yarn add agently
 > 
 > [V.2.Flow](https://github.com/Maplemx/Agently#flow)
 
-[VI. Use Skills to Enhance Your Agent](https://github.com/Maplemx/Agently#vi-use-skills-to-enhance-your-agent)
+[VI. Use Skills to Enhance Your Agent](https://github.com/Maplemx/Agently#vi-use-skills-to-enhance-your-agent) `v1.1.0`
 
 ### <a id = "I">I. A Quick Request to LLM</a>
 
