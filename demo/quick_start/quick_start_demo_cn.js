@@ -13,15 +13,21 @@ const Agently = require('agently')
 const agently = new Agently(
     {
         debug: true,//如果打开了debug，在控制台里会输出每次请求的Prompt构造结果以及Request Messages消息列
+        //proxy: { host: '127.0.0.1', port: 7890 },//你可以在实例初始化的时候，给实例全局配置代理
     }
 )
 
-//如果想把模型请求的API换成转发URL或者希望使用代理，可以用下面的方法进行修改，然后通过.update()更新
+//或者你可以在这里给你指定的模型配置代理
+//agently.LLM.setProxy({ host: '127.0.0.1', port: 7890 })
+
+//也把模型请求的API换成转发服务的URL，然后通过.update()更新
 //agently.LLM.Manage
     //.name('GPT')
     //.url('Your-Forwarding-API-URL')
-    //.proxy({ host: '127.0.0.1', port: 7890 })
+    //.proxy({ host: '127.0.0.1', port: 7890 }),//也可以在这里给模型指定代理
     //.update()
+
+/*上述指定代理的方式选择其一即可*/
 
 /*
 //如果预置的模型请求方案不能满足你的需求，你希望要重新配置一套完全自定的模型请求方案时，Agently同样提供了支持。

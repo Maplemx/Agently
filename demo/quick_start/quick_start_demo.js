@@ -15,6 +15,7 @@ const Agently = require('agently')
 const agently = new Agently(
     {
         debug: true,//turn on debug will display Prompt and Request Messages in console
+        //proxy: { host: '127.0.0.1', port: 7890 },//You can set global proxy for this Agently instance
     }
 ) 
 
@@ -24,6 +25,9 @@ const agently = new Agently(
     //.url('Your-Forwarding-API-URL')
     //.proxy({ host: '127.0.0.1', port: 7890 })
     //.update()
+
+//Or you can set proxy for target LLM like this
+//agently.LLM.setProxy({ host: '127.0.0.1', port: 7890 })
 
 //Set your authentication
 //agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
