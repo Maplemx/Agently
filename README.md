@@ -488,7 +488,7 @@ async function flowDemo () {
                 desc: '<String>,//Your direct reply to {input}',
                 type: 'text',
                 handler: (data, segment) => {
-                    if (data !== '<$$$DONE>') {
+                    if (!data.done) {
                         console.log(data)
                     } else {
                         console.log('[Complete Response]')
@@ -504,7 +504,7 @@ async function flowDemo () {
                 },
                 type: 'JSON',
                 handler: (data, segment) => {
-                    if (data === '<$$$DONE>') {
+                    if (data.done) {
                         const reflect = JSON.parse(segment.content)
                         const originMood = myAgent.getStatus('Mood')
                         myAgent.setStatus('Mood', reflect.moodStatus)
