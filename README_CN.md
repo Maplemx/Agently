@@ -597,7 +597,7 @@ setAgentRole(streamingDemo)
 
 废话不多少，直接上代码：
 
-```
+```JavaScript
 async function multiOutputDemo () {
     const session = myAgent.ChatSession()
 
@@ -693,7 +693,7 @@ setAgentRole(multiOutputDemo)
 
 下面是代码示例，它的作用和上面那段代码完全一致：
 
-```
+```JavaScript
 async function flowDemo () {
     const session = myAgent.ChatSession()
 
