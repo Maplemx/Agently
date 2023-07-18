@@ -30,7 +30,7 @@ const agently = new Agently(
 //agently.LLM.setProxy({ host: '127.0.0.1', port: 7890 })
 
 //Set your authentication
-//agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
+agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
 
 /**
  * DEMO: Direct Request to LLM

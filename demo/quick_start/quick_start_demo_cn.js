@@ -55,7 +55,7 @@ console.log(myNewRequestSolution)
 */
 
 //配置你的授权信息
-//agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
+agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')
 
 /**
  * DEMO 1: 直接请求大语言模型

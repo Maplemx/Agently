@@ -101,14 +101,27 @@ Agently提供了**普通请求**和**流式请求**两种方法来请求大语�
 
 ```JavaScript
 //引入Agently
-const Agently = require('../../index')//('agently')
+const Agently = require('agently')
 
 //创建一个新的Agently实例
 const agently = new Agently(
     {
         debug: true,//如果打开了debug，在控制台里会输出每次请求的Prompt构造结果以及Request Messages消息列
+        //proxy: { host: '127.0.0.1', port: 7890 },//你可以在实例初始化的时候，给实例全局配置代理
     }
 )
+
+//或者你可以在这里给你指定的模型配置代理
+//agently.LLM.setProxy({ host: '127.0.0.1', port: 7890 })
+
+//也把模型请求的API换成转发服务的URL，然后通过.update()更新
+//agently.LLM.Manage
+    //.name('GPT')
+    //.url('Your-Forwarding-API-URL')
+    //.proxy({ host: '127.0.0.1', port: 7890 }),//也可以在这里给模型指定代理
+    //.update()
+
+/*上述指定代理的方式选择其一即可*/
 
 //配置你的授权信息
 agently.LLM.setAuth('GPT', 'sk-Your-OpenAI-API-KEY')

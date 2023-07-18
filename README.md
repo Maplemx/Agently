@@ -73,8 +73,13 @@ Let's start from a quick request to LLM (in this example, it is OpenAI GPT). Age
 ```JavaScript
 const Agently = require('agently')
 
-//Create a new agently instance
-const agently = new Agently({ debug: true })
+//Create a new Agently instance
+const agently = new Agently(
+    {
+        debug: true,//turn on debug will display Prompt and Request Messages in console
+        //proxy: { host: '127.0.0.1', port: 7890 },//You can set global proxy for this Agently instance
+    }
+)
 
 //If you want to use a forwarding API / proxy, you can upate preset here.
 //agently.LLM.Manage
@@ -82,6 +87,9 @@ const agently = new Agently({ debug: true })
     //.url('Your-Forwarding-API-URL')
     //.proxy({ host: '127.0.0.1', port: 7890 })
     //.update()
+
+//Or you can set proxy for target LLM like this
+//agently.LLM.setProxy({ host: '127.0.0.1', port: 7890 })
 
 //Set your authentication
 agently.LLM.setAuth('GPT', 'Your-OpenAI-API-KEY')
@@ -95,7 +103,7 @@ async function requestLLM () {
     //Streaming
     const response = await GPT.streaming([{ role: 'user', content: 'Hello world!' }])
     response.on('data', data => console.log(data))
-    response.on('done', completeResponse => console.log(completeResponse))
+    response.on('finish', completeResponse => console.log(completeResponse))
 }
 
 //Run
