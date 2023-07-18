@@ -406,7 +406,7 @@ function setAgentRole () {
 
 那么我们来看看Agently是如何帮助你轻松地实现请求表达并调用ResponseHandler来处理回复的，下面让我们来快速实现一个简易的英汉翻译小助理：
 
-```JavaSrcipt
+```JavaScript
 //定义一个英汉翻译小助理的Agent实例
 const translator = agently.Agent()
 
