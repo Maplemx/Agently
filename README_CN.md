@@ -419,7 +419,16 @@ translator
 async function demoTranslator (content) {
     const translatorSession = translator.FunctionSession()
     const result = await translatorSession
+        //[INPUT]部分
         .input(content)
+        
+        //[INSTRUCT]部分
+        //在这个案例里，我发现不需要使用额外补充的说明指导了，因此注释掉了
+        //你可以使用.instruct()方法在提示词（Prompt）中多次添加额外的指导（Instruction）块
+        //指导块会按顺序排列，出现在[INPUT]块之后[OUTPUT]块之前
+        //.instruct('<Your instrcut title>', <String | Object of your instruct content>)
+
+        //[OUTPUT]部分
         //在.output()中使用JSON表达一个思维链
         //如果.output()的第一个参数是一个Object
         //默认情况下，不需声明Agently也会将输出定义为JSON字符串格式

@@ -302,7 +302,7 @@ Agently define 3 important parts of prompt:
 
 - **Input:** Sentence, data, information that no matter they are input by user or identified in user interaction behaviors.
 
-- **Prompt:** Your instruction of how LLM should use input information, how the generation work should be carried out, and certain rules in this request that LLM should follow.
+- **Instruct:** Input your instruction of how LLM should use input information, how the generation work should be carried out, and certain rules in this request that LLM should follow.
 
 - **Output:** Your definition of structured output, including all sections that output should have, the content and expected format of each section, etc.
 
@@ -323,7 +323,14 @@ dictionary
 async function demoDictionary (content) {
     const dictionarySession = dictionary.FunctionSession()
     const result = await dictionarySession
+        //[INPUT]
         .input(content)
+        
+        //[INSTRUCT]
+        //In this demo, I don't need to add more instruction
+        //.instruct('<Your instrcut title>', <String | Object of your instruct content>)
+
+        //[OUTPUT]
         //Thought Chain in JSON
         //If the first argument is an Object
         //By Default, Agently will try to output JSON String
