@@ -10,7 +10,7 @@
 >
 >  👥 微信讨论群二维码：
 >
-> <img src="https://github.com/Maplemx/Agently/assets/4413155/1cefed40-e79d-4f6b-968f-3ec6546e8882" width="128px" height="128px">
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/211e3e76-8f07-4461-b839-ee7e7bbfca9e" width="128px" height="128px">
 > 
 
 ## 什么是Agently？
