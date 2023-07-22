@@ -35,7 +35,7 @@ npm安装方法：`npm install agently`
 
 yarn安装方法：`yarn add agently`
 
-> 在npm上当前最新版本是：1.1.1，只要你还在使用Agently v1版本，可以放心update，我会保证本文档中提到的所有使用用例的可用性
+> 在npm上当前最新版本是：1.1.2，只要你还在使用Agently v1版本，可以放心update，我会保证本文档中提到的所有使用用例的可用性
 
 ## 说明好长不想看，能不能直接上代码？
 
@@ -304,6 +304,10 @@ chatDemo()
 - **创建FunctionSession实例而不是ChatSession实例**，FunctionSession实例将默认不记录上下文，也不会将上下文添加到下一个请求中，它更适合在把Agent当做一个工作流中的任务处理节点时使用
 - **通过Session实例的`.loadContext(false)`的方式，不允许Session实例在请求的时候加入上下文**
 - **通过Session实例的`.saveContext(false)`的方式，不允许Session实例在请求完成后，将本次请求的消息和返回结果的消息记录到上下文里**
+
+`v1.1.2版更新`
+
+默认情况下，`.saveContext(true)`只会保存每次在Session请求时，传递给.input()的信息，如果你希望保存完整的Prompt构造（这通常很长，而且包含大量格式和结构的表达，会干扰多轮对话），你可以通过在`.saveContext(true)`的前提下增加`.saveFullPrompt(true)`的设置来实现，但我非常不建议你这样做。
 
 ### 三、复杂的提示词（Prompt）：为Agent注入灵魂和更专业的工作方法
 

@@ -32,7 +32,7 @@ or by yarn:
 yarn add agently
 ```
 
-> ⚠️ Latest Version on NPM is 1.1.1, if you came across trouble unexpected, try update first.
+> ⚠️ Latest Version on NPM is 1.1.2, if you came across trouble unexpected, try update first.
 
 ## TOO MUCH WORDS, JUST SHOW ME THE CODE
 
@@ -212,7 +212,13 @@ OK, it works. According the output logs, you may notice that when we send the se
 
 When you create a ChatSession instance, Agently will automatically help you to manage the chat history (I like to call it as "context") in this session, storage context in cache and add context into next request.
 
-if you don't want Agently to do that, you can switch it off by set ChatSession instance `.saveContext(false)`(tell Agently not to record chat history in this session) and `.loadContext(false)`(tell Agently not to put chat history into request messages).
+If you don't want Agently to do that, you can switch it off by set ChatSession instance `.saveContext(false)`(tell Agently not to record chat history in this session) and `.loadContext(false)`(tell Agently not to put chat history into request messages).
+
+`v1.1.2`
+
+By default, context management will only save save the value you passed to session.input().
+
+If you want Agently to save full prompt text (usually very long and have many parts of text other than input content), you can use `.saveFullPrompt(true)` to state that when `.saveContent(true)` is on. But this is not recommended.
 
 ### <a id = "III">III. Complex Prompting</a>
 
@@ -478,15 +484,23 @@ Talk is cheap, let me show you the code:
 
 ```JavaScript
 //Create a demo async function
-async function flowDemo () {
+async function multiOutputDemo () {
     const session = myAgent.ChatSession()
 
     const response =
         await session
-            .flow({
+            //multiOutput just like output but need to clarify node name
+            .multiOutput('directReply', 'Your direct reply to {input}', 'text')
+            .multiOutput(
+                'reflect',
+                {
+                    moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
+                    favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
+                }
+            )
+            //Streaming Handler need to clarify target node name too
+            .addStreamingHandler({
                 node: 'directReply',
-                desc: '<String>,//Your direct reply to {input}',
-                type: 'text',
                 handler: (data, segment) => {
                     if (!data.done) {
                         console.log(data)
@@ -496,13 +510,8 @@ async function flowDemo () {
                     }
                 }
             })
-            .flow({
+            .addStreamingHandler({
                 node: 'reflect',
-                desc: {
-                    moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
-                    favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
-                },
-                type: 'JSON',
                 handler: (data, segment) => {
                     if (data.done) {
                         const reflect = JSON.parse(segment.content)
@@ -514,6 +523,7 @@ async function flowDemo () {
             })
             .input('Sorry to tell you I just lost my new Apple AirPods Pro...')
             .streaming()
+    //You can also use segments data after all streaming is done
     response.on('done', (segments) => {
         console.log('[Full Segments]')
         console.log(segments)
@@ -592,7 +602,7 @@ async function flowDemo () {
                 desc: 'Your direct reply to {input}',
                 type: 'text',
                 handler: (data, segment) => {
-                    if (data !== '<$$$DONE>') {
+                    if (!data.done) {
                         console.log(data)
                     } else {
                         console.log('[Complete Response]')
@@ -608,7 +618,7 @@ async function flowDemo () {
                 },
                 type: 'JSON',
                 handler: (data, segment) => {
-                    if (data === '<$$$DONE>') {
+                    if (data.done) {
                         const reflect = JSON.parse(segment.content)
                         const originMood = myAgent.getStatus('Mood')
                         myAgent.setStatus('Mood', reflect.moodStatus)
