@@ -68,7 +68,7 @@ yarn安装方法：`yarn add agently`
 
 >[Agent实例的角色设定、记忆、状态](https://github.com/Maplemx/Agently/blob/main/README_CN.md#agent%E5%AE%9E%E4%BE%8B%E7%9A%84%E8%A7%92%E8%89%B2%E8%AE%BE%E5%AE%9A%E8%AE%B0%E5%BF%86%E7%8A%B6%E6%80%81)
 >
->[用"Input-Prompt-Output"结构构造请求，并用Response Handler来处理请求](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E7%94%A8input-prompt-output%E7%BB%93%E6%9E%84%E6%9E%84%E9%80%A0%E8%AF%B7%E6%B1%82%E5%B9%B6%E7%94%A8response-handler%E6%9D%A5%E5%A4%84%E7%90%86%E8%AF%B7%E6%B1%82)
+>[用"Input-Instruct-Output"结构构造请求，并用Response Handler来处理请求](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E7%94%A8input-instruct-output%E7%BB%93%E6%9E%84%E6%9E%84%E9%80%A0%E8%AF%B7%E6%B1%82%E5%B9%B6%E7%94%A8response-handler%E6%9D%A5%E5%A4%84%E7%90%86%E8%AF%B7%E6%B1%82)
 >
 
 四、[基础的流式消息请求：让回复快些，更快些！](https://github.com/Maplemx/Agently/blob/main/README_CN.md#%E5%9B%9B%E5%9F%BA%E7%A1%80%E7%9A%84%E6%B5%81%E5%BC%8F%E6%B6%88%E6%81%AF%E8%AF%B7%E6%B1%82%E8%AE%A9%E5%9B%9E%E5%A4%8D%E5%BF%AB%E4%BA%9B%E6%9B%B4%E5%BF%AB%E4%BA%9B)
@@ -386,7 +386,7 @@ function setAgentRole () {
 
 好耶~施法成功。在输出结果里可以看到，性格、聊天风格（emoji）、童年记忆以及心情设定都在Agent后续的回复中被体现出来了。对比之前的回复结果，这一次的回复结果显然更加生动了！
 
-#### 用"Input-Prompt-Output"结构构造请求，并用Response Handler来处理请求
+#### 用"Input-Instruct-Output"结构构造请求，并用Response Handler来处理请求
 
 通常我们向大语言模型发起请求时，会希望使用自然语言进行表达，并希望大语言模型用类似对话回复的方式进行反馈。
 
