@@ -45,9 +45,11 @@ yarn安装方法：`yarn add agently`
 
  这个DEMO里包含了接下来的详细说明中的全部DEMO代码，只需要配置一下API KEY等授权信息，就可以直接开玩
  
-更多案例：
+通过Replit直接玩起来：
 
-- 持续更新中，敬请期待...
+- [用极其简单的方式来切换不同的Agent实例，进行单轮对话...](https://replit.com/@maplemx/CommentAgentDemo#index.js)
+- [让两个不同的Agent（性格和依赖的LLM都可以不同）对同一个话题进行讨论](https://replit.com/@Agently/Agently-Demonstration)
+- [使用Agent进行客户体验问卷回访](https://replit.com/@maplemx/CommentAgentDemo)
 
 ## 使用指南
 
