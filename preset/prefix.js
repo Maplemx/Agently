@@ -130,9 +130,8 @@ module.exports = (Agently) => {
                     content += '\n'
                     if (prompt.multiOutput.length > 0) {
                         content += `# OUTPUT FORMAT\n\n` +
-                                   `## RULE\nEach output block must be warp by tag "<$$$node={nodeValue}>...</$$$>"!\n` +
-                                   `Output block content must remove "\`\`\`" warp!\n\n` +
-                                   `## COMPLETE OUTPUT CONTENT\n`
+                                   `## RULE\nEach output block must be warp by tag "<$$$node={nodeValue}>...</$$$>"!\n\n` +
+                                   `## FULL OUTPUT CONTENT\n`
                         for (let i = 0; i < prompt.multiOutput.length; i++) {
                             content += `<$$$node=${ prompt.multiOutput[i].title }>\n`
                             if (!prompt.multiOutput[i].type) {
@@ -143,9 +142,9 @@ module.exports = (Agently) => {
                                 }
                             }
                             if (prompt.multiOutput[i].type === 'JSON') {
-                                content += `${ format.toJSONString(prompt.multiOutput[i].desc) }\n`
+                                content += `TYPE: ${ prompt.multiOutput[i].type } can be parsed in Python\n\nFORMAT DEFINITION:\n\n\`\`\`${ prompt.multiOutput[i].type }\n${ format.toJSONString(prompt.multiOutput[i].desc) }\n\`\`\`\n\n`
                             } else {
-                                content += `${ prompt.multiOutput[i].desc }\n`
+                                content += `\`\`\`${ prompt.multiOutput[i].type }\n${ prompt.multiOutput[i].desc }\n\`\`\`\n\n`
                             }
                             content += `</$$$>\n\n`
                         }
@@ -159,7 +158,7 @@ module.exports = (Agently) => {
                             }
                         }
                         if (prompt.output.type === 'JSON') {
-                            content += `TYPE: ${ prompt.output.type }\n\nFORMAT DEFINITION:\n\n\`\`\`${ prompt.output.type }\n${ format.toJSONString(prompt.output.desc) }\n\`\`\`\n\n`
+                            content += `TYPE: ${ prompt.output.type } can be parsed in Python\n\nFORMAT DEFINITION:\n\n\`\`\`${ prompt.output.type }\n${ format.toJSONString(prompt.output.desc) }\n\`\`\`\n\n`
                         } else {
                             content += `\`\`\`${ prompt.output.type }\n${ prompt.output.desc }\n\`\`\`\n\n`
                         }

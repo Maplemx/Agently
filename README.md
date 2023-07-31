@@ -32,7 +32,7 @@ or by yarn:
 yarn add agently
 ```
 
-> ⚠️ Latest Version on NPM is 1.1.2-1, if you came across trouble unexpected, try update first.
+> ⚠️ Latest Version on NPM is 1.1.3, if you came across trouble unexpected, try update first.
 
 ## TOO MUCH WORDS, JUST SHOW ME THE CODE
 

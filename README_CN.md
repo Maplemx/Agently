@@ -35,7 +35,7 @@ npm安装方法：`npm install agently`
 
 yarn安装方法：`yarn add agently`
 
-> 在npm上当前最新版本是：1.1.2-1，只要你还在使用Agently v1版本，可以放心update，我会保证本文档中提到的所有使用用例的可用性
+> 在npm上当前最新版本是：1.1.3，只要你还在使用Agently v1版本，可以放心update，我会保证本文档中提到的所有使用用例的可用性
 
 ## 说明好长不想看，能不能直接上代码？
 

@@ -83,7 +83,8 @@ module.exports = (Agently) => {
                     try {
                         return { type: 'data', data: JSON.parse(data)?.choices[0] || '' }
                     } catch (e) {
-                        console.error(e)
+                        return { type: 'data', data: '' }
+                        //console.error(e)
                     }
                 } else {
                     return { type: 'done', data: null }
@@ -169,8 +170,13 @@ module.exports = (Agently) => {
         //when streaming is done: return { type: 'done', data: null }
         .extractStreamingData(
             data => {
-                if (data !== '[DONE]\n\n') {
-                    return { type: 'data', data: JSON.parse(data).choices[0] }
+                if (data && data !== '[DONE]\n\n') {
+                    try {
+                        return { type: 'data', data: JSON.parse(data)?.choices[0] || '' }
+                    } catch (e) {
+                        return { type: 'data', data: '' }
+                        //console.error(e)
+                    }
                 } else {
                     return { type: 'done', data: null }
                 }
