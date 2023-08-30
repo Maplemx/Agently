@@ -1,6 +1,8 @@
 # Agently
 
-[English](https://github.com/Maplemx/Agently/blob/main/README.md) | [中文](https://github.com/Maplemx/Agently/blob/main/README_CN.md)
+Python版`v2.0.0`：[中文](https://github.com/Maplemx/Agently/blob/main/README)
+
+NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/README_node_v1_EN.md) | [中文](https://github.com/Maplemx/Agently/blob/main/README_node_v1_CN.md)
 
 > 🥷 作者: Maplemx | 📧 Email: maplemx@gmail.com | 💬 微信: moxinapp
 > 

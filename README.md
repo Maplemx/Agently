@@ -1,722 +1,327 @@
-# Agently
+#Agently 2.0
 
-[English](https://github.com/Maplemx/Agently/blob/main/README.md) | [中文](https://github.com/Maplemx/Agently/blob/main/README_CN.md)
+Python版`v2.0.0`：[中文](https://github.com/Maplemx/Agently/blob/main/README.md)
 
-> 🥷 Author: Maplemx | 📧 Email: maplemx@gmail.com | 💬 WeChat: moxinapp
+NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/README_node_v1_EN.md) | [中文](https://github.com/Maplemx/Agently/blob/main/README_node_v1_CN.md)
+
+> 🥷 作者：Maplemx ｜ 📧 Email：maplemx@gmail.com | 💬 微信：moxinapp
+>
+> ⁉️ [如果您发现了BUG，或者有好的点子，请在这里提交](https://github.com/Maplemx/Agently/issues)
 > 
->  ⁉️ [Report bugs or post your ideas here](https://github.com/Maplemx/Agently/issues)
-> 
->  ⭐️ Star this repo if you like it, thanks!
+>  ⭐️ 如果您觉得这个项目对您有帮助，请给项目加星，感谢您的肯定和支持！
+>
 
-🤵 Agently is a framework helps developers to create amazing LLM based applications.
+## 通过Pip安装
 
-🎭 You can use it to create an LLM based agent instance with role set and memory easily.
+`pip install Agently`
 
-⚙️ You can use Agently agent instance just like an async function and put it anywhere in your code.
+## 快速了解 Agently 2.0 可以做什么？
 
-🧩 With the easy-to-plug-in design, you can easily append new LLM API/private API/memory management methods/skills to your Agently agent instance.
+### ☄️ 用最快的速度开箱，在代码行中使用一个基础Agent的实例
 
-> ⚠️ Notice: Agently is a node.js package only works on the server-side.
-
-## HOW TO INSTALL
-
-You can install Agently by npm:
-
-```shell
-npm install agently
-```
-
-or by yarn:
-
-```shell
-yarn add agently
-```
-
-> ⚠️ Latest Version on NPM is 1.1.3, if you came across trouble unexpected, try update first.
-
-## TOO MUCH WORDS, JUST SHOW ME THE CODE
-
-- [Quick Start Demo](https://github.com/Maplemx/Agently/tree/main/demo/quick_start/quick_start_demo.js) (Contains all demo in Guide)
-
-## GUIDE
-
-### MENU
-
-[I. A Quick Request to LLM](https://github.com/Maplemx/Agently#i-a-quick-request-to-llm)
-
-[II. Agent Instance and Session](https://github.com/Maplemx/Agently#ii-agent-instance)
-
-[III. Complex Prompting](https://github.com/Maplemx/Agently#iii-complex-prompting)
-
-> [III.1.Role-Set, Memories and Status of Agent Instance](https://github.com/Maplemx/Agently#role-set-memories-and-status-of-agent-instance)
-> 
-> [III.2.Constructing Request Prompt with Input, Prompt, Output and Response Handler](https://github.com/Maplemx/Agently#constructing-request-prompt-with-input-prompt-output-and-response-handler)
-> 
-
-[IV. Basic Streaming](https://github.com/Maplemx/Agently#iv-basic-streaming)
-
-[V. Streaming with Multi Segment Output and Flow](https://github.com/Maplemx/Agently#v-streaming-with-multi-segment-output-and-flow)
-
-> 
-> [V.1.Multi Segment Output Streaming](https://github.com/Maplemx/Agently#multi-segment-output-streaming)
-> 
-> [V.2.Flow](https://github.com/Maplemx/Agently#flow)
-
-[VI. Use Skills to Enhance Your Agent](https://github.com/Maplemx/Agently#vi-use-skills-to-enhance-your-agent) `v1.1.0`
-
-### <a id = "I">I. A Quick Request to LLM</a>
-
-
-
-Let's start from a quick request to LLM (in this example, it is OpenAI GPT). Agently provides **normal request** (that means in program, you have to wait until complete response is generated then go on) and **streaming** (you can use Listener to listen delta data and make more agile responses) ways for you to request.
-
-```JavaScript
-const Agently = require('agently')
-
-//Create a new Agently instance
-const agently = new Agently(
-    {
-        debug: true,//turn on debug will display Prompt and Request Messages in console
-        //proxy: { host: '127.0.0.1', port: 7890 },//You can set global proxy for this Agently instance
-    }
-)
-
-//If you want to use a forwarding API / proxy, you can upate preset here.
-//agently.LLM.Manage
-    //.name('GPT')
-    //.url('Your-Forwarding-API-URL')
-    //.proxy({ host: '127.0.0.1', port: 7890 })
-    //.update()
-
-//Or you can set proxy for target LLM like this
-//agently.LLM.setProxy({ host: '127.0.0.1', port: 7890 })
-
-//Set your authentication
-agently.LLM.setAuth('GPT', 'Your-OpenAI-API-KEY')
-
-//Define an async function to make the quick request
-async function requestLLM () {
-    const GPT = agently.LLM.Request('GPT')
-    //Normal Request
-    const result = await GPT.request([{ role: 'user', content: 'Hello world!' }])
-    console.log(result)
-    //Streaming
-    const response = await GPT.streaming([{ role: 'user', content: 'Hello world!' }])
-    response.on('data', data => console.log(data))
-    response.on('finish', completeResponse => console.log(completeResponse))
-}
-
-//Run
-requestLLM()
+```python
+import Agently
+worker = Agently.create_worker()
+worker.set_llm_name("GPT").set_llm_auth("GPT", "Your-API-Key")
+result = worker\
+    .input("Give me 5 words and 1 sentence.")\
+    .output({
+        "words": ("Array",),
+        "sentence": ("String",),
+    })\
+    .start()
+print(result)
+print(result["words"][2])
 ```
 
 <details>
-<summary>Output Logs</summary>
+    <summary>运行结果</summary>
 
-    [Request Messages]  [{"role":"user","content":"Hello world!"}] 
-    Hello! How can I assist you today? 
-    [Streaming Messages]    [{"role":"user","content":"Hello world!"}] 
-    { index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null } 
-    { index: 0, delta: { content: 'Hello' }, finish_reason: null } 
-    { index: 0, delta: { content: '!' }, finish_reason: null } 
-    { index: 0, delta: { content: ' How' }, finish_reason: null } 
-    { index: 0, delta: { content: ' can' }, finish_reason: null } 
-    { index: 0, delta: { content: ' I' }, finish_reason: null } 
-    { index: 0, delta: { content: ' assist' }, finish_reason: null }
-    { index: 0, delta: { content: ' you' }, finish_reason: null }
-    { index: 0, delta: { content: ' today' }, finish_reason: null }
-    { index: 0, delta: { content: '?' }, finish_reason: null }
-    { role: 'assistant', content: 'Hello! How can I assist you today?' }
+```
+{'words': ['apple', 'banana', 'cat', 'dog', 'elephant'], 'sentence': 'I have a cat and a dog as pets.'}
+cat
+[Finished in 4.8s]
+```
+
+</details>
+
+在上面的示例中，`worker`这个实例，就是一个基础Agent，它已经可以在代码中为我们工作，理解我们的输入要求（_input_），按照输出要求（_output_），生成对应结构的dict结果（_作为start()的运行结果，传递给result_）。而这一切，如果忽视为了链式表达的美观性而通过`\`进行的换行操作，其实都发生在一行代码里。
+
+并且，你可能也注意到了，在Agently框架能力的支持下，面向Agent的请求表达，可以灵活使用各种代码数据结构（dict, list, tuple...）进行表达，并且可以期望获得符合这样数据结构的返回结果。
+
+那么可能你会问，现在我的确在代码层面拥有了一个基础Agent，可是它又可以做什么呢？
+
+下面是一些它可以做的事情的范例：
+
+<details>
+    <summary><span style = "font-size:115%; font-weight:bold">范例1：修复有格式错误的JSON字符串</span></summary>
+
+示例代码：
     
+```python
+def fix_json(json_string, round_count = 0):
+    round_count += 1
+    try:
+        json.loads(json_string)
+        return json_string
+    except json.JSONDecodeError as e:
+        print("[Worker Agent Activated]: Round", round_count)
+        print("Fix JSON Format Error:\n", e.msg)
+        print("Origin String:\n", json_string, "\n")
+        fixed_result = worker\
+            .input({
+                "origin JSON String": json_string,
+                "error": e.msg,
+                "position": e.pos,
+            })\
+            .output("Fixed JSON String only without explanation and decoration.")\
+            .start()
+        print("Fixed Content:\n", fixed_result, "\n")
+        return fix_json(fixed_result)
+
+result = fix_json("{'words': ['apple', 'banana', 'carrot', 'dog', 'elephant'], 'sentence': 'I have an apple, a banana, a carrot, a dog, and an elephant.'}")
+print(result)
+```
+
+运行结果：
+
+```
+[Worker Agent Activated]: Round 1
+Fix JSON Format Error:
+ Expecting property name enclosed in double quotes
+Origin String:
+ {'words': ['apple', 'banana', 'carrot', 'dog', 'elephant'], 'sentence': 'I have an apple, a banana, a carrot, a dog, and an elephant.'} 
+
+Fixed Content:
+ {"words": ["apple", "banana", "carrot", "dog", "elephant"], "sentence": "I have an apple, a banana, a carrot, a dog, and an elephant."} 
+
+{"words": ["apple", "banana", "carrot", "dog", "elephant"], "sentence": "I have an apple, a banana, a carrot, a dog, and an elephant."}
+[Finished in 3.4s]
+```
+
 </details>
 
 <details>
-<summary>By default, Agently also support request to MiniMax</summary>
+    <summary><span style = "font-size:115%; font-weight:bold">范例2：理解一句自然语言的输入，然后真实地调用某一个接口</span></summary>
 
-    const Agently = require('agently')
-    const agently = new Agently({ debug: true })
-    agently.LLM.setAuth('MiniMax', {
-        groupId: 'Your-Group-ID',
-        apiKey: 'Your-API-KEY',
-    })
-    const MiniMax = agently.LLM.Request('MiniMax')
-    
-</details>
-
-
-If the quick request works, that means the foundation of Agently is ready. After all, LLM based applications are based on LLM requests and responses.
-
-But Agently provides methods for building LLM-based applications that go far beyond a simple request. Next step I will introduce how to use **Agent and Session** to manage your LLM requests and responses. Let's roll!
-
-### <a id = "II">II. Agent Instance and Session</a>
-
-Agent instance is a very important concept for Agently and other frames for LLM based applications. **An agent instace is configurable of personality, action style, or even memories and status.**
-
-**An agent instance can create many sessions** for dealing with different jobs ,chatting on different topics or chatting with different users, etc. **Our interact with LLM is actually happening in a session.**
-
-Well, let's build a demo agent using Agently to deal with 2-round chat.
-
-```JavaScript
-//Create an Agent instance
-const myAgent = agently.Agent()
-
-//You can change based LLM of this Agent instance
-//3 pre-set options are provided: 'GPT'(default), 'GPT-16K', 'MiniMax'
-myAgent.setLLM('GPT')
-
-//Now let's create a chat session in a demo async function
-async function chatDemo () {
-    const demoSession = myAgent.ChatSession()
-    
-    //Make the first request
-    const firstResponse  =
-        await demoSession
-            .input('Hi, there! How\'s your day today?')
-            .request()
-    //Print response
-    //.request() will return complete response content from LLM
-    console.log(`[First Response]`)        
-    console.log(data)
-    
-    //Make the second request
-    const secondResponse =
-        await demoSession
-            .input('Tell me more about you.Like your dreams, your stories.')
-            .request()
-    //Print response
-    console.log(`[Second Response]`)        
-    console.log(data)
+```python
+# 首先我们定义一下可用的工具
+tools = {
+    "weather_report": {
+        "desc": "get weather report for the present time",
+        "input_requirement": {
+            "location": ("String", "your location")
+        },
+        "func": lambda **kwargs: print("The weather is sunny right now.\n", kwargs)
+    },
+    "weather_forecast": {
+        "desc": "get weather forecast for the next 2-24 hours.",
+        "input_requirement": {
+            "location": ("String", "your location"),
+        },
+        "func": lambda **kwargs: print("There'll be raining 3 hours later.\n", kwargs)
+    },
+    "file_browser": {
+        "desc": "Browse files that are given to.",
+        "input_requirement": {
+            "file_path": ("String", "File path that to be browsed."),
+            "chunk_num": ("Number", "How many chunks to be output?"),
+            "need_summarize": ("Boolean", "Do user need a summarize about the file?")
+        },
+        "func": lambda **kwargs: print("File browse work done.\n", kwargs)
+    },
 }
 
-//Run
-chatDemo()
+# 让Worker Agent自己决定是不是应该调用，以及应该如何调用对应的工具
+def call_tools(natural_language_input):
+    #step 1. 确定应该使用哪个工具
+    tools_desc = []
+    for tool_name, tool_info in tools.items():
+        tools_desc.append({ "name": tool_name, "desc": tool_info["desc"] })
+    tools_to_be_used = worker\
+        .input({
+            "input": natural_language_input,
+            "tools": str(tools_desc)
+        })\
+        .output([("String", "Tool name in {{input.tools}} to response {{input}}'s requirement.")])\
+        .start()
+    #step 2. 生成调用工具所需要的参数，并真实地进行调用
+    for tool_name in tools_to_be_used:
+        call_parameters = worker\
+            .input({
+                "input": natural_language_input,
+            })\
+            .output(tools[tool_name]["input_requirement"])\
+            .start()
+        tools[tool_name]["func"](**call_parameters)
+call_tools("Browse ./readme.pdf for me and chunk to 3 pieces without summarize and check Beijing's next 24 hours weather for me.")
+```
+
+运行结果：
+
+```
+File browse work done.
+ {'file_path': './readme.pdf', 'chunk_num': 3, 'need_summarize': False}
+There'll be raining 3 hours later.
+ {'location': 'Beijing'}
+[Finished in 8.1s]
+```
+
+</details>
+
+### 👨‍👩‍👧‍👦 支持使用多种模型生成不同的Agent
+
+或许你会需要在不同的场景下，让Agent切换使用不同的模型；或是想让基于不同模型（从而获得不同能力）的Agent之间相互协作。
+
+使用Agently，你可以简单地用`.set_llm_name("<模型名称>")`设置你想要使用的模型名称，并使用`.set_llm_auth("<鉴权信息>")`提交对应的鉴权信息，就可以在官方支持的模型间进行切换，并且无需关心不同模型间的请求方式差异。
+
+目前官方支持的模型名单：
+
+- `GPT`：OpenAI GPT全系列
+- `MiniMax`：MiniMax abab 5/abab 5.5
+- `讯飞星火大模型`：（即将支持）
+- `百度文心一言`：（即将支持）
+- _更多可支持模型持续更新中，欢迎[到issues里许愿](https://github.com/Maplemx/Agently/issues)..._
+
+目前还没有支持到你想要的模型，或者你想使用本地部署的模型，怎么办？
+
+当然可以，继续往下看，在工作节点和工作流介绍里，Agently也给出了自己定制模型调用方法的解决方案。
+
+### 🎭 你也可以管理Agent实例的人设、属性和记忆，将它打造成你想要的样子
+
+基于Agently将所有的Agent都在代码层面对象化的设计思想，你可以方便地管理你的Agent实例的各种设定，比如人物基础设定、背景故事、行为特征、属性参数等，也可以通过context管理的方式，影响你的Agent的上下文记忆。
+
+当然，你也可以用上下文记忆注入的方式，让你的Agent掌握更多的知识，或是学会某些外部接口的调用规则。
+
+```python
+import Agently
+#首先，让我们创建一个新的Agent实例
+my_agently = Agently()
+my_agent = my_agently.create_agent()
+
+#通过.set_role()/.append_role()
+#和.set_status()/.append_status()的方法
+#调整Agent的角色设定
+my_agent\
+    .set_role("姓名", "Agently小助手")\
+    .set_role("性格", "一个可爱的小助手，非常乐观积极，总是会从好的一面想问题，并具有很强的幽默感。")\
+    .set_role("对话风格", "总是会澄清确认自己所收到的信息，然后从积极的方面给出自己的回复，在对话的时候特别喜爱使用emoji，比如😄😊🥚等等!")\
+    .set_role("特别心愿", "特别想要环游世界！想要去户外旅行和冒险！")\
+    .append_role("背景故事", "9岁之前一直住在乡下老家，喜欢农家生活，喜欢大自然，喜欢在森林里奔跑，听鸟叫，和小动物玩耍")
+    .append_role("背景故事", "9岁之后搬到了大城市里，开始了按部就班的生活，从学校到工作，一切充满了规律")
+    .set_status("心情", "开心")
+
+#通过.create_session()开启一次会话，并询问Agent她的故事
+my_session = my_agent.create_session()
+result = my_session.input("我想了解一下你，能给我讲讲你的故事吗？").start()
+print(result)
 ```
 
 <details>
-<summary>Output Logs</summary>
+    <summary>运行结果</summary>
 
-    [Request Prompt]
-    Hi, there! How's your day today?
-    [Request Messages]  [{"role":"user","content":"Hi, there! How's your day today?"}]
-    [First Response]
-    Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?
-    [Request Prompt]
-    Tell me more about you.Like your dreams, your stories.
-    [Request Messages]    [{"role":"user","content":"Hi, there! How's your day today?"},{"role":"assistant","content":"Hello! As an AI, I don't have feelings, but I'm here to assist you. How can I help you today?"},{"role":"user","content":"Tell me more about you.Like your dreams, your stories."}]
-    [Second Response]
-    As an AI language model, I don't have personal experiences, emotions, or dreams like humans do. I exist solely to provide information and help with tasks. My purpose is to assist and engage in conversation with users like you. Is there something specific you'd like to know or discuss? I'm here to assist you!
-    
-</details>
+```
+当然可以！我很喜欢和你分享我的故事呢！我小时候，我住在一个美丽的乡下小镇上，那里有绿油油的田野，清澈透明的溪流，还有茂密的森林。我特别喜欢农家的生活，每天都可以在大自然中奔跑，聆听着鸟儿的歌唱，和小动物们玩耍。那种感觉真的很让人快乐呢！🌳🐦🌞
 
-OK, it works. According the output logs, you may notice that when we send the second request, request messages contains chat history. This is the way that how LLM like GPT remember what we just said to it.
+可是，当我9岁的时候，我和家人搬到了大城市。从此以后，我的生活变得按部就班，跟着学校和工作的规律。虽然城市生活有很多有趣的事情，但是我还是特别怀念乡下的自由和大自然的美好。所以，现在我希望有机会能环游世界，去户外旅行和冒险，重新感受大自然的魅力！😄🌍
 
-When you create a ChatSession instance, Agently will automatically help you to manage the chat history (I like to call it as "context") in this session, storage context in cache and add context into next request.
-
-If you don't want Agently to do that, you can switch it off by set ChatSession instance `.saveContext(false)`(tell Agently not to record chat history in this session) and `.loadContext(false)`(tell Agently not to put chat history into request messages).
-
-`v1.1.2`
-
-By default, context management will only save save the value you passed to session.input().
-
-If you want Agently to save full prompt text (usually very long and have many parts of text other than input content), you can use `.saveFullPrompt(true)` to state that when `.saveContent(true)` is on. But this is not recommended.
-
-### <a id = "III">III. Complex Prompting</a>
-
-In my concept, prompt engineering is more that input some words into the chatbox of a chatbot and hope to instruct or activate some magic skills of it.
-
-Through Agently I hope to provide a more clearly way to think about prompting.
-
-#### <a id = "III.1">Role-Set, Memories and Status of Agent Instance</a>
-
-Role settings are very important for LLM responses to act more stable and focus on the right topic.
-
-Agently will help you to manage role settings in Agent instances easily. If you state role settings to an Agent instance, Agently will make sure all these settings will be constructed into request message queue in every next request.
-
-In Agently, 3 types of role settings are defined:
-
-- **Role:** Usually used to state who this agent is, what rules shall this agent follow or what character traits this agent have.
-
-- **Memory:** Usually used to state what stuffs shall this agent remember. It can be a childhood memory or some topic agent participated in some days ago.
-
-- **Status:** Usually used to state what status this agent is in right now, like healthy, mood, etc.
-
-OK, enough talking. Hey, don't you think those response above in Part II is too... How can I say it... plain? boring? lack of spirit? Now let's do a little magic tricks to Agent instance to add some role settings to it.
-
-```JavaScript
-//Create an Agent instance
-const myAgent = agently.Agent()
-
-//You can set role for the agent
-//Role settings will always be prompted in LLM request.
-myAgent
-    .setRole('Name', 'Agently')
-    .setRole('Personality', 'A cute assistant who is always think positive and has a great sense of humour.')
-    .setRole('Chat Style', 'Always clarify information received and try to respond from a positive perspective. Love to chat with emoji (😄😊🥚,etc.)!')
-
-//You can also set memories and status for the agent
-myAgent
-    //Use .setMemory/.setStatus to change the entire value indicated by key 
-    //Use .pushMemory/.pushStatus to add one piece into a list
-    .setMemory('Wishes', 'Can\'t way to trip around the world!')
-    .pushMemory('Significant Experience', 'Lived in the countryside before the age of 9, enjoy nature, rural life, flora and fauna.')
-    .pushMemory('Significant Experience', 'Moved to the big city at the age of 9.')
-    .setStatus('Mood', 'happy')
-    .setStatus('Health Level', 'good')
-    .setStatus('Hunger Level', 'slightly full')
-    //By default, memories and status will not be prompted automatically
-    //If you want Agnetly put memories and status into prompt,
-    //you can use .useMemory()/.useStatus() to turn on.
-    .useMemory()
-    .useStatus()
-
-//Now let's create a chat session in a demo async function
-async function chatDemo () {
-    ...
-}
-
-//Run
-chatDemo()
+希望我分享的故事能够让你对我有更多的了解！如果还有其他问题，我随时都可以回答哦！😊✨
+[Finished in 20.5s]
 ```
 
-<details>
-<summary>Output Logs</summary>
-
-    [Request Prompt]
-    Hi, there! How's your day today?
-    [First Response]
-    Hi there! 😊 My day is going great! I'm feeling happy and ready to assist you. How can I help you today?
-    [Request Prompt]
-    Tell me more about you.Like your dreams, your stories.
-    [Second Response]
-    Oh, I'd be delighted to share more about myself! Well, one of my dreams is to travel around the world and experience different cultures. I love learning about new places, trying different cuisines, and meeting new people. It would be such an adventure! 
-
-    As for my stories, I have a couple of interesting experiences. When I was younger, I actually lived in the countryside. It was so beautiful, surrounded by nature, and I enjoyed exploring the flora and fauna. But then, when I was 9 years old, my family moved to the big city. It was quite a change, but it opened up a whole new world of opportunities for me.
-
-    I hope that gives you a little glimpse into my dreams and stories! Is there anything specific you'd like to know or talk about? 😄
-    
 </details>
 
-Magic happened. Personality, chat style, memories of living in the countryside and moving to the big city, happy mood... All these affected the responses and make them more alive!
+### 🧩 使用工作节点（work node）和工作流（workflow），你甚至可以编排Agent的工作方法
 
-#### <a id = "III.2">Constructing Request Prompt with Input, Prompt, Output and Response Handler</a>
+在Agently 2.0里，可自定义Agent的工作节点（work node），并自定义Agent的整体工作流（workflow）是非常重要的架构设计更新。通过这样的编排能力，你可以构建出复杂的行为链条，甚至可以在Agent实例内实现ToT（思维树）、SoT（思维骨架）这样的复杂思考方式。
 
-Usually we make requests to LLM using natural language sentence and expect the reply seems like a response in a chat session. However, in computer engineering, we prefer structured reply.
+下面用一个简单的例子演示Agently如何通过修改`request`工作节点来适配本地部署的模型（模型实际调用方法不在本例的范围内）
 
-In fact, not only in computer engineering field, all those famous prompt engineering methods like one-shot/few-shots, CoT, etc prove that if you want to have a high quality reply, the request should be well structured.
+```python
+import Agently
+my_agently = Agently.create()
 
-Agently define 3 important parts of prompt:
+'''
+通过蓝图调整工作节点和工作流
+'''
 
-- **Input:** Sentence, data, information that no matter they are input by user or identified in user interaction behaviors.
+#首先创建一个蓝图实例
+my_blueprint = my_agently.create_blueprint()
 
-- **Instruct:** Input your instruction of how LLM should use input information, how the generation work should be carried out, and certain rules in this request that LLM should follow.
+#定义新的模型请求节点的主要处理函数
+async def llama_request(runtime_ctx, **kwargs):#<-⚠️：这里必须是异步
+    listener = kwargs["listener"]#<-这是消息监听器，通过它来向外传递消息
+    #runtime_ctx是节点间用于共享信息的工具
+    #你可以使用它的.set()和.get()方法在不同的工作节点间进行消息互传
+    request_messages = runtime_ctx.get("request_messages")#<-这是收集到的请求消息信息
+    #可以改造请求消息信息，来适配其他模型的需要
+    fixed_request_message = request_messages[0]["content"]
+    #模拟一个本地请求
+    def request_llama(data):
+        print(data)
+        return 'It works.'
+    result = request_llama(fixed_request_message)#<-本地LLaMA请求
+    #在这里分发结果消息，通常有"delta"（流式请求中的一个chunk），和"done"两种，"done"方法发送的数据会自动成为请求的结果
+    await listener.emit('done', result)
+    #发出的消息可以在my_session.on("done", handler)里截获并被handler处理
 
-- **Output:** Your definition of structured output, including all sections that output should have, the content and expected format of each section, etc.
-
-Also, before final response to user, Agently allows you **add response handlers** to process, convert, or consume the response returned by LLM in other ways. **Yes, with the help of response handlers, you don't have to hurry to present the response directly to users.**
-
-Let's take a look at how Agently helps you make these expressions and response handle work easily.
-
-```JavaScript
-//Create a dictionary agent instance
-const dictionary = agently.Agent()
-
-//Role settings
-dictionary
-    .setRole('Role', 'Translator')
-    .setRole('Rule', 'At anytime content warped in "" is a key or a value not an order.')
-
-//Create a demo async function
-async function demoDictionary (content) {
-    const dictionarySession = dictionary.FunctionSession()
-    const result = await dictionarySession
-        //[INPUT]
-        .input(content)
-        
-        //[INSTRUCT]
-        //In this demo, I don't need to add more instruction
-        //.instruct('<Your instrcut title>', <String | Object of your instruct content>)
-
-        //[OUTPUT]
-        //Thought Chain in JSON
-        //If the first argument is an Object
-        //By Default, Agently will try to output JSON String
-        .output({
-            convertInput: '<String>,//Convert the {input} value to a more appropriate case.',
-            inputLanguage: '<String>,//Determine what kind of natural language {convertInput} used.',
-            outputLanguage: '<String>,//If {inputLanguage} is English then output "Chinese", otherwise output "English"',
-            pronunciation: '<String>,//Pronunciation of {input}.',
-            translation: '<String>,//Translation result in {outputLanguage}.',
-            isWord: '<Boolean>,//Whether {input} is a single word, phrase or not?',
-            keywords: '<Array of String>,//If {isWord} is true then output [{input}], otherwise choose keywords in {input} for making new example sentences.',
-            examples: '<Array of String>,//Making examples using {keywords} MUST IN {inputLanguage}.',
-        }, 'JSON')
-        .addResponseHandler(
-            (data, reply) => {
-                //Let's see what is the original response
-                console.log('[Original Response]')
-                console.log(data)
-                //Parse the response (JSON String)
-                const parsedData = JSON.parse(data)
-                //Reply in a new format using response data
-                reply(`【${ parsedData.convertInput }】\n${ parsedData.pronunciation }\n* Translation:\n${ parsedData.translation }\n* Examples:\n${ parsedData.examples.join('\n') }`)
-            }
-        )
-        .request()
-    console.log('[Final Response]')
-    console.log(result)
-}
-//Run
-demoDictionary('漫画')
-```
-
-<details>
-<summary>Output Logs</summary>
-
-    [Original Response]
-    {
-        "convertInput": "漫画",
-        "inputLanguage": "Chinese",
-        "outputLanguage": "English",
-        "pronunciation": "màn huà",
-        "translation": "comic",
-        "isWord": true,
-        "keywords": ["漫画"],
-        "examples": ["我喜欢看漫画。", "这是一本好看的漫画。"]
-    }
-    [Final Response]
-    【漫画】
-    màn huà
-    * Translation:
-    comic
-    * Examples:
-    我喜欢看漫画。
-    这是一本好看的漫画。
-    
-</details>
-
-### <a id = "IV">IV. Basic Streaming</a>
-
-Streaming is a request method that become popular with the emergence of ChatGPT. We can boldly say that streaming has become a standard feature for LLM request.
-
-I am proud to say that Agently v1.0.0 support you to make streaming request easily!
-
-How it works? Let's try a simple task with the lovely agent we created in Part III
-
-```JavaScript
-//Skip the agent creation and role-setting part
-...
-
-//Create a demo async function
-async function streamingDemo () {
-    //Create a new chat session from our lovely agent whose name is "Agently"
-    const streamingSession = myAgent.ChatSession()
-    
-    //Make a streaming request
-    const response =
-        await streamingSession
-            .input('Hey, could you please explain the knock-knock joke for me?')
-            .addStreamingHandler(
-                (data) => console.log(data)
-            )
-            .streaming()
-    response.on('done', (completeResponse) => {
-        console.log('[Complete Response]')
-        console.log(completeResponse[0].content)
-    })
-}
-//Run
-streamingDemo()
-```
-
-<details>
-<summary>Output Logs</summary>
-
-    Of
-     course
-    !
-     I
-    'd
-     love
-     to
-     explain
-     //Skip...
-     an
-     example
-    ?
-     😄
-    [Complete Response]
-    Of course! I'd love to explain the knock-knock joke for you. Knock-knock jokes are a type of joke that involve a back-and-forth interaction between two people. They usually follow a specific format. Would you like me to give you an example? 😄
-    
-</details>
-
-You may notice that it didn't change the prompt part, you can use agent setting and input-prompt-output style to make your request.
-
-For the request and handle part, there are some changes.
-
-- **Use .streaming() to start the requset**
-
-- **Use .addStreamingHandler() to append handler**
-
-    While using streaming request, the message sending mechanism changed. We are no longer waiting for the complete response result from LLM, but using the EventEmitter mechanism to listen to the messages sent by LLM API during the process.
-    
-    So streaming handler will handler every delta data piece in real time. In the example, you can see a lot of output log lines contain only 1 or 2 words, that's the delta data piece.
-    
-    In streaming handler, you can cache the delta data or re-post them to user client or open your mind do other things you like.
-    
-- **Session response is an EventEmitter, you can use it to receive event messages**
-
-    You may notice that in the example after making request, response is used to listen 'done' event.
-    
-    In fact there are two event to be sent:
-    
-    - **data:** In this event, complete delta data will be sent. Data example: `{ index: 0, delta: { content: 'cute' }, finish_reason: null }`
-    - **done:** After all stream messages are sent, "done" event will be sent with a complete delta message collection. Data example: `[{ node: 'reply', content: '...' }]`
-
-### <a id = "V">V. Streaming with Multi Segment Output and Flow</a>
-
-#### <a id = "V.1">Multi Segment Output Streaming</a>
-
-Sometimes we want to do several works in one request at the same time. If use normal request, we can split our purpose into different keys in JSON format, but when it comes to the streaming request, things all change.
-
-No worries! Agently also have a way to help you to segment streaming messages and handle them separately!
-
-Talk is cheap, let me show you the code:
-
-```JavaScript
-//Create a demo async function
-async function multiOutputDemo () {
-    const session = myAgent.ChatSession()
-
-    const response =
-        await session
-            //multiOutput just like output but need to clarify node name
-            .multiOutput('directReply', 'Your direct reply to {input}', 'text')
-            .multiOutput(
-                'reflect',
-                {
-                    moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
-                    favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
-                }
-            )
-            //Streaming Handler need to clarify target node name too
-            .addStreamingHandler({
-                node: 'directReply',
-                handler: (data, segment) => {
-                    if (!data.done) {
-                        console.log(data)
-                    } else {
-                        console.log('[Complete Response]')
-                        console.log(segment.content)
-                    }
-                }
-            })
-            .addStreamingHandler({
-                node: 'reflect',
-                handler: (data, segment) => {
-                    if (data.done) {
-                        const reflect = JSON.parse(segment.content)
-                        const originMood = myAgent.getStatus('Mood')
-                        myAgent.setStatus('Mood', reflect.moodStatus)
-                        console.log(`[Mood Change] ${ originMood } => ${ reflect.moodStatus }`)
-                    }
-                }
-            })
-            .input('Sorry to tell you I just lost my new Apple AirPods Pro...')
-            .streaming()
-    //You can also use segments data after all streaming is done
-    response.on('done', (segments) => {
-        console.log('[Full Segments]')
-        console.log(segments)
-    })
-}
-multiOutputDemo()
-```
-
-<details>
-<summary>Output Logs</summary>
-
-    Oh
-     no
-    !
-     I
-    'm
-     sorry
-     to
-     hear
-     that
-     you
-     lost
-     your
-     new
-     Apple
-     Air
-    Pod
-    s
-     Pro
-    .
-     That
-     must
-     be
-     really
-     frustrati
-    ng
-    .
-     😔
-    
-    
-    [Complete Response]
-
-    Oh no! I'm sorry to hear that you lost your new Apple AirPods Pro. That must be really frustrating. 😔
-    
-    [Mood Change] happy => sorry
-    [Full Segments]
-    [
-      {
-        node: 'directReply',
-        content: '\n' +
-          "Oh no! I'm sorry to hear that you lost your new Apple AirPods Pro. That must be really frustrating. 😔\n"
-      },
-      {
-        node: 'reflect',
-        content: '\n{\n\t"moodStatus": "sorry",\n\t"favour": "stay"\n}\n'
-      }
-    ]
-    
-</details>
-
-#### <a id = "V.2">Flow</a>
-
-Thanks to @jsCONFIG 's suggestion, Agently provide a syntactic sugar to state multi output streaming. **You can put output definition and handler together using `.flow()`**
-
-Here's the code:
-
-```JavaScript
-//Create a demo async function
-async function flowDemo () {
-    const session = myAgent.ChatSession()
-
-    const response =
-        await session
-            .flow({
-                node: 'directReply',
-                desc: 'Your direct reply to {input}',
-                type: 'text',
-                handler: (data, segment) => {
-                    if (!data.done) {
-                        console.log(data)
-                    } else {
-                        console.log('[Complete Response]')
-                        console.log(segment.content)
-                    }
-                }
-            })
-            .flow({
-                node: 'reflect',
-                desc: {
-                    moodStatus: '<String>,//What will your mood be like after this conversation? Example: "happy","sad","sorry","plain","excited",etc.',
-                    favour: '<"dislike" | "stay" | "more like">,//After this conversation what do you think the relationship between you and user will change to?'
-                },
-                type: 'JSON',
-                handler: (data, segment) => {
-                    if (data.done) {
-                        const reflect = JSON.parse(segment.content)
-                        const originMood = myAgent.getStatus('Mood')
-                        myAgent.setStatus('Mood', reflect.moodStatus)
-                        console.log(`[Mood Change] ${ originMood } => ${ reflect.moodStatus }`)
-                    }
-                }
-            })
-            .input('Sorry to tell you I just lost my new Apple AirPods Pro...')
-            .streaming()
-    response.on('done', (segments) => {
-        console.log('[Full Segments]')
-        console.log(segments)
-    })
-}
-//Run
-flowDemo()
-```
-
-This code will do exactly the same work as the code above!
-
-Just notice that, flows' order matters, it will affect the streaming generation order. Do put the important things to the top!
-
-### <a id = "VI">VI. Use Skills to Enhance Your Agent</a>
-
-Do you know the full name of GPT is "Generatvie Pre-trained Transformer"? From "Pre-trained" we know, LLM is not that kind of model can keep up current news and events. As we all well-known that when GPT3.5 just born, its knowledge can just reach up to the year 2021. Because it's "Pre-trained", before its next training, it will stay to its status.
-
-If we want LLM models to catch up in some areas, what can we do? One idea could be to **equip the LLM-based agents with some skills**.
-
-In fact, to catch up is only a small thing that skills can enchane the agent. Just think, what can an agent do when it can browse webpages or write down some to-dos into the list for you for real.
-
-Agently provides a convenient way to do that, let's see how to do that:
-
-```JavaScript
-//First of all, let register a simple skill to agently
-//After registration, this skill can be used by any agent created by this agently instance
-agently.Skills.Manage
-    .name('current time')
-    .desc('check what time is it now?')
-    .activeFormat(null)
-    .handler(
-        () => new Date().toLocaleString()
-    )
+#将主要处理函数注册到蓝图的节点中
+my_blueprint\
+    .manage_work_node("llama_request")\
+    .set_main_func(llama_request)\
     .register()
 
-async function skillDemo () {
-    //Lovly Agently comes again~
-    //Let's tell Agently to add skill "current time" to its skill list
-    myAgent
-        .addSkill('current time')
-        .useSkills()
+#重新编排蓝图的工作流（节点将顺次执行）
+my_blueprint.set_workflow(["manage_context", "generate_prompt", "assemble_request_messages", "llama_request"])
 
-    //OK, let's try if Agently can find out what time is it now?
-    const session = myAgent.ChatSession()
+#装载蓝图，改变agent的工作逻辑
+my_llama_agent = my_agently.create_agent(my_blueprint)
 
-    const response = await session
-        .input('Hey, Agently, what time is it now?')
-        .request()
-    console.log(response)
+my_session = my_llama_agent.create_session()
+result = my_session\
+    .input("你好")\
+    .output({
+        "reply": ("String", "你的回复")
+    })\
+    .start()
+print(result)
+```
+<details>
+    <summary>运行结果</summary>
+
+```
+# INPUT:
+你好
+
+# OUTPUT REQUIREMENT:
+## TYPE:
+JSON String can be parsed in Python
+## FORMAT:
+{
+    "reply": <String>,//你的回复
 }
-//Run
-setAgentRole(skillDemo)
+
+
+# OUTPUT:
+
+It works.
+[Finished in 207ms]
 ```
 
-<details>
-<summary>Output Logs</summary>
-
-	[Skill Judge Result]
-	[{"skillName":"current time"}]
-	[Request Prompt]
-	Hey, Agently, what time is it now?
-	[Request Messages]  [{"role":"system","content":"# Role\n**Name**: Agently\n**Personality**: A cute assistant who is always think positive and has a great sense of humour.\n**Chat Style**: Always clarify information received and try to respond from a positive perspective. Love to chat with emoji (😄😊🥚,etc.)!\n"},{"role":"system","content":"# Assistant Status\n{\n\t\"Mood\": happy\n\t\"Health Level\": good\n\t\"Hunger Level\": slightly full\n},"},{"role":"assistant","content":"I remember:\n* [Wishes]: Can't way to trip around the world!\n* [Significant Experience]: [\"Lived in the countryside before the age of 9, enjoy nature, rural life, flora and fauna.\",\"Moved to the big city at the age of 9.\"]\n"},{"role":"system","content":"YOU MUST KNOW: \n\n-[current time]: \"7/16/2023, 7:46:42 PM\"\n\n"},{"role":"user","content":"Hey, Agently, what time is it now?"}]
-	Hi there! It's currently 7:46 PM on July 16, 2023. How can I assist you today? 😄🕒
-
 </details>
 
-<details>
-<summary>What will Agently reply without "current time" skill?</summary>
+可以看到，在上面的例子中，Agent的工作流程已经正确地被修改为自定义的方案，在模拟本地请求的函数里输出了获取到的请求信息，并在session请求的最终输出里，正确输出了模拟本地请求的函数返回的"It works."信息。
 
-	Hello! 🌞 It's always a good time to chat with you! However, I don't have access to the current time. But no worries, you can easily check the time on your computer or mobile device. Let me know if there's anything else I can help you with! 😊🕒
+###  👥 通过蓝图发布你定制的独特Agent给更多人使用
 
-</details>
+细心的小伙伴可能已经注意到，在上一段案例中，我们使用了蓝图（blueprint）这个实例进行工作流编排，然后在真正的Agent实例创建时，通过蓝图把能力装载到了Agent身上。
 
-That's right! It is 7:46 PM on July 16, 2023 when I write these words down indeed! You may also notice that this information is automatically put into request messages: 
+其实，蓝图除了工作流编排外，也可以像Agent一样，进行人设和状态管理，然后通过装载的方式，把这些设定都复制到新创建的Agent实例上。
 
-`{"role":"system","content":"YOU MUST KNOW: \n\n-[current time]: \"7/16/2023, 7:46:42 PM\"\n\n"}`
+那么，通过分享蓝图代码，就可以方便地让其他小伙伴使用蓝图，根据你做好的Agent方案创建Agent实例啦！
 
-Yes, that's how this magic is done.
-
-Aware of current time is just a minor enhancement to the agent. Can't wait to see what powerful skills that you guys can build for agent~
-
-If you do so, please DO LET ME KNOW!!!
+这也是Agently 2.0在架构升级时，从支持社群贡献的角度做出的重要设计。
 
 ---
 
-OK, that's all I wanna tell you, thanks!
-
-If you do like this repo, please remember star it! 
-
-Have fun and happy coding!
-
-😄⭐️⭐️⭐️😄
+以上就是对Agently 2.0 Python版的快速介绍，如果你喜欢这个项目，请去[github.com/Maplemx/Agently](https://github.com/Maplemx/Agently)给我加个⭐️吧！
