@@ -1,4 +1,4 @@
-#Agently 2.0
+# Agently 2.0
 
 Python版`v2.0.0`：[中文](https://github.com/Maplemx/Agently/blob/main/README.md)
 
@@ -10,6 +10,11 @@ NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/READM
 > 
 >  ⭐️ 如果您觉得这个项目对您有帮助，请给项目加星，感谢您的肯定和支持！
 >
+>  👥 微信讨论群二维码：
+>
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/6a946ca5-e078-424a-80fc-93fa95e9f4de" width="128px" height="128px">
+> 
+
 
 ## 通过Pip安装
 
