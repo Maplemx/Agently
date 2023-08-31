@@ -12,7 +12,7 @@ NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/doc/n
 >
 >  👥 微信讨论群二维码：
 >
-> <img src="https://github.com/Maplemx/Agently/assets/4413155/8b12252a-6e54-4f2e-8a24-5dc38672040a" width="128px" height="128px">
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/8b12252a-6e54-4f2e-8a24-5dc38672040a" width="256px" height="256px">
 > 
 
 
