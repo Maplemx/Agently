@@ -1,8 +1,8 @@
 # Agently 2.0
 
-Python版`v2.0.0`：[中文](https://github.com/Maplemx/Agently/blob/main/README.md)
+Python版`v2.0.1`：[中文](https://github.com/Maplemx/Agently/blob/main/README.md)
 
-NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/README_node_v1_EN.md) | [中文](https://github.com/Maplemx/Agently/blob/main/README_node_v1_CN.md)
+NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/doc/nodejs/v1/README_EN.md) | [中文](https://github.com/Maplemx/Agently/blob/main/doc/nodejs/v1/README_CN.md)
 
 > 🥷 作者：Maplemx ｜ 📧 Email：maplemx@gmail.com | 💬 微信：moxinapp
 >
@@ -12,7 +12,7 @@ NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/READM
 >
 >  👥 微信讨论群二维码：
 >
-> <img src="https://github.com/Maplemx/Agently/assets/4413155/6a946ca5-e078-424a-80fc-93fa95e9f4de" width="128px" height="128px">
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/8b12252a-6e54-4f2e-8a24-5dc38672040a" width="128px" height="128px">
 > 
 
 
@@ -198,10 +198,12 @@ There'll be raining 3 hours later.
 
 当然，你也可以用上下文记忆注入的方式，让你的Agent掌握更多的知识，或是学会某些外部接口的调用规则。
 
+#### 对Agent进行人物设定和状态管理
+
 ```python
 import Agently
 #首先，让我们创建一个新的Agent实例
-my_agently = Agently()
+my_agently = Agently.create()
 my_agent = my_agently.create_agent()
 
 #通过.set_role()/.append_role()
@@ -235,6 +237,91 @@ print(result)
 ```
 
 </details>
+
+#### 通过上下文管理影响Agent运行时的“记忆”
+
+事实上，Agent看起来似乎拥有“记忆”的行为表现非常依赖在请求时提供给模型的上下文（context），上下文可以是之前已经发生的对话对记录，也可以是插入在请求消息中的补充信息。Agently主要使用仿造对话对记录的方式管理上下文，如果你需要把补充信息插入到请求中，直接在上文提到的.input()中添加就好。
+
+下面提供两种操作上下文的方法：
+
+##### 方法1：注入上下文
+
+这种方法可以允许你直接把一串消息用list的格式传给Agent，这一串消息可以是你自己虚构的消息，也可以是缓存或是外部固化存储到你的业务逻辑中的信息。
+
+当然，你想要使用这种方式来自定义地管理对话历史记录，也是可行的。
+
+注意：Agently默认使用的消息列，遵循了OpenAI的消息列结构格式，请按照这个格式进行表达，支持的`role`包括`system`、`user`、`assistant`，消息内容需要转化为String格式传到`content`字段里。
+
+```python
+def inject_context():
+    my_session = my_agent.create_session()
+    result = my_session\
+        .extend_context([
+            { "role": "user", "content": "Remind me to buy some eggs"},
+            { "role": "assistant", "content": "Sure. I'll remind you when you ask" },
+            { "role": "user", "content": "I will have a meeting at 3pm today."},
+            { "role": "assistant", "content": "Got it." },
+        ])\
+        .input("Give me a todo list according what we said.")\
+        .start()
+    print(result)
+inject_context()
+```
+
+<details>
+    <summary>运行结果</summary>
+
+```
+Sure! Here's your todo list:
+
+- Buy some eggs
+- Prepare for the meeting at 3pm
+
+Let me know when you would like to be reminded about any of these tasks.
+[Finished in 4.0s]
+```
+
+</details>
+
+##### 方法2：直接开启Agent的自动上下文管理能力
+
+```python
+def multi_round_chat():
+    my_session = my_agent.create_session()
+    
+    #开启自动上下文管理
+    my_session.use_context(True)
+
+    #进行多轮对话
+    print("[user]", "Remind me to buy some eggs")
+    print("[assistant]", my_session.input("Remind me to buy some eggs").start())
+    print("[user]", "I will have a meeting at 3pm today.")
+    print("[assistant]", my_session.input("I will have a meeting at 3pm today.").start())
+    print("[user]", "Give me a todo list according what we said.")
+    print("[assistant]", my_session.input("Give me a todo list according what we said.").start())
+multi_round_chat()
+```
+
+<details>
+    <summary>运行结果</summary>
+
+```
+[user] Remind me to buy some eggs
+[assistant] Sure, I can remind you to buy some eggs. When would you like me to remind you?
+[user] I will have a meeting at 3pm today.
+[assistant] Okay, I'll remind you to buy eggs at 2:30pm today, so you have enough time before your meeting.
+[user] Give me a todo list according what we said.
+[assistant] Sure! Here's your to-do list:
+
+1. Buy some eggs - Remind at 2:30pm today
+2. Attend meeting - 3pm today
+
+Is there anything else you would like to add to the list?
+```
+
+</details>
+
+在演示中可以看到，通过Agently框架，Agent能够自动记录下多轮的对话情况。甚至，如果你愿意，可以直接在Agently构造的Agent实例之上，封装一个无限循环交互的CLI界面，或是做一个Chatbot，都是很轻松的事情。
 
 ### 🧩 使用工作节点（work node）和工作流（workflow），你甚至可以编排Agent的工作方法
 
@@ -316,6 +403,45 @@ It works.
 </details>
 
 可以看到，在上面的例子中，Agent的工作流程已经正确地被修改为自定义的方案，在模拟本地请求的函数里输出了获取到的请求信息，并在session请求的最终输出里，正确输出了模拟本地请求的函数返回的"It works."信息。
+
+#### 附加信息：
+
+ ℹ️ 目前Agently框架官方提供的工作节点（work node）清单
+ 
+ - `init_worker_agent`：用于启动工作流内置的worker agent
+- `manage_context`：用于管理上下文
+- `generate_prompt`：用于根据.input()/.instruct()/.output()要求构造请求消息prompt
+- `assemble_request_messages`：用于汇总工作流中已经生成的各种信息，构造向LLM发起请求的最终消息列
+- `register_response_handlers`：用于声明和管理处理请求返回消息的各种执行器，将结果解析并确实地进行分发
+- `request`：用于向LLM发起请求，针对不同模型的请求适配也在这里管理
+
+ ℹ️ 目前Agently框架官方提供的工作流方案清单
+
+- `normal agent`（通过`agently.create_agent()`创建）：
+
+```python
+ [
+ 	"init_worker_agent",
+ 	"manage_context",
+ 	"generate_prompt",
+ 	"assemble_request_messages",
+ 	"register_response_handlers",
+ 	"request"
+ ]
+```
+
+- `worker agent`（通过`agently.create_worker()`创建）：
+
+抛弃了内部的worker agent和上下文管理
+
+```python
+ [
+ 	"generate_prompt",
+ 	"assemble_request_messages",
+ 	"register_response_handlers",
+ 	"request"
+ ]
+```
 
 ###  👥 通过蓝图发布你定制的独特Agent给更多人使用
 
