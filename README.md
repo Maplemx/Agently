@@ -12,13 +12,17 @@ NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/doc/n
 >
 >  👥 微信讨论群二维码：
 >
-> <img src="https://github.com/Maplemx/Agently/assets/4413155/8b12252a-6e54-4f2e-8a24-5dc38672040a" width="256px" height="256px">
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/8b12252a-6e54-4f2e-8a24-5dc38672040a" width="128px" height="128px">
 > 
 
 
-## 通过Pip安装
+## 快速开始
 
-`pip install Agently`
+使用pip进行安装：`pip install Agently`
+
+下载DEMO文件试用：[点击直达](https://github.com/Maplemx/Agently/tree/main/demo/python)
+
+使用.sh脚本一键启动多轮对话CLI界面：[点击直达](https://github.com/Maplemx/Agently/tree/main/demo/python/quick_launch_sh_cn)
 
 ## 快速了解 Agently 2.0 可以做什么？
 

@@ -1,0 +1,32 @@
+# 忽略系统文件
+.DS_Store
+.AppleDouble
+.Trashes
+
+# 忽略编译文件和二进制文件
+*.o
+*.a
+*.exe
+*.pyc
+
+# 忽略日志文件和备份文件
+*.log
+*.bak
+*.swp
+
+# 忽略临时文件
+*.tmp
+*.temp
+
+# 忽略依赖和缓存文件
+node_modules
+.cache
+.npmignore
+
+# 忽略上传和下载文件
+.download
+.upload
+
+# 自定义忽略文件和文件夹
+test.py
+test.js
