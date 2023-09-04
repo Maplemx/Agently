@@ -13,7 +13,10 @@ NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/doc/n
 >  👾 Discord群组邀请链接：[https://discord.gg/j9CvXXJG](https://discord.gg/j9CvXXJG)
 >
 >  👥 微信讨论群：加群请加微信号maplemx
+>
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/f46c6530-64a1-4e70-ace4-3d8268cf8992" width="128px" height="128px">
 > 
+
 
 
 ## 快速开始
