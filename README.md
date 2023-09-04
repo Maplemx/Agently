@@ -10,10 +10,13 @@ NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/doc/n
 > 
 >  ⭐️ 如果您觉得这个项目对您有帮助，请给项目加星，感谢您的肯定和支持！
 >
->  👥 微信讨论群二维码：
+>  👾 Discord群组邀请链接：[https://discord.gg/j9CvXXJG](https://discord.gg/j9CvXXJG)
 >
-> <img src="https://github.com/Maplemx/Agently/assets/4413155/8b12252a-6e54-4f2e-8a24-5dc38672040a" width="128px" height="128px">
+>  👥 微信讨论群：加群请加微信号maplemx
+>
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/f46c6530-64a1-4e70-ace4-3d8268cf8992" width="128px" height="128px">
 > 
+
 
 
 ## 快速开始
@@ -86,7 +89,7 @@ def fix_json(json_string, round_count = 0):
             .output("Fixed JSON String only without explanation and decoration.")\
             .start()
         print("Fixed Content:\n", fixed_result, "\n")
-        return fix_json(fixed_result)
+        return fix_json(fixed_result, round_count)
 
 result = fix_json("{'words': ['apple', 'banana', 'carrot', 'dog', 'elephant'], 'sentence': 'I have an apple, a banana, a carrot, a dog, and an elephant.'}")
 print(result)
