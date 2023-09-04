@@ -89,7 +89,7 @@ def fix_json(json_string, round_count = 0):
             .output("Fixed JSON String only without explanation and decoration.")\
             .start()
         print("Fixed Content:\n", fixed_result, "\n")
-        return fix_json(fixed_result)
+        return fix_json(fixed_result, round_count)
 
 result = fix_json("{'words': ['apple', 'banana', 'carrot', 'dog', 'elephant'], 'sentence': 'I have an apple, a banana, a carrot, a dog, and an elephant.'}")
 print(result)
