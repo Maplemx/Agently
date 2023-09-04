@@ -114,6 +114,7 @@ echo ""
 
 # Step 3. 初始化虚拟环境和依赖
 echo -e "${BLUE}[Step 3. 初始化环境]${NC}"
+echo "因为需要创建虚拟环境并安装依赖包，初次使用时本阶段耗时较长，请耐心等待..."
 echo ""
 # 检查虚拟环境目录是否存在，如果不存在则创建
 if [ ! -d "myenv" ]; then
@@ -137,7 +138,7 @@ echo -e "${BLUE}[Step 4. 选择要执行的示例]${NC}"
 echo ""
 
 # 列出目录下所有的.py文件
-files=($(find ./examples -type f -name "*.py"))
+files=($(find ./examples -maxdepth 1 -type f -name "*.py"))
 
 # 如果没有找到.py文件，则退出
 if [ ${#files[@]} -eq 0 ]; then
@@ -169,7 +170,47 @@ done
 echo "[完成]"
 echo ""
 
-# Step 5. 执行指令
+# Step 5. 选择要执行的文件
+echo -e "${BLUE}[Step 5. 选择要加载的Agent蓝图]${NC}"
+echo ""
+
+# 列出目录下所有的.py文件
+blueprints=($(find ./examples/blueprints -type f -name "*.py" -not -name "__init__.py"))
+
+# 如果没有找到.py文件，则退出
+if [ ${#blueprints[@]} -eq 0 ]; then
+    echo "未找到任何.py文件。"
+    exit 1
+fi
+
+# 输出可选的.py文件列表
+echo "==可选的蓝图文件：=="
+for i in "${!blueprints[@]}"; do
+    echo "[$i]: ${blueprints[$i]}"
+done
+
+echo ""
+
+# 引导用户选择一个文件
+while true; do
+    read -p "请输入要执行的示例数字编号： " choice
+
+    # 检查用户输入是否为数字和是否在有效范围内
+    if [[ "$choice" =~ ^[0-9]+$ && "$choice" -ge 0 && "$choice" -lt ${#blueprints[@]} ]]; then
+        blueprint="${blueprints[$choice]}"
+        break
+    else
+        echo "无效的选择，请重新输入。"
+    fi
+done
+
+# 将蓝图名称写入设置
+echo "blueprint='$blueprint'" >> "$SETTINGS_FILE"
+
+echo "[完成]"
+echo ""
+
+# Step 6. 执行指令
 echo ""
 echo -e "${BLUE}[Step 5. 开始执行示例：'${selected_file}' (ctrl + c 可退出对话)]${NC}"
 echo ""
