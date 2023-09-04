@@ -38,6 +38,6 @@ class Blueprint(object):
         return self
 
     def init(self):
-        inject_runtime_ctx_settings(self, "agent")
-        set_default_runtime_ctx(self, "agent")
+        inject_alias(self, "agent")
+        set_default_runtime_ctx(self.runtime_ctx, "agent")
         return
