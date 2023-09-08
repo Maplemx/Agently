@@ -141,7 +141,7 @@ async def request(request_data, listener):
                     return response_message
 
 async def streaming(request_data, listener):
-    return request(request_data, listener)
+    return await request(request_data, listener)
 
 async def handle_response(listener, runtime_ctx, worker_agent):
     is_streaming = runtime_ctx.get("is_streaming")
