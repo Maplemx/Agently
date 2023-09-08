@@ -3,7 +3,7 @@ from .WorkNodes import WorkNodes
 from .Workflows import Workflows
 from .Blueprint import Blueprint
 from .Agent import Agent
-from .work_nodes import init_worker_agent, manage_context, generate_prompt, assemble_request_messages, register_response_handlers, request
+from .work_nodes import init_worker_agent, manage_context, generate_prompt, assemble_request_messages, request
 
 class Agently(object):
     def __init__(self):
@@ -60,14 +60,17 @@ def create_empty():
 def create_worker():
     new_agently = Agently()
     worker_agent_blueprint = new_agently.create_blueprint()
-    worker_agent_blueprint.use([generate_prompt, assemble_request_messages, register_response_handlers, request])
-    worker_agent_blueprint.set_workflow(["generate_prompt", "assemble_request_messages", "register_response_handlers" ,"request"])
-    return new_agently.create_agent(worker_agent_blueprint).create_session()
+    worker_agent_blueprint.use([init_worker_agent, generate_prompt, assemble_request_messages, request])
+    worker_agent_blueprint.set_workflow(["init_worker_agent", "generate_prompt", "assemble_request_messages", "request"])
+    worker_agent = new_agently.create_agent(worker_agent_blueprint)
+    worker_agent.set("is_worker_agent", True)
+    new_agently.set("worker_agent", worker_agent)
+    return worker_agent.create_session()
 
 def create():
     new_agently = Agently()
-    new_agently.use([init_worker_agent, manage_context, generate_prompt, assemble_request_messages, register_response_handlers, request])
-    new_agently.set_workflow(["init_worker_agent", "manage_context", "generate_prompt", "assemble_request_messages", "register_response_handlers", "request"])
+    new_agently.use([init_worker_agent, manage_context, generate_prompt, assemble_request_messages, request])
+    new_agently.set_workflow(["init_worker_agent", "manage_context", "generate_prompt", "assemble_request_messages", "request"])
     worker_agent = create_worker()
     new_agently.set("worker_agent", worker_agent)
     return new_agently

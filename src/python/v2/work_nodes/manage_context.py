@@ -7,7 +7,7 @@ def shorten_context(context_messages, context_length):
         return short_context_messages
     else:
         short_context_messages = short_context_messages[1:]
-        return short_context_messages(short_context_messages, context_length)
+        return shorten_context(short_context_messages, context_length)
 
 def generate_context(runtime_ctx, **kwargs):
     session_runtime_ctx = kwargs["session_runtime_ctx"]

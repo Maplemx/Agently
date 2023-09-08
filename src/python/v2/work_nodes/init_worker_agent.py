@@ -1,7 +1,10 @@
 import asyncio
 async def init_worker_agent(runtime_ctx, **kwargs):
+    is_worker_agent = runtime_ctx.get("is_worker_agent")
     worker_agent = kwargs["worker_agent"]
-    if worker_agent != None:
+    if is_worker_agent:
+        return
+    elif worker_agent != None:
         llm_name = runtime_ctx.get("llm_name")
         llm_url = runtime_ctx.get("llm_url")
         llm_auth = runtime_ctx.get("llm_auth")
@@ -29,7 +32,7 @@ async def init_worker_agent(runtime_ctx, **kwargs):
                 worker_agent.set_proxy(runtime_ctx.get("proxy"))
             if request_options and llm_name in request_options:
                 worker_agent.set_request_options(llm_name, request_options[llm_name])
-    return
+        return
 
 def export(agently):
     agently\

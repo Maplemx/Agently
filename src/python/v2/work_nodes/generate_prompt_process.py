@@ -43,9 +43,15 @@ def transform_to_json_desc(origin, layer_count=0):
 
 def generate_output_format_json(prompt_output):
     return {
+        "TYPE": "可解析的JSON字符串，无需解释",
+        "FORMAT": transform_to_json_desc(prompt_output, 0),
+    }
+    '''
+    return {
         "TYPE": "JSON String can be parsed in Python",
         "FORMAT": transform_to_json_desc(prompt_output, 0)
     }
+    '''
 
 '''
 YAML
@@ -75,10 +81,17 @@ def transform_to_yaml_desc(origin, layer_count=0):
 
 def generate_output_format_yaml(prompt_output):
     return {
+        "TYPE": "可解析的YAML字符串，无需解释，不要包含可能会引起解析混淆的特殊字符",
+        "FORMAT": "```yaml\n" + transform_to_yaml_desc(prompt_output, 0) + "```\n",
+        "复查": "请确保{{FORMAT}}提到的所有字段都输出了",
+    }
+    '''
+    return {
         "TYPE": "YAML, allow_unicode=True, can be parsed in Python by yaml.safe_load() without explanation and decoration.",
         "FORMAT": "```yaml\n" + transform_to_yaml_desc(prompt_output, 0) + "```\n",
         "DOUBLE CHECK": "Make sure every key {{FORMAT}} required is in {{OUTPUT}}"
     }
+    '''
 
 '''
 PROMPT Structure
