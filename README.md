@@ -264,6 +264,27 @@ agent\
     .set_wx_model_name("eb-instant")\#这里输入文档提供的model name
     .set_wx_model_type("chat")#这里输入文档提供的模型类型，chat或者completions，大部分对话模型类型为chat，比如starcoder这样的补全模型类型为completions
 ```
+> 百度千帆大模型的鉴权需要自己生成Access Token，生成方法如下：
+
+```python
+#获取千帆access_token，可复制下面的方法运行，有效期30天，过期后需要重新运行
+async def get_wx_access_token (api_key, secret_key):
+    url = "https://aip.baidubce.com/oauth/2.0/token"
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": api_key,
+        "client_secret": secret_key,
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(\
+            url,\
+            data=data,\
+        ) as response:
+            response = await response.json()
+            return response
+result = asyncio.run(get_wx_access_token("Your-API-Key", "Your-Secret-Key"))
+print(result["access_token"])
+```
 
 </details>
 
