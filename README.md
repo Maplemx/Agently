@@ -190,10 +190,83 @@ There'll be raining 3 hours later.
 目前官方支持的模型名单：
 
 - `GPT`：OpenAI GPT全系列
-- `MiniMax`：MiniMax abab 5/abab 5.5
-- `讯飞星火大模型`：（即将支持）
-- `百度文心一言`：（即将支持）
+- `MiniMax`：MiniMax abab 5 / abab 5.5
+- `讯飞星火大模型`：星火大模型1.5 / 2.0
+- `百度千帆大模型`：百度千帆大模型库（wenxin workshop）
 - _更多可支持模型持续更新中，欢迎[到issues里许愿](https://github.com/Maplemx/Agently/issues)..._
+
+<details>
+    <summary><span style = "font-size:115%; font-weight:bold">展开查看不同模型的配置和鉴权方法</span></summary>
+
+- OpenAI GPT：
+
+```python
+agent\
+	.set_llm_name("GPT")\
+	.set_llm_auth("GPT", "Your-API-Key")\
+	.set_proxy("http://127.0.0.1:7890")\
+	.set_request_options({
+		"model": "gpt-3.5-turbo",#可以更换成你可以使用的其他gpt模型，比如gpt-3.5-16k / gpt-4	
+	})\
+	.set_llm_url("GPT", "You Redirect URL")#如果使用国内服务商提供的代理转发服务，可以在这里设置代理转发的服务器地址
+```
+
+- MiniMax：
+
+```python
+agent\
+	.set_llm_name("MiniMax")\
+	.set_llm_auth("MiniMax", { "group_id": "Your group id", "api_key": "Your api key" })\
+	.set_request_options({
+		"model": "abab5-chat",#支持abab5-chat / abab5.5-chat
+	})
+```
+
+- 讯飞星火大模型
+
+```python
+#星火大模型1.5
+agent\
+    .set_llm_name("Spark")\
+    .set_llm_url("Spark", "wss://spark-api.xf-yun.com/v1.1/chat")\
+    .set("llm_auth", {
+        "Spark": {
+            "app_id": "Your-app-id",
+            "api_secret": "Your-api-secret",
+            "api_key": "Your-api-key",
+        }
+    })
+
+#星火大模型2.0
+agent\
+    .set_llm_name("Spark")\
+    .set_llm_url("Spark", "wss://spark-api.xf-yun.com/v2.1/chat")\
+    .set("llm_auth", {
+        "Spark": {
+            "app_id": "Your-app-id",
+            "api_secret": "Your-api-secret",
+            "api_key": "Your-api-key",
+        }
+    })\
+    .set_request_options("Spark", {
+        "domain": "generalv2"
+    })
+```
+
+- 百度千帆大模型库
+
+```python
+#百度千帆大模型库支持的模型可查看https://cloud.baidu.com/qianfandev/models
+#下面以ERNIE-Bot-turbo为例
+agent\
+    .set_llm_name("wenxin")\
+    .set_llm_auth("wenxin", "Your-Access-Token")\#这个Access Token需要自己生成
+    .set_wx_model_name("eb-instant")\#这里输入文档提供的model name
+    .set_wx_model_type("chat")#这里输入文档提供的模型类型，chat或者completions，大部分对话模型类型为chat，比如starcoder这样的补全模型类型为completions
+```
+
+</details>
+
 
 目前还没有支持到你想要的模型，或者你想使用本地部署的模型，怎么办？
 
