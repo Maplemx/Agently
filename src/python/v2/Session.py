@@ -144,3 +144,6 @@ class Session(object):
         new_loop.stop()
         asyncio.set_event_loop(old_loop)
         return result
+
+    async def async_start(self, workflow_name="default"):
+        return await self.__start(workflow_name=workflow_name)
