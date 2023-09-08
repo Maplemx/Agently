@@ -3,15 +3,7 @@ import Agently
 def get_blueprint():
     agently = Agently.create()
     blueprint = agently.create_blueprint()
-    blueprint.set_workflow([
-        "init_worker_agent",
-        "manage_context",
-        "generate_prompt",
-        "assemble_request_messages",
-        "register_response_handlers",
-        "request"
-    ])
-    blueprint.init()
+    blueprint.init()#通过init将workflow定义的alias加载到蓝图上，不然进行set_role等alias操作时会报错
     blueprint\
         .set("agent_name", "Agently小助手")\
         .use_role(True)\

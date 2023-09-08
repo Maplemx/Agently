@@ -73,10 +73,10 @@ def chatbot():
         # 输出机器人回复
         print(f"{ agent_name }: ", bot_reply)
     
-    # 输出完整对话
-    print("对话记录：")
-    for role, content in conversation:
-        print(role + ": " + content)
+    # 输出完整对话（暂时不需要）
+    #print("对话记录：")
+    #for role, content in conversation:
+    #    print(role + ": " + content)
 
 if __name__ == "__main__":
     chatbot()
