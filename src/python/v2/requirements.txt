@@ -1,2 +1,4 @@
 aiohttp==3.8.5
 PyYAML==6.0.1
+websockets==11.0.3
+python-dotenv==1.0.0
