@@ -137,7 +137,6 @@ async def handle_response(listener, runtime_ctx, worker_agent):
         listener.on("response_done", handle_response_done)
     else:
         async def handle_response_done(done_data):
-            print(done_data)
             done_content = done_data["choices"][0]
             await listener.emit("done_full_data", {
                 "index": done_content["index"],
