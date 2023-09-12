@@ -22,16 +22,6 @@ async def request_main_default(runtime_ctx, **kwargs):
 
     #register all handlers
     await process["handle_response"][llm_name](listener, runtime_ctx, worker_agent)
-
-    reply_handler = runtime_ctx.get("reply_handler")
-    if reply_handler:
-        def update_final_reply(data):
-            runtime_ctx.set("final_reply", reply_handler(data))
-            return
-        listener.on("done", update_final_reply)
-
-    if runtime_ctx.get("is_debug"):
-        listener.on("done_full_data", lambda data: print("[RESPONSE]\n", data))
     
     #then start request    
     if not is_streaming:
@@ -84,10 +74,6 @@ def export(agently):
                 "layer": "session",
                 "alias": { "set": "set_streaming" },
                 "default": False,
-            },
-            "reply_handler": {
-                "layer": "request",
-                "alias": { "set": "reply" },
             },
         })\
         .register()
