@@ -10,14 +10,17 @@ load_dotenv('private_settings')
 llm_name = os.getenv('llm_name')
 group_id = os.getenv('group_id') 
 api_key = os.getenv('api_key')
+app_id = os.getenv('app_id')
+api_secret = os.getenv('api_secret')
+access_token = os.getenv('access_token')
+wx_model_name = os.getenv('wx_model_name')
+wx_model_type = os.getenv('wx_model_type')
 llm_url = os.getenv('llm_url')
 proxy = os.getenv('proxy')
 blueprint_name = os.getenv('blueprint').replace('./examples/blueprints/','').replace('.py','')
-print('已经加载: ', blueprint_name)
 
-if not api_key:
-    print("用户输入的 KEY 为空，请提供有效的 KEY。")
-    sys.exit(1)
+
+print('已经加载: ', blueprint_name)
 
 agently = Agently.create()
 blueprint = blueprints.get_blueprint(blueprint_name)
@@ -28,13 +31,36 @@ agent_name = agent_name if agent_name else "机器人"
 #添加模型相关授权信息
 agent.set_llm_name(llm_name)
 if llm_name == "GPT":
+    if not api_key:
+        print("用户输入的 API-Key 为空，请提供有效的鉴权信息。")
+        sys.exit(1)
     agent.set_llm_auth(llm_name, api_key)
     if llm_url:
         agent.set_llm_url(llm_name, llm_url)
     if proxy:
         agent.set_proxy(proxy)
 elif llm_name == "MiniMax":
+    if not group_id or not api_key:
+        print("用户输入的 Group-id或API-Key 为空，请提供有效的鉴权信息。")
+        sys.exit(1)
     agent.set_llm_auth(llm_name, { "group_id": group_id, "api_key": api_key })
+    if llm_url:
+        agent.set_llm_url(llm_name, llm_url)
+elif llm_name == "Spark":
+    if not api_id or not api_secret or not api_key:
+        print("用户输入的 appid, API-Secret, API-Key 为空，请提供有效的鉴权信息。")
+        sys.exit(1)
+    agent.set_llm_auth(llm_name, { "app_id": app_id, "api_secret": api_secret, "api_key": api_key })
+    if llm_url:
+        agent.set_llm_url(llm_name, llm_url)
+elif llm_name == "wenxin":
+    if not access_token:
+        print("用户输入的 access_token 为空，请提供有效的鉴权信息。")
+        sys.exit(1)
+    agent\
+        .set_llm_auth(llm_name, access_token)\
+        .set_wx_model_name(wx_model_name if wx_model_name != '' else 'qianfan_chinese_llama_2_7b')\
+        .set_wx_model_type(wx_model_type if wx_model_type != '' else 'chat')
     if llm_url:
         agent.set_llm_url(llm_name, llm_url)
 

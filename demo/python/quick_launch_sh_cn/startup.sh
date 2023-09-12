@@ -40,7 +40,7 @@ if [ -f "$SETTINGS_FILE" ]; then
 else
     
     echo "请选择想要使用的模型":
-    models=("GPT" "MiniMax")
+    models=("GPT" "MiniMax" "Spark" "wenxin")
     # 输出可选的模型列表
     for i in "${!models[@]}"; do
         echo "[$i]: ${models[$i]}"
@@ -107,6 +107,53 @@ else
                        exit 1
                    fi
                    ;;
+        "Spark") read -p "请输入 app-id: " app_id
+                 read -p "请输入 api-secret: " api_secret
+                 read -p "请输入 api-key: " api_key
+                 # 将模型名称写入配置文件
+                 echo "llm_name='$selected_model'" >> "$SETTINGS_FILE"
+                 # 检查用户输入的 app-id 是否有值
+                 if [ -n "$app_id" ]; then
+                    # 将 app-id 写入配置文件
+                    echo "app_id='$app_id'" >> "$SETTINGS_FILE"
+                 else
+                    echo "输入的 app-id 为空。"
+                    exit 1
+                 fi
+                 # 检查用户输入的 api-secret 是否有值
+                 if [ -n "$api_secret" ]; then
+                    # 将 api-secret 写入配置文件
+                    echo "api_secret='$api_secret'" >> "$SETTINGS_FILE"
+                 else
+                    echo "输入的 api-secret 为空。"
+                    exit 1
+                 fi
+                 # 检查用户输入的 api-key 是否有值
+                 if [ -n "$api_key" ]; then
+                    # 将 api-key 写入配置文件
+                    echo "api_key='$api_key'" >> "$SETTINGS_FILE"
+                 else
+                    echo "输入的 api-key 为空。"
+                    exit 1
+                 fi
+                 ;;
+        "wenxin") echo "access-token获取方法请参考:https://cloud.baidu.com/doc/WENXINWORKSHOP/s/Rlkkt6kd7"
+                  read -p "请输入 access-token: " access_token
+                  read -p "请输入希望使用的模型库模型（默认为qianfan_chinese_llama_2_7b）: " wx_model_name
+                  read -p "请输入模型类型（chat或completions，默认为chat）: " wx_model_type
+                  # 将模型名称写入配置文件
+                  echo "llm_name='$selected_model'" >> "$SETTINGS_FILE"
+                  echo "wx_model_name='$wx_model_name'" >> "$SETTINGS_FILE"
+                  echo "wx_model_type='$wx_model_type'" >> "$SETTINGS_FILE"
+                  # 检查用户输入的 access-token 是否有值
+                  if [ -n "$access_token" ]; then
+                     # 将 access-token 写入配置文件
+                     echo "access_token='$access_token'" >> "$SETTINGS_FILE"
+                  else
+                     echo "输入的 access-token 为空。"
+                     exit 1
+                  fi
+                  ;;
     esac
 fi
 echo "[完成]"
@@ -128,6 +175,7 @@ source myenv/bin/activate  &> /dev/null
 pip install Agently  &> /dev/null
 pip install pyyaml  &> /dev/null
 pip install aiohttp  &> /dev/null
+pip install websockets &> /dev/null
 pip install python-dotenv  &> /dev/null
 
 echo "[完成]"
