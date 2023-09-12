@@ -81,7 +81,7 @@ async def request(request_data, listener):
             response = json.loads(response)
             if response["base_resp"]["status_code"] != 0:
                 raise Exception(response["base_resp"])
-            await listener.emit("response_done", response)
+            await listener.emit("response:done", response)
             return response
 
 async def streaming(request_data, listener):
@@ -103,9 +103,9 @@ async def streaming(request_data, listener):
                 if chunk[0]:
                     delta = json.loads(chunk[0].decode('utf-8')[6:][:-2])
                     if delta["reply"] == "":
-                        await listener.emit("response_delta", delta)
+                        await listener.emit("response:delta", delta)
                     else:
-                        await listener.emit("response_done", delta)
+                        await listener.emit("response:done", delta)
 
 async def handle_response(listener, runtime_ctx, worker_agent):
     is_streaming = runtime_ctx.get("is_streaming")
@@ -113,17 +113,17 @@ async def handle_response(listener, runtime_ctx, worker_agent):
     if is_streaming:
         async def handle_response_delta(delta_data):
             delta_content = delta_data["choices"][0]
-            if "delta" in delta_content and delta_content["delta"] != "":
-                await listener.emit("delta_full_data", { "delta": { "content": delta_content["delta"] }, "finish_reason": None })
-                await listener.emit("delta", delta_content["delta"])
+            if "extract:delta" in delta_content and delta_content["extract:delta"] != "":
+                await listener.emit("extract:delta_full", { "extract:delta": { "content": delta_content["extract:delta"] }, "finish_reason": None })
+                await listener.emit("extract:delta", delta_content["extract:delta"])
             if "finish_reason" in delta_content:
-                await listener.emit("delta_full_data", { "delta": { "content": "", "finish_reason": delta_content["finish_reason"] } })
+                await listener.emit("extract:delta_full", { "extract:delta": { "content": "", "finish_reason": delta_content["finish_reason"] } })
 
-        listener.on("response_delta", handle_response_delta)
-        await listener.emit("delta_full_data", { "delta": { "role": "assistant", "content": "" }, "finish_reason": None })
+        listener.on("response:delta", handle_response_delta)
+        await listener.emit("extract:delta_full", { "extract:delta": { "role": "assistant", "content": "" }, "finish_reason": None })
 
         async def handle_response_done(done_data):
-            await listener.emit("done_full_data", {
+            await listener.emit("extract:done_full", {
                 "index": done_data["choices"][0]["index"],
                 "message": { "role": "assistant", "content": done_data["reply"] },
                 "finish_reason": done_data["choices"][0]["finish_reason"],
@@ -132,13 +132,13 @@ async def handle_response(listener, runtime_ctx, worker_agent):
             prompt_output_format = runtime_ctx.get("prompt_output_format")
             if prompt_output_format.upper() in ("JSON", "YAML"):
                 content = await loads_and_fix(content, prompt_output_format, worker_agent=worker_agent, is_debug=runtime_ctx.get("is_debug"))
-            await listener.emit("done", content)
+            await listener.emit("extract:done", content)
 
-        listener.on("response_done", handle_response_done)
+        listener.on("response:done", handle_response_done)
     else:
         async def handle_response_done(done_data):
             done_content = done_data["choices"][0]
-            await listener.emit("done_full_data", {
+            await listener.emit("extract:done_full", {
                 "index": done_content["index"],
                 "message": { "role": "assistant", "content": done_content["text"] },
                 "finish_reason": done_content["finish_reason"],
@@ -146,6 +146,6 @@ async def handle_response(listener, runtime_ctx, worker_agent):
             content = done_content["text"]
             prompt_output_format = runtime_ctx.get("prompt_output_format")
             content = await loads_and_fix(content, prompt_output_format, worker_agent=worker_agent, is_debug=runtime_ctx.get("is_debug"))
-            await listener.emit("done", content)
+            await listener.emit("extract:done", content)
 
-        listener.on("response_done", handle_response_done)
+        listener.on("response:done", handle_response_done)

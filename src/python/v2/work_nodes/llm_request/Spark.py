@@ -130,7 +130,7 @@ async def request(request_data, listener):
                 raise Exception("[Request Spark]:", code, data)
             else:
                 choices = data["payload"]["choices"]
-                await listener.emit("response_delta", choices)
+                await listener.emit("response:delta", choices)
                 status = choices["status"]
                 content = choices["text"][0]["content"]        
                 response_message["content"] = response_message["content"] + content
@@ -148,15 +148,15 @@ async def handle_response(listener, runtime_ctx, worker_agent):
     prompt_output_format = runtime_ctx.get("prompt_output_format")
     
     async def handle_response_delta(delta_data):
-        await listener.emit("delta_full_data", delta_data)
-        await listener.emit("delta", delta_data["text"][0]["content"])
+        await listener.emit("extract:delta_full", delta_data)
+        await listener.emit("extract:delta", delta_data["text"][0]["content"])
 
-    listener.on("response_delta", handle_response_delta)
+    listener.on("response:delta", handle_response_delta)
 
     async def handle_response_done(done_data):
-        await listener.emit("done_full_data", done_data)
+        await listener.emit("extract:done_full", done_data)
         prompt_output_format = runtime_ctx.get("prompt_output_format")
         content = await loads_and_fix(done_data["content"], prompt_output_format, worker_agent=worker_agent, is_debug=runtime_ctx.get("is_debug"))
-        await listener.emit("done", content)
+        await listener.emit("extract:done", content)
 
-    listener.on("response_done", handle_response_done)
+    listener.on("response:done", handle_response_done)

@@ -51,7 +51,7 @@ async def request(request_data, listener):
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=data, proxy=proxy) as response:
             response = await response.json()
-            await listener.emit("response_done", response)
+            await listener.emit("response:done", response)
             return response
 
 async def streaming(request_data, listener):
@@ -70,9 +70,9 @@ async def streaming(request_data, listener):
                 if chunk[0]:
                     delta = chunk[0].decode('utf-8')[6:][:-2]
                     if delta != '[DONE]':
-                        await listener.emit("response_delta", json.loads(delta))
+                        await listener.emit("response:delta", json.loads(delta))
                     else:
-                        await listener.emit("response_done", None)
+                        await listener.emit("response:done", None)
 
 async def handle_response(listener, runtime_ctx, worker_agent):
     buffer = {
@@ -82,9 +82,9 @@ async def handle_response(listener, runtime_ctx, worker_agent):
     
     async def handle_response_delta(delta_data):
         delta_content = delta_data["choices"][0]
-        await listener.emit("delta_full_data", delta_content)
+        await listener.emit("extract:delta_full", delta_content)
         if "delta" in delta_content and "content" in delta_content["delta"]:
-            await listener.emit("delta", delta_content["delta"]["content"])
+            await listener.emit("extract:delta", delta_content["delta"]["content"])
         if "delta" in delta_content and delta_content["delta"] != "":
             for key, value in delta_content["delta"].items():
                 value = buffer["message"][key] + value if key in buffer["message"] else value
@@ -93,17 +93,17 @@ async def handle_response(listener, runtime_ctx, worker_agent):
             buffer["finish_reason"] = delta_content["finish_reason"]
         return
 
-    listener.on("response_delta", handle_response_delta)
+    listener.on("response:delta", handle_response_delta)
 
     async def handle_response_done(done_data):
         if done_data != None:
-            await listener.emit("done_full_data", done_data["choices"][0])
+            await listener.emit("extract:done_full", done_data["choices"][0])
             content = done_data["choices"][0]["message"]["content"]
             prompt_output_format = runtime_ctx.get("prompt_output_format")
             content = await loads_and_fix(content, prompt_output_format, worker_agent=worker_agent, is_debug=runtime_ctx.get("is_debug"))
-            await listener.emit("done", content)
+            await listener.emit("extract:done", content)
         else:
-            await listener.emit("done_full_data", buffer)
-            await listener.emit("done", buffer["message"]["content"])
+            await listener.emit("extract:done_full", buffer)
+            await listener.emit("extract:done", buffer["message"]["content"])
 
-    listener.on("response_done", handle_response_done)
+    listener.on("response:done", handle_response_done)

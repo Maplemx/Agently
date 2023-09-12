@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import json
+import uuid
 
 from .loads_and_fix import loads_and_fix
 
@@ -37,7 +38,7 @@ def prepare_request_data(runtime_ctx):
     #default request_data
     request_data = {
         "llm_url": f"https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/{ wx_model_type }/{ wx_model_name }",
-        "data": {},
+        "data": { "user_id": uuid.uuid4() },
     }
     #check auth info
     llm_auth = runtime_ctx.get("llm_auth")
@@ -86,7 +87,7 @@ async def request(request_data, listener):
     async with aiohttp.ClientSession() as session:
         async with session.post(url, headers=headers, json=data, proxy=proxy) as response:
             response = await response.json()
-            await listener.emit("response_done", response)
+            await listener.emit("response:done", response)
             return response
 
 async def streaming(request_data, listener):
@@ -108,9 +109,9 @@ async def streaming(request_data, listener):
                     try:
                         delta = chunk[0].decode('utf-8')[6:][:-2]
                         delta = json.loads(delta)
-                        await listener.emit("response_delta", delta)
+                        await listener.emit("response:delta", delta)
                         if delta["is_end"]:
-                            await listener.emit("response_done", None)
+                            await listener.emit("response:done", None)
                     except Exception as e:
                         print(chunk[0])
                         error = json.loads(chunk[0])
@@ -122,23 +123,23 @@ async def handle_response(listener, runtime_ctx, worker_agent):
         "message": { "role": "assistant", "content": "" },
     }    
     async def handle_response_delta(delta_data):
-        await listener.emit("delta_full_data", delta_data)
+        await listener.emit("extract:delta_full", delta_data)
         if "result" in delta_data:
-            await listener.emit("delta", delta_data["result"])
+            await listener.emit("extract:delta", delta_data["result"])
             buffer["message"]["content"] += delta_data["result"]
         return
 
-    listener.on("response_delta", handle_response_delta)
+    listener.on("response:delta", handle_response_delta)
 
     async def handle_response_done(done_data):
         if done_data != None:
-            await listener.emit("done_full_data", done_data)
+            await listener.emit("extract:done_full", done_data)
             content = done_data["result"]
             prompt_output_format = runtime_ctx.get("prompt_output_format")
             content = await loads_and_fix(content, prompt_output_format, worker_agent=worker_agent, is_debug=runtime_ctx.get("is_debug"))
-            await listener.emit("done", content)
+            await listener.emit("extract:done", content)
         else:
-            await listener.emit("done_full_data", buffer)
-            await listener.emit("done", buffer["message"]["content"])
+            await listener.emit("extract:done_full", buffer)
+            await listener.emit("extract:done", buffer["message"]["content"])
 
-    listener.on("response_done", handle_response_done)
+    listener.on("response:done", handle_response_done)
