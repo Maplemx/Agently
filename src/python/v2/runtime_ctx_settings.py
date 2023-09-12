@@ -4,6 +4,8 @@ def __inject_alias(targetClass, runtime_ctx_name, alias_dict, work_node_name, la
             setattr(targetClass, alias_name, lambda *, runtime_ctx_name=runtime_ctx_name: targetClass.get(runtime_ctx_name, target_runtime_ctx=layer))
         if alias_type == "set":
             setattr(targetClass, alias_name, lambda value, *, runtime_ctx_name=runtime_ctx_name: targetClass.set(runtime_ctx_name, value, target_runtime_ctx=layer))
+        if alias_type == "get_k":
+            setattr(targetClass, alias_name, lambda key, *, runtime_ctx_name=runtime_ctx_name: targetClass.runtime_ctx.get(runtime_ctx_name, target_runtime_ctx=layer)[key])
         if alias_type == "set_kv":
             setattr(targetClass, alias_name, lambda item_key, item_value, *, runtime_ctx_name=runtime_ctx_name: targetClass.set(f"{ runtime_ctx_name }.{ item_key }", item_value, target_runtime_ctx=layer))
         if alias_type == "append":
@@ -21,7 +23,11 @@ def __inject_alias(targetClass, runtime_ctx_name, alias_dict, work_node_name, la
         alias_records = alias_records if alias_records else {}
         if alias_name in alias_records:
             if alias_records[alias_name]["type"] != alias_type or alias_records[alias_name]["runtime_ctx_name"] != runtime_ctx_name:
-                raise AliasConflictException((alias_records[alias_name], alias_record))
+                raise Exception({
+                    "err": "alias conflict",
+                    "alias name": alias_records[alias_name],
+                    "alias record": alias_record,
+                })
         else:
             targetClass.runtime_ctx.update("alias_records", alias_record)
     return
