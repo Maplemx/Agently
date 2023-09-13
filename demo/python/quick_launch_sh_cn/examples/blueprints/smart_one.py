@@ -52,9 +52,10 @@ def get_blueprint():
             .input(question)\
             .output({
                 "reply": ("String",),
-                "user_prefer": [("String", "tag that you want to remember what user prefer.Must use 1 or 2 words per tag.")],
-                "is_close": ("Boolean", "after reply is this topic over or not?"),
-                "next_topic": ("String", "if {{is_close}} is True, reply a sentence to open next topic according")
+                "user_prefer": [("String", "过程中用户表现出的话题偏好，每个偏好不应超过2个单词")],
+                "is_exit": ("Boolean", "用户想要结束对话并离开了吗？"),
+                "is_close": ("Boolean", "本次对话之后，当前的对话话题还能继续聊下去吗？"),                
+                "next_topic": ("String", "如果{{is_close}}为True,根据{{user_prefer}}可能衍生的话题，向用户提一个新的问题; 如果{{is_exit}}为True，首先对用户表示挽留，再向用户提一个daily life或有意思的故事或与{{user_prefer}}相关的问题，让用户有继续聊下去的欲望")
             })\
             .start()
         print("result", result)
@@ -68,9 +69,12 @@ def get_blueprint():
         print("user prefer", agent_runtime_ctx.get("user_prefer"))
 
         #Node 4: feedback
-        reply = result["reply"]
-        if result["is_close"]:
-            reply += '\n' + result["next_topic"]
+        if result["is_exit"]:
+            reply = result["next_topic"]
+        elif result["is_close"]:
+            reply = result["reply"] + '\n' + result["next_topic"]
+        else:
+            reply = result["reply"]
         await listener.emit("done", reply)
 
     blueprint\
