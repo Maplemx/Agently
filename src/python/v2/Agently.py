@@ -3,6 +3,7 @@ from .WorkNodes import WorkNodes
 from .Workflows import Workflows
 from .Blueprint import Blueprint
 from .Agent import Agent
+from .EnvBox import EnvBox
 from .work_nodes import init_worker_agent, manage_context, generate_prompt, assemble_request_messages, register_response_suffix, request
 
 class Agently(object):
@@ -23,6 +24,9 @@ class Agently(object):
 
     def create_agent(self, blueprint = None):
         return Agent(self, blueprint)
+
+    def create_env_box(self):
+        return EnvBox(self)
 
     def set(self, key, value, **kwargs):
         self.runtime_ctx.set(key, value, **kwargs)
