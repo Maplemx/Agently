@@ -516,12 +516,10 @@ It works.
 - `manage_context`：用于管理上下文
 - `generate_prompt`：用于根据.input()/.instruct()/.output()要求构造请求消息prompt
 - `assemble_request_messages`：用于汇总工作流中已经生成的各种信息，构造向LLM发起请求的最终消息列
-- `register_response_handlers`：用于声明和管理处理请求返回消息的各种执行器，将结果解析并确实地进行分发
+- `register_response_suffix`：用于在最终发送给应用开发层的delta和done事件之前，对发送消息内容进行加工
 - `request`：用于向LLM发起请求，针对不同模型的请求适配也在这里管理
 
  ℹ️ 目前Agently框架官方提供的工作流方案清单
-
-- `normal agent`（通过`agently.create_agent()`创建）：
 
 ```python
  [
@@ -529,20 +527,7 @@ It works.
  	"manage_context",
  	"generate_prompt",
  	"assemble_request_messages",
- 	"register_response_handlers",
- 	"request"
- ]
-```
-
-- `worker agent`（通过`agently.create_worker()`创建）：
-
-抛弃了内部的worker agent和上下文管理
-
-```python
- [
- 	"generate_prompt",
- 	"assemble_request_messages",
- 	"register_response_handlers",
+ 	"register_response_suffix",
  	"request"
  ]
 ```
