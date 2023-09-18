@@ -92,7 +92,7 @@ class EnvBox(object):
                     "call": {
                         "type": ("agent | func | null", "output 'agent' or 'func' you want to call if {{next_move_type}} is 'call', else output 'null'"),
                         "name": ("String", "name of agent or func in {{Agent You Can Call}} or {{Func You Can Call}}"),
-                        "parameter": ("String | dict according to {{parameter_requirement}}", "input string you want to ask the agent if {{call.type}} is 'agent'; parameters dict the func required if {{call.type}} is 'func'.")
+                        "parameter": ("String | dict according to {{parameter_requirement}}", "input string you want to tell the agent to do if {{call.type}} is 'agent'; parameters dict the func required if {{call.type}} is 'func'.")
                     },
                     "text": {
                         "type": ("text | reply", "'text' for anwser to {{next_step_plan}} that will storage to {{achievement}}; 'reply' for final reply to {{target}}."),
@@ -106,7 +106,7 @@ class EnvBox(object):
 
             if next_move_judgement["next_move_type"] == "call":
                 if next_move_judgement["call"]["type"] == "agent":
-                    agent_session = self.agents[next_move_judgement["call"]["name"]].create_session()
+                    agent_session = self.agents[next_move_judgement["call"]["name"]]["agent"].create_session()
                     agent_result = agent_session\
                         .input({
                             "achievement": achievement,
