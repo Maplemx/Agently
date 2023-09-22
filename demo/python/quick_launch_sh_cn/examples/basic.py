@@ -46,13 +46,27 @@ elif llm_name == "MiniMax":
     agent.set_llm_auth(llm_name, { "group_id": group_id, "api_key": api_key })
     if llm_url:
         agent.set_llm_url(llm_name, llm_url)
-elif llm_name == "Spark":
+elif llm_name == "Spark1.5":
+    llm_name = "Spark"
+    agent.set_llm_name(llm_name)
     if not app_id or not api_secret or not api_key:
         print("用户输入的 appid, API-Secret, API-Key 为空，请提供有效的鉴权信息。")
         sys.exit(1)
     agent.set_llm_auth(llm_name, { "app_id": app_id, "api_secret": api_secret, "api_key": api_key })
     if llm_url:
         agent.set_llm_url(llm_name, llm_url)
+elif llm_name == "Spark2.0":
+    llm_name = "Spark"
+    agent.set_llm_name(llm_name)
+    if not app_id or not api_secret or not api_key:
+        print("用户输入的 appid, API-Secret, API-Key 为空，请提供有效的鉴权信息。")
+        sys.exit(1)
+    agent.set_llm_auth(llm_name, { "app_id": app_id, "api_secret": api_secret, "api_key": api_key })
+    if llm_url:
+        agent.set_llm_url(llm_name, llm_url)
+    else:
+        agent.set_llm_url(llm_name, "wss://spark-api.xf-yun.com/v2.1/chat")
+    agent.set_request_options("Spark", { "domain": "generalv2" })
 elif llm_name == "wenxin":
     if not access_token:
         print("用户输入的 access_token 为空，请提供有效的鉴权信息。")
