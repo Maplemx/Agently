@@ -137,7 +137,7 @@ async def request(request_data, listener):
                 if status == 2:
                     del choices["text"][0]["content"]
                     response_message.update(choices["text"][0])
-                    await listener.emit('response_done', response_message)       
+                    await listener.emit('response:done', response_message)       
                     return response_message
 
 async def streaming(request_data, listener):
