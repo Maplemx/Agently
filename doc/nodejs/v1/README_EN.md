@@ -83,7 +83,7 @@ const agently = new Agently(
     }
 )
 
-//If you want to use a forwarding API / proxy, you can upate preset here.
+//If you want to use a forwarding API / proxy, you can update preset here.
 //agently.LLM.Manage
     //.name('GPT')
     //.url('Your-Forwarding-API-URL')
