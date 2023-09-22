@@ -47,7 +47,7 @@ elif llm_name == "MiniMax":
     if llm_url:
         agent.set_llm_url(llm_name, llm_url)
 elif llm_name == "Spark":
-    if not api_id or not api_secret or not api_key:
+    if not app_id or not api_secret or not api_key:
         print("用户输入的 appid, API-Secret, API-Key 为空，请提供有效的鉴权信息。")
         sys.exit(1)
     agent.set_llm_auth(llm_name, { "app_id": app_id, "api_secret": api_secret, "api_key": api_key })
