@@ -34,6 +34,7 @@ code_advisor\
 code_content = ''
 
 def save_code(addition_code):
+    global code_content 
     code_content += addition_code + '\n'
 
 env_box = agently.create_env_box()
