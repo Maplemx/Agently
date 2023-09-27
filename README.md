@@ -10,7 +10,7 @@ NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/doc/n
 > 
 >  ⭐️ 如果您觉得这个项目对您有帮助，请给项目加星，感谢您的肯定和支持！
 >
->  👾 Discord群组邀请链接：[https://discord.gg/j9CvXXJG](https://discord.gg/j9CvXXJG)
+>  👾 Discord群组邀请链接：[https://discord.gg/j9CvXXJG](https://discord.gg/ufEk56Rk)
 >
 >  👥 微信讨论群：群二维码如遇过期，加群请加微信号maplemx
 >
