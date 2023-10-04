@@ -10,12 +10,13 @@ NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/doc/n
 > 
 >  ⭐️ 如果您觉得这个项目对您有帮助，请给项目加星，感谢您的肯定和支持！
 >
->  👾 Discord群组邀请链接：[https://discord.gg/j9CvXXJG](https://discord.gg/j9CvXXJG)
+>  👾 Discord群组邀请链接：[https://discord.gg/j9CvXXJG](https://discord.gg/ufEk56Rk)
 >
->  👥 微信讨论群：加群请加微信号maplemx
+>  👥 微信讨论群：群二维码如遇过期，加群请加微信号maplemx
 >
-> <img src="https://github.com/Maplemx/Agently/assets/4413155/578b39ad-3243-484b-8101-e04a5270a8fb" width="128px" height="128px">
+> <img src="https://github.com/Maplemx/Agently/assets/4413155/722c559a-958d-4856-b359-68be269b8153" width="128px" height="128px">
 > 
+
 
 
 
@@ -197,30 +198,36 @@ There'll be raining 3 hours later.
 - _更多可支持模型持续更新中，欢迎[到issues里许愿](https://github.com/Maplemx/Agently/issues)..._
 
 <details>
-    <summary><span style = "font-size:115%; font-weight:bold">展开查看不同模型的配置和鉴权方法</span></summary>
+    <summary><span style = "font-size:115%; font-weight:bold; background: lightyellow">展开查看不同模型的配置和鉴权方法</span></summary>
 
 - OpenAI GPT：
 
 ```python
 agent\
-	.set_llm_name("GPT")\
-	.set_llm_auth("GPT", "Your-API-Key")\
-	.set_proxy("http://127.0.0.1:7890")\
-	.set_request_options({
-		"model": "gpt-3.5-turbo",#可以更换成你可以使用的其他gpt模型，比如gpt-3.5-16k / gpt-4	
-	})\
-	.set_llm_url("GPT", "You Redirect URL")#如果使用国内服务商提供的代理转发服务，可以在这里设置代理转发的服务器地址
+    .set_llm_name("GPT")\
+    .set_llm_auth("GPT", "Your-API-Key")\
+    .set_proxy("http://127.0.0.1:7890")\
+    .set_request_options(
+        "GPT",
+        {
+            "model": "gpt-3.5-turbo",#可以更换成你可以使用的其他gpt模型，比如gpt-3.5-16k / gpt-4	
+        }
+    )\
+    .set_llm_url("GPT", "You Redirect URL")#如果使用国内服务商提供的代理转发服务，可以在这里设置代理转发的服务器地址
 ```
 
 - MiniMax：
 
 ```python
 agent\
-	.set_llm_name("MiniMax")\
-	.set_llm_auth("MiniMax", { "group_id": "Your group id", "api_key": "Your api key" })\
-	.set_request_options({
-		"model": "abab5-chat",#支持abab5-chat / abab5.5-chat
-	})
+    .set_llm_name("MiniMax")\
+    .set_llm_auth("MiniMax", { "group_id": "Your group id", "api_key": "Your api key" })\
+    .set_request_options(
+        "MiniMax",
+        {
+            "model": "abab5.5-chat",#支持abab5-chat / abab5.5-chat
+        }
+    )
 ```
 
 - 讯飞星火大模型
@@ -230,28 +237,33 @@ agent\
 agent\
     .set_llm_name("Spark")\
     .set_llm_url("Spark", "wss://spark-api.xf-yun.com/v1.1/chat")\
-    .set("llm_auth", {
-        "Spark": {
+    .set_llm_auth(
+        "Spark",
+	{
             "app_id": "Your-app-id",
             "api_secret": "Your-api-secret",
             "api_key": "Your-api-key",
         }
-    })
+    )
 
 #星火大模型2.0
 agent\
     .set_llm_name("Spark")\
     .set_llm_url("Spark", "wss://spark-api.xf-yun.com/v2.1/chat")\
-    .set("llm_auth", {
-        "Spark": {
+    .set_llm_auth(
+        "Spark",
+	{
             "app_id": "Your-app-id",
             "api_secret": "Your-api-secret",
             "api_key": "Your-api-key",
         }
-    })\
-    .set_request_options("Spark", {
-        "domain": "generalv2"
-    })
+    )\
+    .set_request_options(
+	"Spark",
+        {
+            "domain": "generalv2"
+        }
+    )
 ```
 
 - 百度千帆大模型库
