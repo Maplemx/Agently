@@ -60,7 +60,8 @@ def generate_prompt(runtime_ctx, **kwargs):
                     prompt_output_format = "JSON"
                     runtime_ctx.set("prompt_output_format", "JSON")
                 else:
-                    prompt_output_format = "TEXT"                
+                    prompt_output_format = "TEXT"
+                    runtime_ctx.set("prompt_output_format", "TEXT")
             request_prompt_dict["OUTPUT REQUIREMENT"] = process["generate_output_format"][prompt_output_format](prompt_output)
         request_prompt = process["generate_prompt_structure"][prompt_style](request_prompt_dict)
         if runtime_ctx.get("is_debug"):

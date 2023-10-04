@@ -120,7 +120,7 @@ def update_process(work_node_management):
             "prompt_output_format": {
                 "layer": "request",
                 "alias": { "set": "format" },
-                "default": "customize",
+                "default": "TEXT",
             },
             "prompt_style": {
                 "layer": "session",
