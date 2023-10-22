@@ -1,6 +1,11 @@
 # Agently 2.0
 
-Python版`v2.0.4`：[中文](https://github.com/Maplemx/Agently/blob/main/README.md)
+> Agently 2.1版本即将发布，因为整体框架设计架构调整的原因，不能保证和2.0版本的应用完全兼容
+>
+> 2.0.5版本为2.0版本的最后稳定版本，如果有需要，可以使用该版本
+> 
+
+Python版`v2.0.5`：[中文](https://github.com/Maplemx/Agently/blob/main/README.md)
 
 NodeJS版`v1.1.3`：[English](https://github.com/Maplemx/Agently/blob/main/doc/nodejs/v1/README_EN.md) | [中文](https://github.com/Maplemx/Agently/blob/main/doc/nodejs/v1/README_CN.md)
 
