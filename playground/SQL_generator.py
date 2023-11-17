@@ -1,11 +1,11 @@
 import Agently
-agent_factory = Agently.AgentFactory(is_debug = True)
+agent_factory = Agently.AgentFactory(is_debug = False)
 
 agent_factory\
     .set_settings("current_model", "OpenAI")\
     .set_settings("model.OpenAI.auth", { "api_key": "Your-API-Key-API-KEY" })\
     .set_settings("model.OpenAI.url", "YOUR-BASE-URL-IF-NEEDED")
-    
+
 agent = agent_factory.create_agent()
 
 meta_data = {
@@ -33,17 +33,32 @@ meta_data = {
     ]
 }
 
-agent\
-    .input({
-        "table_meta": meta_data["table_meta"],
-        "question": "How can I check how many level 4 female customer have ordered in Jun. 2022 and how much money do they spend that month?"
-    })\
-    .instruct([
-        "output SQL to query the database according meta data:{table_meta} that can anwser the question:{question}",
-        "output language: Chinese",
-    ])\
-    .output({
-        "thinkings": ("Array", "Your problem solving thinking step by step"),
-        "SQL": ("String", "final SQL only"),
-    })\
-    .start()
+is_finish = False
+while not is_finish:
+    question = input("请输入您的问题: ")
+    show_thinking = None
+    while str(show_thinking).lower() not in ("y", "n"):
+        show_thinking = input("本次输出是否展现思考过程？[Y/N]: ")
+    show_thinking = False if show_thinking.lower == "n" else True
+    print("[正在生成...]")
+    result = agent\
+        .input({
+            "table_meta": meta_data["table_meta"],
+            "question": question
+        })\
+        .instruct([
+            "output SQL to query the database according meta data:{table_meta} that can anwser the question:{question}",
+            "output language: Chinese",
+        ])\
+        .output({
+            "thinkings": ["String", "Your problem solving thinking step by step"],
+            "SQL": ("String", "final SQL only"),
+        })\
+        .start()
+    if show_thinking:
+        thinking_process = "\n".join(result["thinkings"])
+        print("[思考过程]\n", thinking_process)
+    print("[SQL]\n", result["SQL"])
+    while str(is_finish).lower() not in ("y", "n"):
+        is_finish = input("是否结束？[Y/N]: ")
+    is_finish = False if is_finish.lower() == "n" else True
