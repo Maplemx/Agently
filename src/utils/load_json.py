@@ -69,6 +69,8 @@ def load_json(origin: str, input_dict: any, output_dict: any, request: object, *
         parsed_dict = json.loads(json_string)
         check_structure_result = check_structure(parsed_dict, output_dict)
         if check_structure_result != True:
+            if is_debug:
+                print("[JSON Structure Do Not As Expect] Start Fixing Process...")
             return fix_json_structure(json_string, input_dict, output_dict, request, is_debug = is_debug, errors = check_structure_result)
         else:
             if is_debug:
@@ -76,4 +78,6 @@ def load_json(origin: str, input_dict: any, output_dict: any, request: object, *
                 print("\n--------------------------\n")
             return parsed_dict
     except json.JSONDecodeError as e:
+        if is_debug:
+            print("[JSON Decode Error Occurred] Start Fixing Process...")
         return fix_json_format(json_string, input_dict, output_dict, request, is_debug = is_debug, error = e.msg, position = e.pos)
