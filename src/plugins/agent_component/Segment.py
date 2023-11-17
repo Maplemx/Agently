@@ -66,9 +66,11 @@ class Segment(ComponentABC):
     def _prefix(self):
         if not self.is_enabled() or len(self.segments) == 0:
             return None
-        full_output_prompt = "- [OUTPUT RULE]: output content of each segment MUST START WITH TAG:<!%%={{segment_name}}>\n- [REQUIEMENT]:\n"
+        full_output_prompt = "- [OUTPUT RULE]: all output content of segments MUST START WITH TAG:<!%%={{segment_name}}>\n- [OUTPUT FORMAT]:\n"
+        full_output_prompt += f"NOTICE: Segment Count={ len(self.segments.keys()) }, MUST MAKE SURE OUTPUT {{Segment Count}} PARTS OF SEGMENTS\n```\n"
         for name in self.segments:
             full_output_prompt += f"<!%%={ name }>\n{ to_json_desc(self.segments[name]['prompt']) }\n"
+        full_output_prompt += "```\n(DO NOT OUTPUT\`\`\`)\n"
         self.agent.output(full_output_prompt)
 
     async def _load_json_with_fix(self, origin: str):
