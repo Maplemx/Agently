@@ -47,6 +47,14 @@ Github项目地址：[https://github.com/Maplemx/Agently](https://github.com/Map
 
 ## 面向应用开发者：Agently提供方便快速生成能力强大的Agent实例的能力，让开发者可以便捷地将这些实例与自己的业务代码相结合
 
+### 在开始之前，可以先看看以下示例
+
+#### 示例1：通过Agently 64行代码开发SQL代码生成器 [点击查看具体代码](https://github.com/Maplemx/Agently/blob/main/playground/SQL_generator.py)
+
+https://github.com/Maplemx/Agently/assets/4413155/b7d16592-5fdc-43c0-a14c-f2272c7900da
+
+#### 示例2：通过Agently 163行代码完成可以与人互动创作的故事创作器 [点击查看具体代码](https://github.com/Maplemx/Agently/blob/main/playground/story_maker.py)
+
 ### 直观、清晰、结构化
 
 如下面的代码示例所呈现的，Agently框架构建的Agent，能够为工程开发人员提供丰富的能力接口，用链式表达的方式，让工程开发人员条理清晰地表达自己的诉求，并获得结构化的数据返回结果。
