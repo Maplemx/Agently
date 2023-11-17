@@ -123,18 +123,18 @@ print(result)
 ```
 又例如：通过使用Segment（输出切块）组件，获得将一次请求分块处理的能力，在一次请求中，既获得流式输出的响应速度，又获得数据结构化输出的工程可用性。再结合ReplyReformer（输出结果重构）组件的能力，把最终的输出结果确定下来。
 
-```python
-# 准备一个用户标签存放的变量
+```python# 准备一个用户标签存放的变量
 user_tags = set([])
 
-# 定义thinking阶段需要处理的任务
-def handle_thinking(data):
+# 定义tagging阶段需要处理的任务
+def handle_tagging(data):
     new_user_tags = set(data["user_tags"])
     user_tags.update(new_user_tags)
 
-# 分成两段开始任务
-# 第一段任务thinking在用户不可见的情况下完成问题类型的解析和用户标签的判断
+# 分成三段开始任务
+# 第一段任务thinking在用户不可见的情况下完成问题类型的解析
 # 第二段任务reply在用户可见的情况下进行流式输出，让用户快速看到答案
+# 第三段任务tagging在用户不可见的情况下对刚才的问答进行判断，给用户打标签
 # 然后，通过reform_reply的能力接口，把result结果调整成reply部分的内容
 result = agent\
     .input("能不能用一个程序员能听懂的表达方式，说明一下水蒸蛋的简易做法")\
@@ -145,18 +145,23 @@ result = agent\
                 "专业技术问题 | 生活常识问题 | 闲聊 | 需要执行结果的任务 ",
                 "{{input}}指向的问题类型"
             ),
-            "user_tags": (
-                "Array",
-                "如果我要使用一些标签来描述用户的特征，例如职业、爱好、知识领域等，我应该怎么描述"
-            ),
         },
-        handle_thinking
     )\
     .segment(
         "reply",
         "对用户问题给出的直接回答",
         lambda data: print(data, end=""),
         is_streaming = True
+    )\
+    .segment(
+        "tagging",
+        {
+            "user_tags": (
+                "Array",
+                "如果我要使用一些标签来描述用户的特征，例如职业、爱好、知识领域等，我应该怎么描述"
+            ),
+        },
+        handle_tagging,
     )\
     .reform_reply(
         lambda data: data['reply']['reply']
@@ -177,7 +182,7 @@ print('[Result]', result)
 5. 完成：取出蒸好的水蒸蛋，撒上一些葱花作为装饰即可。可以口感更好的话，可以再加入一些调料，如酱油或番茄酱等。
 
 希望这个简易做法对你有帮助，enjoy your meal！
-[User Tags] {'程序员'}
+[User Tags] {'厨艺', '食谱'}
 [Result] 
 水蒸蛋的简易做法如下：
 1. 准备材料：鸡蛋2个，清水适量，盐适量，葱花适量。
