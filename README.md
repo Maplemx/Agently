@@ -62,8 +62,8 @@ agent_factory = Agently.AgentFactory(is_debug=True)
 
 # 设置工厂的配置项（这些配置项将被工厂生产的所有Agent继承）
 agent_factory\
-    .set_settings("model_settings.auth", { "api_key": GPT_API_KEY })\
-    .set_settings("model_settings.url", GPT_BASE_URL)
+    .set_settings("model.OpenAI.auth", { "api_key": GPT_API_KEY })\
+    .set_settings("model.OpenAI.url", GPT_BASE_URL)
     #.set_proxy("http://127.0.0.1:7890")
 
 # 创建一个Agent实例
@@ -208,8 +208,8 @@ import Agently
 
 agent_factory = Agently.AgentFactory(is_debug=True)
 agent_factory\
-    .set_settings("model_settings.auth", { "api_key": ENV.GPT_API_KEY })\
-    .set_settings("model_settings.url", ENV.GPT_BASE_URL)
+    .set_settings("model.OpenAI.auth", { "api_key": ENV.GPT_API_KEY })\
+    .set_settings("model.OpenAI.url", ENV.GPT_BASE_URL)
 
 agent = agent_factory.create_agent()
 
