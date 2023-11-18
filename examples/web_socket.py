@@ -19,7 +19,7 @@ Client End
 import asyncio
 import Agently
 
-client = Agently.WebSocketClient().create_keep_alive(path="test_agent")
+client = Agently.WebSocketClient().create_keep_alive(path="agent_server")
 result = client\
     .send("alias", { "name": "input", "params": "Give me 7 words" })\
     .send("alias", { "name": "output", "params": [ [("String",)] ] })\
