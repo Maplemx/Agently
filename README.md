@@ -1,5 +1,7 @@
 # Agently 3.0 介绍手册
 
+[English Version](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/main.ipynb)
+
 > 🥷 作者：Maplemx ｜ 📧 Email：maplemx@gmail.com | 💬 微信：moxinapp
 >
 > ⁉️ [如果您发现了BUG，或者有好的点子，请在这里提交](https://github.com/Maplemx/Agently/issues)
