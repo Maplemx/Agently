@@ -26,9 +26,11 @@ Github项目地址：[https://github.com/Maplemx/Agently](https://github.com/Map
 > ⚠️ Agently v1 和 v2 的代码已经迁移到[Legacy仓库](https://github.com/Maplemx/Agently-Legacy)，本仓库将针对v3版本持续维护更新
 
 ---
+
 我们正在准备全新的介绍文档和开发手册，并替换掉当前首页，文档将支持英文和中文
 We're preparing brand new introduce guidebook document and development handbook document
 Current README document will be replaced when they're ready.
+
 ---
 
 <img width="1315" alt="image" src="https://github.com/Maplemx/Agently/assets/4413155/301729ea-8d26-4c40-9689-8e7c12a6ffbd">
