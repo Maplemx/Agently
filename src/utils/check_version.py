@@ -20,7 +20,7 @@ async def check_version_async():
                     tips_type = result["data"]["type"]
                     tips_content = result["data"]["tips"]
                     print("[Agently Version Check]")
-                    print("This check only work 1 time each day in debug model.")
+                    print("This check only works 1 time each day in debug model.")
                     print(f"Current Installed Version: { current_version }")
                     if stable_version:
                         print(f"Stable Version: { stable_version }")
