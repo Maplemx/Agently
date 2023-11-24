@@ -40,7 +40,7 @@ class AgentFactory(object):
         self.settings.set(settings_key, settings_value)
         return self
 
-    def toggle_component(self, component_name, is_enabled):
+    def toggle_component(self, component_name: str, is_enabled: bool):
         self.set_settings(f"component_toggles.{ component_name }", is_enabled)
         return self
 

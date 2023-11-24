@@ -103,6 +103,11 @@ class Agent(object):
         self.agent_runtime_ctx.set("agent_auto_save", is_enabled)
         return self
 
+    def toggle_component(self, component_name: str, is_enabled: bool):
+        self.settings.set(f"component_toggles.{ component_name }", is_enabled)
+        self.refresh_plugins()
+        return self
+
     def save(self):
         self.agent_storage.table("agent_runtime_ctx").update_by_dict(self.agent_runtime_ctx.get()).save()
         return self
