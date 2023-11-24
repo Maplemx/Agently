@@ -9,11 +9,11 @@ class Session(ComponentABC):
         self.recent_chat_history = []
 
     def toggle_auto_save(self, is_enabled: bool):
-        self.agent.settings.set("component_settings.Session.auto_save", is_enabled)
+        self.agent.settings.set("plugin_settings.agent_component.Session.auto_save", is_enabled)
         return self.agent
 
     def set_max_length(self, max_length: int):
-        self.agent.settings.set("component_settings.Session.max_length", 3000)
+        self.agent.settings.set("plugin_settings.agent_component.Session.max_length", 3000)
         return self.agent
 
     def active(self, session_id: str=None):
@@ -30,7 +30,7 @@ class Session(ComponentABC):
         return self.current_session_id
 
     def stop(self):
-        if self.agent.settings.get_trace_back("component_settings.Session.auto_save"):
+        if self.agent.settings.get_trace_back("plugin_settings.agent_component.Session.auto_save"):
             self.agent.agent_storage.table("chat_history").set(self.current_session_id, self.full_chat_history).save()
         self.current_session_id = None
         self.full_chat_history = []
@@ -38,11 +38,45 @@ class Session(ComponentABC):
         return self.agent
 
     def shorten_chat_history(self):
-        if len(str(self.recent_chat_history)) > self.agent.settings.get_trace_back("component_settings.Session.max_length"):
+        if len(str(self.recent_chat_history)) > self.agent.settings.get_trace_back("plugin_settings.agent_component.Session.max_length"):
             self.recent_chat_history = self.recent_chat_history[1:]
             self.shorten_chat_history()
         else:
             return self.agent
+
+    def __find_input(self, input_data: any):
+        if isinstance(input_data, str):
+            return input_data
+        elif isinstance(input_data, dict):
+            if "input" in input_data:
+                return str(input_data["input"])
+            elif "question" in input_data:
+                return str(input_data["question"])
+            elif "target" in input_data:
+                return str(input_data["target"])
+            elif "goal" in input_data:
+                return str(input_data["goal"])
+            else:
+                return str(input_data)
+        else:
+            return str(input_data)
+
+    def __find_reply(self, reply_data: any):
+        if isinstance(reply_data, str):
+            return reply_data
+        elif isinstance(reply_data, dict):
+            if "reply" in reply_data:
+                return str(reply_data["reply"])
+            elif "response" in reply_data:
+                return str(reply_data["response"])
+            elif "anwser" in reply_data:
+                return str(reply_data["anwser"])
+            elif "output" in reply_data:
+                return str(reply_data["output"])
+            else:
+                return str(reply_data)
+        else:
+            return str(reply_data)
 
     def _prefix(self):
         if self.current_session_id != None:
@@ -53,8 +87,8 @@ class Session(ComponentABC):
         if self.current_session_id != None:
             if event == "response:finally":
                 new_chat_history = [
-                    { "role": "user", "content": data["prompt"]["input"] },
-                    { "role": "assistant", "content": data["reply"] }
+                    { "role": "user", "content": self.__find_input(data["prompt"]["input"]) },
+                    { "role": "assistant", "content": self.__find_reply(data["reply"]) }
                 ]
                 self.full_chat_history.extend(new_chat_history)
                 self.recent_chat_history.extend(new_chat_history)
