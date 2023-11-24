@@ -17,9 +17,9 @@ Docs:
 > <img width="180" alt="image" src="https://github.com/Maplemx/Agently/assets/4413155/5fe467bb-e1c4-4550-9eaa-c59dc3221f58">
 > 
 
-目前版本：`3.0.2`
+目前版本：`3.0.3`
 
-安装方法：`pip install Agently==3.0.2`
+安装方法：`pip install Agently==3.0.3`
 
 Github项目地址：[https://github.com/Maplemx/Agently](https://github.com/Maplemx/Agently)
 
