@@ -32,6 +32,11 @@ class Agent(object):
             parent_request_runtime_ctx = self.request_runtime_ctx,
             parent_settings = self.settings,
         )
+        self.worker_request = Request(
+            parent_plugin_manager = self.plugin_manager,
+            parent_request_runtime_ctx = None,
+            parent_settings = self.settings,
+        )
         # Agent Id
         if agent_id == None:
             self.agent_id = IdGenerator("agent").create()
@@ -53,9 +58,8 @@ class Agent(object):
             today = str(datetime.date.today())
             if check_version_record != today:
                 check_version(self.global_storage, today)
-        # Agent Request Early, Prefix & Suffix
-        self.agent_request_early = []
-        self.agent_request_prefix = []
+        # Agent Request Prefix & Suffix
+        self.agent_request_prefix = {}
         self.agent_request_suffix = []
         # Register Default Request Alias to Agent
         self.request._register_default_alias(self.alias_manager)
@@ -63,6 +67,7 @@ class Agent(object):
         self.refresh_plugins()
 
     def refresh_plugins(self):
+        self.alias_manager.empty_alias()
         # Agent Components
         agent_components = self.plugin_manager.get("agent_component")
         component_toggles = self.settings.get_trace_back("component_toggles")
@@ -74,17 +79,11 @@ class Agent(object):
             agent_component_instance = AgentComponentClass(agent = self)
             setattr(self, agent_component_name, agent_component_instance)
             component_export = agent_component_instance.export()
-            # Register export_early, export_prefix, export_suffix
-            if "early" in component_export:
-                if isinstance(component_export["early"], list):
-                    self.agent_request_early.extend(component_export["early"])
-                elif callable(component_export["early"]):
-                    self.agent_request_early.append(component_export["early"])
+            # Register export_prefix, export_suffix
             if "prefix" in component_export:
-                if isinstance(component_export["prefix"], list):
-                    self.agent_request_prefix.extend(component_export["prefix"])
-                elif callable(component_export["prefix"]):
-                    self.agent_request_prefix.append(component_export["prefix"])
+                if callable(component_export["prefix"]):
+                    component_export["prefix"] = [component_export["prefix"]]
+                self.agent_request_prefix.update({ agent_component_name: component_export["prefix"] })
             if "suffix" in component_export:
                 if isinstance(component_export["suffix"], list):
                     self.agent_request_suffix.extend(component_export["suffix"])
@@ -121,35 +120,33 @@ class Agent(object):
         # Auto Save Agent runtime_ctx
         if self.agent_runtime_ctx.get("agent_auto_save") ==  True:
             self.save()
-        # Call Early Func before Prefix Stage (in case of sometimes need to call other alias)
-        for early_func in self.agent_request_early:
-            early_data = await early_func() if asyncio.iscoroutinefunction(early_func) else early_func()
-            if early_data != None:
-                if isinstance(early_data, tuple) and isinstance(early_data[0], str) and early_data[1] != None:
-                    key = early_data[0] if early_data[0].startswith("prompt.") else f"prompt.{ early_data[0] }"
-                    self.request.request_runtime_ctx.update(key, early_data[1])
-                elif isinstance(early_data, dict):
-                    for key, value in early_data.items():
-                        key = key if key.startswith("prompt.") else f"prompt.{ key }"
-                        if value != None:
-                            self.request.request_runtime_ctx.delta(key, value)
-                else:
-                    raise Exception("[Agent Component] Early stage return data error: only accept None or Dict({'<request slot name>': <data append to slot>, ... } or Tuple('request slot name', <data append to slot>)")
         # Call Prefix Funcs to Prepare Prefix Data(From agent_runtime_ctx To request_runtime_ctx)
-        for prefix_func in self.agent_request_prefix:
-            prefix_data = await prefix_func() if asyncio.iscoroutinefunction(prefix_func) else prefix_func()
-            if prefix_data != None:
-                if isinstance(prefix_data, tuple) and isinstance(prefix_data[0], str) and prefix_data[1] != None:
-                    key = prefix_data[0] if prefix_data[0].startswith("prompt.") else f"prompt.{ prefix_data[0] }"
-                    self.request.request_runtime_ctx.update(key, prefix_data[1])
-                elif isinstance(prefix_data, dict):
-                    for key, value in prefix_data.items():
-                        key = key if key.startswith("prompt.") else f"prompt.{ key }"
-                        if value != None:
-                            self.request.request_runtime_ctx.delta(key, value)
-                else:
-                    raise Exception("[Agent Component] Prefix return data error: only accept None or Dict({'<request slot name>': <data append to slot>, ... } or Tuple('request slot name', <data append to slot>)")
+        async def call_prefix_funcs(prefix_funcs):
+            if prefix_funcs != None:
+                for prefix_func in prefix_funcs:
+                    prefix_data = await prefix_func() if asyncio.iscoroutinefunction(prefix_func) else prefix_func()
+                    if prefix_data != None:
+                        if isinstance(prefix_data, tuple) and isinstance(prefix_data[0], str) and prefix_data[1] != None:
+                            key = prefix_data[0] if prefix_data[0].startswith("prompt.") else f"prompt.{ prefix_data[0] }"
+                            self.request.request_runtime_ctx.update(key, prefix_data[1])
+                        elif isinstance(prefix_data, dict):
+                            for key, value in prefix_data.items():
+                                key = key if key.startswith("prompt.") else f"prompt.{ key }"
+                                if value != None:
+                                    self.request.request_runtime_ctx.delta(key, value)
+                        else:
+                            raise Exception("[Agent Component] Prefix return data error: only accept None or Dict({'<request slot name>': <data append to slot>, ... } or Tuple('request slot name', <data append to slot>)")
 
+        prefix_orders = self.settings.get_trace_back("plugin_settings.agent_component.prefix_orders")
+        for agent_component_name in prefix_orders["firstly"]:
+            if agent_component_name in self.agent_request_prefix:
+                await call_prefix_funcs(self.agent_request_prefix[agent_component_name])
+        for agent_component_name in prefix_orders["normally"]:
+            if agent_component_name in self.agent_request_prefix:
+                await call_prefix_funcs(self.agent_request_prefix[agent_component_name])
+        for agent_component_name in prefix_orders["finally"]:
+            if agent_component_name in self.agent_request_prefix:
+                await call_prefix_funcs(self.agent_request_prefix[agent_component_name])      
         # Request
         event_generator = await self.request.get_event_generator(request_type)
     
@@ -192,31 +189,6 @@ class Agent(object):
                 self.request,
                 is_debug = is_debug,
             )
-            '''
-            try:
-                self.request.response_cache["reply"] = json.loads(find_json(self.request.response_cache["reply"]))
-                if is_debug:
-                    print("[Parse JSON to Dict] Done")
-                    print("\n--------------------------\n")
-            except json.JSONDecodeError as e:
-                try:
-                    fixed_result = self.request\
-                        .input({
-                            "target": self.request.response_cache["prompt"]["input"],
-                            "format": to_json_desc(self.request.response_cache["prompt"]["output"]),
-                            "origin JSON String": self.request.response_cache["reply"] ,
-                            "error": e.msg,
-                            "position": e.pos,
-                        })\
-                        .output('Fixed JSON String can be parsed by Python only without explanation and decoration.')\
-                        .start()
-                    self.request.response_cache["reply"] = json.loads(find_json(fixed_result))
-                    if is_debug:
-                        print("[Parse JSON to Dict] Done")
-                        print("\n--------------------------\n")
-                except Exception as e:
-                    raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }")
-            '''
 
         self.request_runtime_ctx.empty()
         return self.request.response_cache["reply"]
