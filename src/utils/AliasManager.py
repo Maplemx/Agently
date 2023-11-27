@@ -19,6 +19,12 @@ class AliasManager(object):
             setattr(self.target, alias_name, _alias_func)
         self.alias_name_list.append(alias_name)
         self.alias_details.update({ alias_name: { "func": alias_func, "return_value": return_value } })
+        return self
+
+    def empty_alias(self):
+        self.alias_name_list = []
+        self.alias_details = {}
+        return self
 
     def get_alias_info(self):
         result = {}
