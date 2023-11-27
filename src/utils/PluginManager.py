@@ -36,6 +36,8 @@ class PluginManager(object):
 
     def get(self, module_name: str, plugin_name: str=None):
         plugins = self.plugins_runtime_ctx.get_trace_back()
+        if plugins == None:
+            plugins = {}
         if module_name not in plugins:
             raise Exception(f"[Plugin Manager] Module '{ module_name }' is not in plugins runtime_ctx.")
         if plugin_name != None:
