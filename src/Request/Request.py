@@ -141,29 +141,6 @@ class Request(object):
                 self,
                 is_debug = is_debug,
             )
-            '''
-            try:
-                self.response_cache["reply"] = json.loads(find_json(self.response_cache["reply"]))
-                if is_debug:
-                    print("[Parse JSON to Dict] Done")
-                    print("\n--------------------------\n")
-            except json.JSONDecodeError as e:
-                try:
-                    fixed_result = self.start\
-                        .input({
-                            "target": self.response_cache["prompt"]["input"],
-                            "format": to_json_desc(self.response_cache["prompt"]["output"]),
-                            "origin JSON String": self.response_cache["reply"],
-                            "error": e.msg,
-                            "position": e.pos,
-                        })\
-                        .output('Fixed JSON String can be parsed by Python only without explanation and decoration.')\
-                        .start()
-                    fixed_result = json.loads(find_json(fixed_result))
-                    return fixed_result
-                except Exception as e:
-                    raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }")
-            '''
         return self.response_cache["reply"]
 
     def get_result(self, request_type: str=None):
