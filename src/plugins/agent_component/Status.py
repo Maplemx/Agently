@@ -41,7 +41,7 @@ class Status(ComponentABC):
         self.status_runtime_ctx.update(status)
         return self.agent
 
-    def _early(self):
+    def _prefix(self):
         agent_status = self.status_runtime_ctx.get()
         if agent_status:
             # get mappings
@@ -62,8 +62,7 @@ class Status(ComponentABC):
         
     def export(self):
         return {
-            "early": self._early,
-            "prefix": None,
+            "prefix": self._prefix,
             "suffix": None,
             "alias": {
                 "set_status": { "func": self.set },
