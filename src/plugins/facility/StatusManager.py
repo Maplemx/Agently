@@ -8,6 +8,10 @@ class StatusManager(FacilityABC):
 
     def set_status_namespace(self, namespace_name: str):
         self.storage = storage.table(f"status_mapping.{ namespace_name }")
+        return 
+
+    def set_mappings(self, status_key: str, status_value: str, alias_list: list):
+        self.storage.update(f"{status_key}.{status_value}", alias_list).save()
         return self
 
     def append_mapping(self, status_key: str, status_value: str, alias_name: str, *args, **kwargs):
