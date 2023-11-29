@@ -1,6 +1,6 @@
 ## **_<font color = "red">Agent</font><font color = "blue">ly</font>_ 3.0 Guidebook**
 
-> How to use: `pip install Agently`
+> How to use: `pip install -U Agently`
 >
 > Github Repo: [https://github.com/Maplemx/Agently](https://github.com/Maplemx/Agently)
 >
@@ -33,7 +33,7 @@
 Install Agently Python Package:
 
 ```shell
-pip install Agently
+pip install -U Agently
 ```
 
 Then we are ready to go!
