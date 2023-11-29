@@ -32,18 +32,10 @@
 
 Install Agently Python Package:
 
-
 ```shell
 pip install Agently
 ```
 
-Install Requiment Packages:
-
-Download [requirements.txt](https://github.com/Maplemx/Agently/blob/main/src/requirements.txt)
-
-```shell
-pip install -r requirements.txt
-```
 Then we are ready to go!
 
 ## What is **_<font color = "red">Agent</font><font color = "blue">ly</font>_** ?
@@ -58,13 +50,12 @@ Click the run button below and witness the magic. It's just that simple:
 
 
 ```python
-from google.colab import userdata
 # Import and Init Settings
 import Agently
 agent = Agently.create_agent()
 agent\
     .set_settings("use_model", "OpenAI")\
-    .set_settings("model.OpenAI.auth", { "api_key": userdata.get("OpenAI.api_key") })
+    .set_settings("model.OpenAI.auth", { "api_key": "" })
 
 # Interact with the agent instance like calling a function
 result = agent\
