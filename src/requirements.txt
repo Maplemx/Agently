@@ -9,3 +9,5 @@ erniebot
 zhipuai
 # Format
 PyYAML
+# Search
+duckduckgo_search
