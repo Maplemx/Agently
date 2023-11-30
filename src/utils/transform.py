@@ -76,6 +76,10 @@ def find_all_jsons(origin: str):
                 layer -= 1
             else:
                 if in_quote:
+                    if char == "\n":
+                        char = "\\n"
+                    elif char == "\t":
+                        char = "\\t"
                     json_blocks[block_num] += char
                 elif char not in (" ", "\t", "\n"):
                     json_blocks[block_num] += char
