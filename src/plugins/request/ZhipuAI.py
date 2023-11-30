@@ -86,13 +86,23 @@ class ZhipuAI(RequestABC):
                 if "NAME" in role_data:
                     options["meta"]["bot_name"] = role_data["NAME"][0]
                     del role_data["NAME"]
+                else:
+                    options["meta"]["bot_name"] = "智能助理"
                 options["meta"]["bot_info"] = to_instruction(role_data)
+            else:
+                options["meta"]["bot_name"] = "智能助理"
+                options["meta"]["bot_info"] = "由[Agently智能体开发框架](Agently.cn)创建的智能助理"
             user_info_data = self.request.request_runtime_ctx.get("prompt.user_info")
             if user_info_data:
                 if "NAME" in user_info_data:
                     options["meta"]["user_name"] = user_info_data["NAME"][0]
                     del user_info_data["NAME"]
+                else:
+                    options["meta"]["user_name"] = "用户"
                 options["meta"]["user_info"] = to_instruction(user_info_data)
+            else:
+                options["meta"]["user_name"] = "用户"
+                options["meta"]["user_info"] = "用户"
             if len(options["meta"].keys()) == 0:
                 del options["meta"]
         if self.request_type == "embedding":
