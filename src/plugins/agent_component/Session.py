@@ -1,4 +1,5 @@
 import uuid
+import yaml
 from .utils import ComponentABC
 
 class Session(ComponentABC):
@@ -57,7 +58,7 @@ class Session(ComponentABC):
             elif "goal" in input_data:
                 return str(input_data["goal"])
             else:
-                return str(input_data)
+                return yaml.dump(input_data, allow_unicode=True, sort_keys=False)
         else:
             return str(input_data)
 
@@ -67,6 +68,8 @@ class Session(ComponentABC):
         elif isinstance(reply_data, dict):
             if "reply" in reply_data:
                 return str(reply_data["reply"])
+            elif "result" in reply_data:
+                return str(reply_data["result"])
             elif "response" in reply_data:
                 return str(reply_data["response"])
             elif "anwser" in reply_data:
@@ -74,7 +77,7 @@ class Session(ComponentABC):
             elif "output" in reply_data:
                 return str(reply_data["output"])
             else:
-                return str(reply_data)
+                return yaml.dump(reply_data, allow_unicode=True, sort_keys=False)
         else:
             return str(reply_data)
 
