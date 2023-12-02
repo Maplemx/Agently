@@ -22,7 +22,7 @@
 
 ### Chat Group & Community
 
-👾 Discord Group: [Click Here to Join](https://discord.gg/AKPhfzzv)
+👾 Discord Group: [Click Here to Join](https://discord.gg/4HnarMBpYT)
 
 💬 WeChat Group: [Click Here to Apply](https://doc.weixin.qq.com/forms/AIoA8gcHAFMASAAiQZQABIeD2vLjuGQef)
 
@@ -54,7 +54,7 @@ Click the run button below and witness the magic. It's just that simple:
 import Agently
 agent = Agently.create_agent()
 agent\
-    .set_settings("use_model", "OpenAI")\
+    .set_settings("current_model", "OpenAI")\
     .set_settings("model.OpenAI.auth", { "api_key": "" })
 
 # Interact with the agent instance like calling a function
