@@ -178,9 +178,7 @@ class Agent(object):
             for response in event_generator:
                 await handle_response(response)
 
-        await call_request_suffix({ "event": "response:finally", "data": self.request.response_cache })
-
-        # Fix JSON if Required
+        # Load JSON and fix if Required
         if self.request.response_cache["type"] == "JSON":
             self.request.response_cache["reply"] = load_json(
                 self.request.response_cache["reply"],
@@ -189,6 +187,8 @@ class Agent(object):
                 self.request,
                 is_debug = is_debug,
             )
+
+        await call_request_suffix({ "event": "response:finally", "data": self.request.response_cache })
 
         self.request_runtime_ctx.empty()
         return self.request.response_cache["reply"]
