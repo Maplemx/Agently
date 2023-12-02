@@ -81,3 +81,7 @@ def load_json(origin: str, input_dict: any, output_dict: any, request: object, *
         if is_debug:
             print("[JSON Decode Error Occurred] Start Fixing Process...")
         return fix_json_format(json_string, input_dict, output_dict, request, is_debug = is_debug, error = e.msg, position = e.pos)
+    except Exception as e:
+        if is_debug:
+            print("[JSON Decode Error Occurred] Start Fixing Process...")
+        return fix_json_structure(origin, input_dict, output_dict, request, is_debug = is_debug, errors = [str(e)])
