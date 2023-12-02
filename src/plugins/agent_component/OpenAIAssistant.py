@@ -50,7 +50,7 @@ class OpenAIAssistant(ComponentABC):
         return self
 
     def append_tool(self, tool_type: str, **kwargs):
-        if { "type": tool_type, **kwargs } not in self.assistant_runtime_ctx.get("tools"):
+        if { "type": tool_type, **kwargs } not in self.assistant_runtime_ctx.get("tools", []):
             self.assistant_runtime_ctx.append("tools", { "type": tool_type, **kwargs })
         return self
 
