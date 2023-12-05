@@ -14,11 +14,25 @@
 
 **Colab Documents:**
 
-[[Introduction Guidebook](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/introduction.ipynb)] | [[Application Development Handbook](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/application_development_handbook.ipynb)] | [Plugin Development Handbook(still working on it)]
+- [Introduction Guidebook](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/introduction.ipynb)
+- [Application Development Handbook](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/application_development_handbook.ipynb)
+- Plugin Development Handbook(still working on it)
 
 **Code Examples:**
 
-[[Demostration Playground](https://github.com/Maplemx/Agently/tree/main/playground)]
+To build agent in many different fields:
+
+- [Agent Instance Help You to Generate SQL from Natural Language according Meta Data of Database](https://github.com/Maplemx/Agently/blob/main/playground/sql_generator.ipynb)
+- [Survey Agent Asks Questions and Collecting Feedback from Customer According Form](https://github.com/Maplemx/Agently/blob/main/playground/survey_agent_asks_questions_according_form.ipynb)
+- [Teacher Agent for Kids with Search Ability](https://github.com/Maplemx/Agently/blob/main/playground/teacher_with_search_ability_for_kids.ipynb)
+
+Or, to call agent instance abilities in code logic to help:
+
+- [Transform Long Text to Question & Answer Pairs](https://github.com/Maplemx/Agently/blob/main/playground/long_text_to_qa_pairs.ipynb)
+- [Human Review and Maybe Step In before Response is Sent to User](https://github.com/Maplemx/Agently/blob/main/playground/human_step_in_before_reply.ipynb)
+- [Simple Example for How to Call Functions](https://github.com/Maplemx/Agently/blob/main/playground/function_calling.py)
+
+Explore More: [Visit Demostration Playground](https://github.com/Maplemx/Agently/tree/main/playground)
 
 ### Chat Group & Community
 
