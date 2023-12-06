@@ -1,12 +1,14 @@
 ## **_<font color = "red">Agent</font><font color = "blue">ly</font>_ 3.0 Guidebook**
 
-> How to use: `pip install -U Agently`
+> 📥 How to use: `pip install -U Agently`
 >
-> Github Repo: [https://github.com/Maplemx/Agently](https://github.com/Maplemx/Agently)
+> 💡 Ideas / Bug Report: [Report Issues Here](https://github.com/Maplemx/Agently/issues)
 >
-> Contact Us: [developer@agently.cn](mailto:developer@agently.cn)
+> 📧 Email Us: [developer@agently.cn](mailto:developer@agently.cn)
 >
-> Ideas / Bug Report: [Report Issues Here](https://github.com/Maplemx/Agently/issues)
+> 👾 Discord Group: [Click Here to Join](https://discord.gg/4HnarMBpYT)
+>
+> 💬 WeChat Group: [Click Here to Apply](https://doc.weixin.qq.com/forms/AIoA8gcHAFMASAAiQZQABIeD2vLjuGQef)
 > 
 > If you like this project, please ⭐️, thanks.
 
@@ -33,14 +35,6 @@ Or, to call agent instance abilities in code logic to help:
 - [Simple Example for How to Call Functions](https://github.com/Maplemx/Agently/blob/main/playground/function_calling.py)
 
 Explore More: [Visit Demostration Playground](https://github.com/Maplemx/Agently/tree/main/playground)
-
-### Chat Group & Community
-
-👾 Discord Group: [Click Here to Join](https://discord.gg/4HnarMBpYT)
-
-💬 WeChat Group: [Click Here to Apply](https://doc.weixin.qq.com/forms/AIoA8gcHAFMASAAiQZQABIeD2vLjuGQef)
-
-
 
 ## Installation & Preparation
 
