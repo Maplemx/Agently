@@ -74,7 +74,7 @@ class Agent(object):
         for agent_component_name, AgentComponentClass in agent_components.items():
             # Skip component_toggles Those Be Toggled Off
             if agent_component_name in component_toggles and component_toggles[agent_component_name] == False:
-                    continue
+                continue
             # Attach Component
             agent_component_instance = AgentComponentClass(agent = self)
             setattr(self, agent_component_name, agent_component_instance)
@@ -137,7 +137,7 @@ class Agent(object):
                         else:
                             raise Exception("[Agent Component] Prefix return data error: only accept None or Dict({'<request slot name>': <data append to slot>, ... } or Tuple('request slot name', <data append to slot>)")
 
-        prefix_orders = self.settings.get_trace_back("plugin_settings.agent_component.prefix_orders")
+        prefix_orders = self.settings.get_trace_back("plugin_settings.agent_component.orders.prefix")
         for agent_component_name in prefix_orders["firstly"]:
             if agent_component_name in self.agent_request_prefix:
                 await call_prefix_funcs(self.agent_request_prefix[agent_component_name])
@@ -171,6 +171,7 @@ class Agent(object):
                     print("[Final Reply]\n", self.request.response_cache["reply"], "\n--------------------------\n")
             await call_request_suffix(response)
 
+        await handle_response({ "event": "response:start", "data": {} })
         if "__aiter__" in dir(event_generator):
             async for response in event_generator:
                 await handle_response(response)
@@ -188,7 +189,7 @@ class Agent(object):
                 is_debug = is_debug,
             )
 
-        await call_request_suffix({ "event": "response:finally", "data": self.request.response_cache })
+        await handle_response({ "event": "response:finally", "data": self.request.response_cache })
 
         self.request_runtime_ctx.empty()
         return self.request.response_cache["reply"]
