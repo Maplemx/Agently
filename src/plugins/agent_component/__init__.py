@@ -21,7 +21,7 @@ def export():
     exception_dirs = set(config["plugins"]["exception_dirs"]) if config_is_not_empty and "exception_dirs" in config["plugins"] else set([])
     exception_dirs.add("utils")
     default_settings = dict(config["default settings"]) if config_is_not_empty and "default settings" in config else None
-    prefix_orders = dict(config["prefix orders"]) if config_is_not_empty and "prefix orders" in config else None
+    orders = dict(config["orders"]) if config_is_not_empty and "orders" in config else None
 
     for item in os.listdir(dir_path):
         # import plugins in .py files
@@ -39,4 +39,4 @@ def export():
             plugin_export = getattr(plugin, "export")()
             plugin_list.append((module_name, plugin_export[0], plugin_export[1]))
 
-    return (plugin_list, default_settings, prefix_orders)
+    return (plugin_list, default_settings, orders)
