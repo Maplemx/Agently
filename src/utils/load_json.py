@@ -1,3 +1,4 @@
+import re
 import json
 from .transform import find_json, to_json_desc
 
@@ -35,7 +36,11 @@ def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: 
             })\
             .output('FIXED JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
             .start()
-        fixed_result = json.loads(find_json(fixed_result))
+        json_string = find_json(fixed_result)
+        if is_debug:
+            print("[Cleaned JSON String]:\n", json_string)
+            print("\n--------------------------\n")
+        fixed_result = json.loads(json_string)
         if is_debug:
             print("[Parse JSON to Dict] Done")
             print("\n--------------------------\n")
@@ -55,7 +60,11 @@ def fix_json_format(origin: str, input_dict: any, output_dict: any, request: obj
             })\
             .output('FIXED JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
             .start()
-        fixed_result = json.loads(find_json(fixed_result))
+        json_string = find_json(fixed_result)
+        if is_debug:
+            print("[Cleaned JSON String]:\n", json_string)
+            print("\n--------------------------\n")
+        fixed_result = json.loads(json_string)
         if is_debug:
             print("[Parse JSON to Dict] Done")
             print("\n--------------------------\n")
@@ -66,6 +75,9 @@ def fix_json_format(origin: str, input_dict: any, output_dict: any, request: obj
 def load_json(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False):
     try:
         json_string = find_json(origin)
+        if is_debug:
+            print("[Cleaned JSON String]:\n", json_string)
+            print("\n--------------------------\n")
         parsed_dict = json.loads(json_string)
         check_structure_result = check_structure(parsed_dict, output_dict)
         if check_structure_result != True:
