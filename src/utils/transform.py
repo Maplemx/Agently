@@ -1,3 +1,4 @@
+import re
 import yaml
 
 def to_instruction(origin):
@@ -35,7 +36,10 @@ def to_json_desc(origin, layer_count = 0):
             json_string += "]"
         return json_string
     elif isinstance(origin, tuple):
-        json_string = f"<{ origin[0] }>,"
+        if isinstance(origin[0], str):
+            json_string = f"<{ origin[0] }>,"
+        else:
+            json_string = f"{ to_json_desc(value, layer_count + 1) },"
         if len(origin) >= 2:
             json_string += f"//{ origin[1] }"
         return json_string
@@ -43,13 +47,21 @@ def to_json_desc(origin, layer_count = 0):
         return str(origin)
 
 def find_all_jsons(origin: str):
+    pattern = r'"""(.*?)"""'
+    origin = re.sub(
+        pattern,
+        lambda match: json.dumps(match.group(1)),
+        origin,
+        flags=re.DOTALL
+    )
+    origin = origin.replace("\"\"\"", "\"")
     stage = 1
     json_blocks = []
     block_num = 0
     layer = 0
     skip_next = False
     in_quote = False
-    for char in origin:
+    for index, char in enumerate(origin):
         if skip_next:
             skip_next = False
             continue
@@ -63,26 +75,27 @@ def find_all_jsons(origin: str):
                 layer += 1
                 continue
         elif stage == 2:
-            if char == "\\":
-                skip_next = True
-                continue
-            if char == "\"":
-                in_quote = not in_quote
-            if char == "[" or char == "{":
+            if not in_quote:
+                if char == "\\":
+                    skip_next = True
+                    continue
+                if char == "\"":
+                    in_quote = True
+                if char == "[" or char == "{":
+                    layer += 1
+                elif char == "]" or char == "}":
+                    layer -= 1
+                elif char in ("\t", " ", "\n"):
+                    char = ""
                 json_blocks[block_num] += char
-                layer += 1
-            elif char == "]" or char == "}":
-                json_blocks[block_num] += char
-                layer -= 1
             else:
-                if in_quote:
-                    if char == "\n":
-                        char = "\\n"
-                    elif char == "\t":
-                        char = "\\t"
-                    json_blocks[block_num] += char
-                elif char not in (" ", "\t", "\n"):
-                    json_blocks[block_num] += char
+                if char == "\n":
+                    char = "\\n"
+                elif char == "\t":
+                    char = "\\t"
+                elif char == "\"":
+                    in_quote = not in_quote
+                json_blocks[block_num] += char
             if layer == 0:
                 block_num += 1
                 stage = 1
