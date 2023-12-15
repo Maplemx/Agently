@@ -1,5 +1,18 @@
-import re
 import yaml
+
+def to_prompt_structure(prompt_dict: dict, layer_count: int=1, end: str=""):
+    prompt = ""
+    for key, content in prompt_dict.items():
+        prompt += f"{ '#' * layer_count } { key }:\n"
+        if isinstance(content, dict):
+            prompt += to_prompt_structure(content, layer_count + 1) + '\n'
+        else:
+            prompt += str(content) + '\n'
+        if layer_count == 1:
+            prompt += "\n"
+    if layer_count == 1:
+        prompt += end
+    return prompt
 
 def to_instruction(origin):
     if origin == None:
@@ -36,12 +49,12 @@ def to_json_desc(origin, layer_count = 0):
             json_string += "]"
         return json_string
     elif isinstance(origin, tuple):
-        if isinstance(origin[0], str):
-            json_string = f"<{ origin[0] }>,"
+        if isinstance(origin[0], (dict, list, set)):
+            json_string = f"\n{ to_json_desc(origin[0], layer_count + 1) },"
         else:
-            json_string = f"{ to_json_desc(value, layer_count + 1) },"
+            json_string = f"<{ str(origin[0]) }>,"
         if len(origin) >= 2:
-            json_string += f"//{ origin[1] }"
+            json_string += f"//{ str(origin[1]) }"
         return json_string
     else:
         return str(origin)
@@ -89,7 +102,10 @@ def find_all_jsons(origin: str):
                     char = ""
                 json_blocks[block_num] += char
             else:
-                if char == "\n":
+                if char == "\\":
+                    char += origin[index + 1]
+                    skip_next = True
+                elif char == "\n":
                     char = "\\n"
                 elif char == "\t":
                     char = "\\t"

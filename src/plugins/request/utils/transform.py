@@ -49,33 +49,77 @@ def to_json_desc(origin, layer_count = 0):
             json_string += "]"
         return json_string
     elif isinstance(origin, tuple):
-        json_string = f"<{ origin[0] }>,"
+        if isinstance(origin[0], (dict, list, set)):
+            json_string = f"\n{ to_json_desc(origin[0], layer_count + 1) },"
+        else:
+            json_string = f"<{ str(origin[0]) }>,"
         if len(origin) >= 2:
-            json_string += f"//{ origin[1] }"
+            json_string += f"//{ str(origin[1]) }"
         return json_string
     else:
         return str(origin)
 
+def find_all_jsons(origin: str):
+    pattern = r'"""(.*?)"""'
+    origin = re.sub(
+        pattern,
+        lambda match: json.dumps(match.group(1)),
+        origin,
+        flags=re.DOTALL
+    )
+    origin = origin.replace("\"\"\"", "\"")
+    stage = 1
+    json_blocks = []
+    block_num = 0
+    layer = 0
+    skip_next = False
+    in_quote = False
+    for index, char in enumerate(origin):
+        if skip_next:
+            skip_next = False
+            continue
+        if stage == 1:
+            if char == "\\":
+                skip_next = True
+                continue
+            if char == "[" or char == "{":
+                json_blocks.append(char)
+                stage = 2
+                layer += 1
+                continue
+        elif stage == 2:
+            if not in_quote:
+                if char == "\\":
+                    skip_next = True
+                    continue
+                if char == "\"":
+                    in_quote = True
+                if char == "[" or char == "{":
+                    layer += 1
+                elif char == "]" or char == "}":
+                    layer -= 1
+                elif char in ("\t", " ", "\n"):
+                    char = ""
+                json_blocks[block_num] += char
+            else:
+                if char == "\\":
+                    char += origin[index + 1]
+                    skip_next = True
+                elif char == "\n":
+                    char = "\\n"
+                elif char == "\t":
+                    char = "\\t"
+                elif char == "\"":
+                    in_quote = not in_quote
+                json_blocks[block_num] += char
+            if layer == 0:
+                block_num += 1
+                stage = 1
+    return json_blocks
+
 def find_json(origin: str):
-    stack = []
-    result = ""
-    found_open_bracket = False
-
-    for char in origin:
-        if char not in ("\t","\n"):
-            if found_open_bracket:
-                result += char
-
-            if char == '{':
-                found_open_bracket = True
-                result += char
-                stack.append(char)
-            elif char == '}':
-                if found_open_bracket:
-                    stack.pop()
-                    if not stack:
-                        break
-
-    if len(result) >= 2 and result[-2] == ",":
-        result = result[:-2] + "}"
-    return result if stack == [] else None
+    result = find_all_jsons(origin)
+    if len(result) > 0:
+        return result[0]
+    else:
+        return None
