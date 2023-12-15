@@ -14,7 +14,7 @@ class Session(ComponentABC):
         return self.agent
 
     def set_max_length(self, max_length: int):
-        self.agent.settings.set("plugin_settings.agent_component.Session.max_length", 3000)
+        self.agent.settings.set("plugin_settings.agent_component.Session.max_length", max_length)
         return self.agent
 
     def active(self, session_id: str=None):
@@ -29,6 +29,10 @@ class Session(ComponentABC):
             self.full_chat_history.extend(full_chat_history)
             self.recent_chat_history.extend(full_chat_history)
         return self.current_session_id
+
+    def save(self):
+        self.agent.agent_storage.table("chat_history").set(self.current_session_id, self.full_chat_history).save()
+        return self.agent
 
     def stop(self):
         if self.agent.settings.get_trace_back("plugin_settings.agent_component.Session.auto_save"):
@@ -102,6 +106,7 @@ class Session(ComponentABC):
             "suffix": self._suffix,
             "alias": {
                 "active_session": { "func": self.active, "return_value": True },
+                "save_session": { "func": self.save },
                 "stop_session": { "func": self.stop },
                 "toggle_session_auto_save": { "func": self.toggle_auto_save },
                 "set_chat_history_max_length": { "func": self.set_max_length },
