@@ -8,7 +8,7 @@ async def check_version_async():
     current_version = importlib.metadata.version("Agently")
     async with aiohttp.ClientSession() as session:
         async with session.get(
-            f"http://agently.tech/meta/api/latest?version={ current_version }",
+            f"http://api.agently.tech/meta/api/latest?version={ current_version }",
             headers = { "Content-Type": "application/json" },
         ) as response:
             try:
