@@ -1,3 +1,4 @@
+import re
 import yaml
 
 def to_prompt_structure(prompt_dict: dict, layer_count: int=1, end: str=""):
@@ -91,7 +92,10 @@ def find_all_jsons(origin: str):
             if not in_quote:
                 if char == "\\":
                     skip_next = True
-                    continue
+                    if origin[index + 1] == "\"":
+                        char = "\""
+                    else:
+                        continue
                 if char == "\"":
                     in_quote = True
                 if char == "[" or char == "{":
