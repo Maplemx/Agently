@@ -10,7 +10,8 @@ You can quickly start your own test using these jupyter document template:
 
 ### Latest Show Cases
 
-- **[How to route user to different agents according different Authorities](https://github.com/Maplemx/Agently/blob/main/playground/routing_to_different_agent_group_for_users_with_different_authorities.ipynb)** `🆕 NEW`
+- **[How to use GOOGLE GEMINI to generate line and choices for NPC in game](https://github.com/Maplemx/Agently/blob/main/playground/NPC_in_game_generate_choices_using_google_gemini.ipynb)** `🆕 NEW`
+- **[How to route user to different agents according different Authorities](https://github.com/Maplemx/Agently/blob/main/playground/routing_to_different_agent_group_for_users_with_different_authorities.ipynb)**
 - **Agently Quick Start Demo Collection** [[飞桨社区合作中文版](https://aistudio.baidu.com/projectdetail/7178289)] `🔥 HOT`
 - **[How to find connectable pairs from data collection of text headers and tails](https://github.com/Maplemx/Agently/blob/main/playground/finding_connectable_pairs_from_text_tailers_and_headers.ipynb)** 
 - **[How to create a LLM powered character that can change behaviors according mood status in chat](https://github.com/Maplemx/Agently/blob/main/playground/character_change_behaviours_according_mood_status.ipynb)**
