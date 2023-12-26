@@ -1,5 +1,5 @@
 from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc
-from openai import OpenAI as OpenAIClient
+from openai import AsyncOpenAI as OpenAIClient
 from Agently.utils import RuntimeCtxNamespace
 import httpx
 import time
@@ -137,14 +137,14 @@ class OpenAI(RequestABC):
                 **options
             }
 
-    def request_assiatant(self, request_data: dict):
+    async def request_assiatant(self, request_data: dict):
         client = self._create_client()
         # create thread
-        thread = client.beta.threads.create(
+        thread = await client.beta.threads.create(
             messages = request_data["messages"]
         )
         # create run
-        run = client.beta.threads.runs.create(
+        run = await client.beta.threads.runs.create(
             thread_id = thread.id,
             assistant_id = self.assistant_id,
             **request_data["options"]
@@ -154,14 +154,14 @@ class OpenAI(RequestABC):
         retrieved_run = None
         while not is_complete:
             time.sleep(1)
-            retrieved_run = client.beta.threads.runs.retrieve(
+            retrieved_run = await client.beta.threads.runs.retrieve(
                 run_id = run.id,
                 thread_id = thread.id,
             )
             if retrieved_run.status in ("completed", "requires_action"):
                 is_complete = True
         # retrieve run step
-        retrieved_run_steps = client.beta.threads.runs.steps.list(
+        retrieved_run_steps = await client.beta.threads.runs.steps.list(
             run_id = run.id,
             thread_id = thread.id,
         )
@@ -172,44 +172,44 @@ class OpenAI(RequestABC):
                 message_id = step.step_details.message_creation.message_id
                 break
         # retrieve message
-        message = client.beta.threads.messages.retrieve(
+        message = await client.beta.threads.messages.retrieve(
             message_id = message_id,
             thread_id = thread.id,
         )
         # finally we get it...
         return message.content[0].text.value
 
-    def request_gpt(self, request_data: dict):
+    async def request_gpt(self, request_data: dict):
         client = self._create_client()
         if self.request.request_runtime_ctx.get("response:type") == "JSON" and request_data["model"] in ("gpt-3.5-turbo-1106", "gpt-4-1106-preview"):
             request_data.update({ "response_format": { "type": "json_object" } })
-        stream = client.chat.completions.create(
+        stream = await client.chat.completions.create(
             **request_data
         )
         return stream
 
-    def request_vision(self, request_data: dict):
+    async def request_vision(self, request_data: dict):
         client = self._create_client()
         request_data["max_tokens"] = 4096
-        stream = client.chat.completions.create(
+        stream = await client.chat.completions.create(
             **request_data
         )
         return stream
 
-    def request_model(self, request_data: dict):
+    async def request_model(self, request_data: dict):
         if self.use_assistant and self.request_type == "chat":
-            return self.request_assiatant(request_data)
+            return await self.request_assiatant(request_data)
         elif self.request_type == "chat":
-            return self.request_gpt(request_data)
+            return await self.request_gpt(request_data)
         elif self.request_type == "vision":
-            return self.request_vision(request_data)
+            return await self.request_vision(request_data)
 
-    def broadcast_response_without_streaming(self, response):
+    async def broadcast_response_without_streaming(self, response):
         yield({ "event": "response:done", "data": response })
 
-    def broadcast_response_with_streaming(self, response_generator):
+    async def broadcast_response_with_streaming(self, response_generator):
         response_message = {}
-        for part in response_generator:
+        async for part in response_generator:
             delta = dict(part.choices[0].delta)
             for key, value in delta.items():
                 if key not in response_message:
@@ -221,7 +221,7 @@ class OpenAI(RequestABC):
         yield({ "event": "response:done_origin", "data": response_message })
         yield({ "event": "response:done", "data": response_message["content"] })
 
-    def broadcast_response(self, response_generator):
+    async def broadcast_response(self, response_generator):
         if self.use_assistant and self.request_type == "chat":
             return self.broadcast_response_without_streaming(response_generator)
         elif self.request_type == "chat":

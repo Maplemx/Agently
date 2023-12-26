@@ -147,16 +147,16 @@ class Ernie(RequestABC):
             }
         return request_data
 
-    def request_model(self, request_data: dict):
+    async def request_model(self, request_data: dict):
         client = self._create_client()
-        response = client.create(**request_data)
+        response = await client.acreate(**request_data)
         return response
 
-    def broadcast_response(self, response_generator):
+    async def broadcast_response(self, response_generator):
         if self.request_type == "chat":
             response_message = {"role": "assistant", "content": ""}
             full_response_message = {}
-            for part in response_generator:
+            async for part in response_generator:
                 full_response_message = dict(part)
                 delta = part["result"]
                 response_message["content"] += delta

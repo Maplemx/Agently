@@ -38,7 +38,9 @@ class Google(RequestABC):
             # make sure start with role "user"
             if chat_history_data[0]["role"] != "user":
                 request_messages.append({ "role": "user", "parts": [{ "text": "[CHAT HISTORY]:" }] })
-            current_role = "model"
+                current_role = "model"
+            else:
+                current_role = "user"
             for message in chat_history_data:
                 if message["role"] != "user":
                     message["role"] = "model"
@@ -92,35 +94,40 @@ class Google(RequestABC):
             "options": options,
         }
 
-    def request_model(self, request_data: dict):
+    async def request_model(self, request_data: dict):
         api_key = self.model_settings.get_trace_back("auth.api_key")
         proxy = self.request.settings.get_trace_back("proxy")
         messages = request_data["messages"]
         options = request_data["options"]
         proxy = self.request.settings.get_trace_back("proxy")
-        request_params = { "data": json.dumps({ "contents": messages, **options }) }
+        request_params = { 
+            "data": json.dumps({ "contents": messages, **options }),
+            "timeout": None,
+        }
         if proxy:
             request_params.update({ "proxies": proxy })
-        return httpx.stream(
-            "POST",
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={ api_key }",
-            **request_params
-        )
+        async with httpx.AsyncClient() as client:
+            async with client.stream(
+                "POST",
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={ api_key }",
+                **request_params
+            ) as response:
+                async for chunk in response.aiter_lines():
+                    yield chunk
 
-    def broadcast_response(self, response_generator):
-        with response_generator as response:
-            full_content = ""
-            buffer = ""
-            for chunk in response.iter_lines():
-                full_content += chunk
-                if '"text": "' in chunk:
-                    content = json.loads(f"{{ {chunk} }}")
-                    yield({ "event": "response:delta", "data": content["text"] })
-                    buffer += content["text"]
-            if buffer == "":
-                raise Exception(f"[Request]Google Gemini Error: { full_content }")
-            yield({ "event": "response:done_origin", "data": json.loads(full_content) })
-            yield({ "event": "response:done", "data": buffer })
+    async def broadcast_response(self, response_generator):
+        full_content = ""
+        buffer = ""
+        async for chunk in response_generator:
+            full_content += chunk
+            if '"text": "' in chunk:
+                content = json.loads(f"{{ {chunk} }}")
+                yield({ "event": "response:delta", "data": content["text"] })
+                buffer += content["text"]
+        if buffer == "":
+            raise Exception(f"[Request]Google Gemini Error: { full_content }")
+        yield({ "event": "response:done_origin", "data": json.loads(full_content) })
+        yield({ "event": "response:done", "data": buffer })
 
     def export(self):
         return {

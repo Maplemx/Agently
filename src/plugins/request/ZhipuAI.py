@@ -113,14 +113,14 @@ class ZhipuAI(RequestABC):
             **options
         } 
 
-    def request_model(self, request_data: dict):
+    async def request_model(self, request_data: dict):
         zhipuai.api_key = self.model_settings.get_trace_back("auth.api_key")
         if self.request_type in ("chat", "character"):
             return zhipuai.model_api.sse_invoke(**request_data)
         else:
             return zhipuai.model_api.invoke(**request_data)
 
-    def broadcast_response(self, response_generator):
+    async def broadcast_response(self, response_generator):
         if self.request_type in ("chat", "character"):
             buffer = ""
             for part in response_generator.events():
@@ -133,7 +133,7 @@ class ZhipuAI(RequestABC):
                     yield({ "event": "response:done", "data": buffer })
                     yield({ "event": "response:done_origin", "data": { "content": buffer, "meta": part.meta } })
         elif self.request_type == "embedding":
-            yield({ "event": "done", "data": response_generator["data"]["embedding"] })
+            yield({ "event": "response:done", "data": response_generator["data"]["embedding"] })
 
     def export(self):
         return {
