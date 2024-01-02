@@ -10,9 +10,13 @@ class Tool(ComponentABC):
         self.settings = RuntimeCtxNamespace("plugin_settings.agent_component.Tool", self.agent.settings)
         self.tool_manager = self.agent.tool_manager
         self.tool_dict = {}
-        self.register_tool = self.tool_manager.register
         self.call_tool_func = self.tool_manager.call_tool_func
         self.set_tool_proxy = self.tool_manager.set_tool_proxy
+
+    def register_tool(self, tool_name: str, desc: any, args: dict, func: callable, *, categories: (str, list) = None, require_proxy: bool=False):
+        self.tool_manager.register(tool_name, desc, args, func, categories=categories, require_proxy=require_proxy)
+        self.tool_dict.update({ tool_name: { "tool_name": tool_name, "desc": desc, "args": args } })
+        return self.agent
 
     def add_public_tools(self, tool_name_list: (str, list)):
         if isinstance(tool_name_list, str):

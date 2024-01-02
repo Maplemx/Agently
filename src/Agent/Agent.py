@@ -67,9 +67,6 @@ class Agent(object):
         self.request._register_default_alias(self.alias_manager)
         # Install Agent Components
         self.refresh_plugins()
-        # Tool Mananger Alias
-        self.register_tool = self.tool_manager.register
-        self.call_tool = self.tool_manager.call_tool_func
 
     def refresh_plugins(self):
         self.alias_manager.empty_alias()
