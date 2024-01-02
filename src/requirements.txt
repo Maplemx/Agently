@@ -9,5 +9,10 @@ erniebot
 zhipuai
 # Format
 PyYAML
-# Search
+# Web
 duckduckgo_search
+newspaper3k
+# Calulate
+numpy
+scipy
+sympy
