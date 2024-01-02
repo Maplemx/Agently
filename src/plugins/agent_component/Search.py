@@ -47,7 +47,7 @@ class Search(ComponentABC):
     def _prefix(self):
         request = self.agent.worker_request
         if self.is_debug:
-            print("[Agent Component] Searching: Start search judging...")
+            print("[Agent Component] Searching: Start search judgement...")
         result = request\
             .input(self.agent.request.request_runtime_ctx.get("prompt")["input"])\
             .output({
