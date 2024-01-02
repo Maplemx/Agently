@@ -71,7 +71,7 @@ class Google(RequestABC):
             if prompt_input_data:
                 prompt_dict["[INPUT]"] = to_instruction(prompt_input_data)
             if prompt_information_data:
-                prompt_dict["[HELPFUL INFORMATION]"] = to_instruction(prompt_information_data)
+                prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_information_data)
             if prompt_instruction_data:
                 prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruction_data)
             if prompt_output_data:
@@ -104,9 +104,7 @@ class Google(RequestABC):
             "data": json.dumps({ "contents": messages, **options }),
             "timeout": None,
         }
-        if proxy:
-            request_params.update({ "proxies": proxy })
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(proxy=proxy) as client:
             async with client.stream(
                 "POST",
                 f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={ api_key }",
