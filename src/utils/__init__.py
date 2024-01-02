@@ -2,6 +2,7 @@ from .RuntimeCtx import RuntimeCtx, RuntimeCtxNamespace
 from .StorageDelegate import StorageDelegate
 from .PluginManager import PluginManager
 from .AliasManager import AliasManager
+from .ToolManager import ToolManager
 from .IdGenerator import IdGenerator
 from .DataOps import DataOps, NamespaceOps
 from .transform import to_json_desc, to_instruction, find_all_jsons, find_json

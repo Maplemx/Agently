@@ -4,7 +4,7 @@ import json
 import importlib
 from Agently.utils import find_json
 
-def install_plugins(plugin_manager, settings):
+def install_plugins(plugin_manager, tool_manager, settings):
     dir_path = os.path.dirname(os.path.abspath(__file__))
     for item in os.listdir(dir_path):
         if os.path.exists(f"{ dir_path }/{ item }/__init__.py"):
@@ -53,11 +53,28 @@ def install_plugins(plugin_manager, settings):
                         if agent_component_name not in ordered_agent_component_list:
                             order_settings["normally"].append(agent_component_name)
                     settings.set(f"plugin_settings.agent_component.orders.{ process_type }", order_settings)
+    for tool_package_name, ToolPackageClass in plugin_manager.plugins_runtime_ctx.get("tool", {}).items():
+        tool_package = ToolPackageClass(tool_manager)
+        for tool_name, tool_info in tool_package.export().items():
+            if "desc" not in tool_info:
+                raise Exception(f"[Plugin] Tool '{ tool_name }' in tool package '{ tool_package_name }' must export key 'desc'.")
+            if "args" not in tool_info or not isinstance(tool_info["args"], dict):
+                raise Exception(f"[Plugin] Tool '{ tool_name }' in tool package '{ tool_package_name }' must export key 'args', set the value as {{}} if need no args.")
+            if "func" not in tool_info or not callable(tool_info["func"]):
+                raise Exception(f"[Plugin] Tool '{ tool_name }' in tool package '{ tool_package_name }' must export key 'func'.")
+            tool_manager.register(
+                tool_name = tool_name,
+                desc = tool_info["desc"],
+                args = tool_info["args"],
+                func = tool_info["func"],
+                require_proxy = tool_info["require_proxy"] if "require_proxy" in tool_info else False,
+                categories = tool_info["categories"] if "categories" in tool_info else None
+            )
 
 def install(Agently):
-    install_plugins(Agently.global_plugin_manager, Agently.global_settings)
+    install_plugins(Agently.global_plugin_manager, Agently.global_tool_manager, Agently.global_settings)
     Agently.facility.refresh_plugins()
 
 def install_to_agent(agent):
-    install_plugins(agent.plugin_manager, agent.settings)
+    install_plugins(agent.plugin_manager, agent.tool_manager, agent.settings)
     agent.refresh_plugins()

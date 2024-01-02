@@ -5,7 +5,7 @@ import threading
 import queue
 from ..Request import Request
 from ..WebSocket import WebSocketServer
-from ..utils import RuntimeCtx, StorageDelegate, PluginManager, AliasManager, IdGenerator, to_json_desc, find_json, check_version, load_json
+from ..utils import RuntimeCtx, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, to_json_desc, find_json, check_version, load_json
 
 class Agent(object):
     def __init__(
@@ -14,6 +14,7 @@ class Agent(object):
         agent_id: str=None,
         auto_save: bool=False,
         parent_agent_runtime_ctx: object,
+        parent_tool_manager: object,
         global_storage: object,
         global_websocket_server: object,
         parent_plugin_manager: object,
@@ -23,6 +24,7 @@ class Agent(object):
         self.global_storage = global_storage
         self.global_websocket_server = global_websocket_server
         self.plugin_manager = PluginManager(parent = parent_plugin_manager)
+        self.tool_manager = ToolManager(parent = parent_tool_manager)
         self.settings = RuntimeCtx(parent = parent_settings)
         self.alias_manager = AliasManager(self)
         self.agent_runtime_ctx = RuntimeCtx(parent = parent_agent_runtime_ctx)
@@ -65,6 +67,9 @@ class Agent(object):
         self.request._register_default_alias(self.alias_manager)
         # Install Agent Components
         self.refresh_plugins()
+        # Tool Mananger Alias
+        self.register_tool = self.tool_manager.register
+        self.call_tool = self.tool_manager.call_tool_func
 
     def refresh_plugins(self):
         self.alias_manager.empty_alias()
