@@ -54,7 +54,7 @@ class ZhipuAI(RequestABC):
             if prompt_input_data:
                 prompt_dict["[输入]"] = to_instruction(prompt_input_data)
             if prompt_information_data:
-                prompt_dict["[补充信息]"] = to_instruction(prompt_information_data)
+                prompt_dict["[补充信息]"] = str(prompt_information_data)
             if prompt_instruction_data:
                 prompt_dict["[处理规则]"] = to_instruction(prompt_instruction_data)
             if prompt_output_data:
