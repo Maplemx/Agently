@@ -26,6 +26,7 @@ def check_structure(origin: any, compare_target: any, position: str=""):
 
 def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, errors = list):
     try:
+        '''
         fixed_result = request\
             .input({
                 "this JSON is mean to do": input_dict,
@@ -34,7 +35,16 @@ def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: 
                 "error": "structure of {error JSON String} is not the same as {except structure}",
                 "error position": errors,
             })\
-            .output('FIXED JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
+            .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
+            .start()
+        '''
+        fixed_result = request\
+            .input({
+                "error JSON String": origin ,
+                "error": "structure of {error JSON String} is not the same as {except structure}",
+                "error position": errors,
+            })\
+            .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
             .start()
         json_string = find_json(fixed_result)
         if is_debug:
@@ -50,15 +60,25 @@ def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: 
 
 def fix_json_format(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, error: str, position: str):
     try:
+        '''
         fixed_result = request\
             .input({
                 "this JSON is mean to do": input_dict,
                 "expect format": to_json_desc(output_dict),
                 "error JSON String": origin ,
                 "error": error,
-                "position": position,
+                "error position": position,
             })\
-            .output('FIXED JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
+            .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
+            .start()
+        '''
+        fixed_result = request\
+            .input({
+                "error JSON String": origin ,
+                "error": error,
+                "error position": position,
+            })\
+            .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
             .start()
         json_string = find_json(fixed_result)
         if is_debug:
@@ -79,6 +99,7 @@ def load_json(origin: str, input_dict: any, output_dict: any, request: object, *
             print("[Cleaned JSON String]:\n", json_string)
             print("\n--------------------------\n")
         parsed_dict = json.loads(json_string)
+        '''
         check_structure_result = check_structure(parsed_dict, output_dict)
         if check_structure_result != True:
             if is_debug:
@@ -89,6 +110,8 @@ def load_json(origin: str, input_dict: any, output_dict: any, request: object, *
                 print("[Parse JSON to Dict] Done")
                 print("\n--------------------------\n")
             return parsed_dict
+        '''
+        return parsed_dict
     except json.JSONDecodeError as e:
         if is_debug:
             print("[JSON Decode Error Occurred] Start Fixing Process...")
