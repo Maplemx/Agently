@@ -99,7 +99,7 @@ class Web(ToolABC):
             "search_info": {
                 "desc": "search information about {keywords}.",
                 "args": {
-                    "keywords": ("String", "keywords to search, seperate keywords by ' '."),
+                    "keywords": ("String", "[*Required]keywords to search, seperate keywords by ' '."),
                     "options": {
                         "timelimit": ("String | Null", "'d': last day; 'w': this week; 'm': this month;")
                     },
@@ -110,7 +110,7 @@ class Web(ToolABC):
             "search_news": {
                 "desc": "search news about {keywords}.",
                 "args": {
-                    "keywords": ("String", "keywords to search, seperate keywords by ' '."),
+                    "keywords": ("String", "[*Required]keywords to search, seperate keywords by ' '."),
                     "options": {
                         "timelimit": ("String | Null", "'d': last day; 'w': this week; 'm': this month;")
                     },
@@ -121,7 +121,7 @@ class Web(ToolABC):
             "search_definition": {
                 "desc": "search definition about {item_name}.",
                 "args": {
-                    "item_name": ("String", "item name to find the definition."),
+                    "item_name": ("String", "[*Required]item name to find the definition."),
                 },
                 "func": self.search_definition,
                 "require_proxy": True,
@@ -129,7 +129,7 @@ class Web(ToolABC):
             "browse": {
                 "desc": "Browse web page by url.",
                 "args": {
-                    "url": ("String", "url to browse.")
+                    "url": ("String", "[*Required]url to browse.")
                 },
                 "func": self.browse,
                 "require_proxy": True,
