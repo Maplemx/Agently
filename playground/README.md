@@ -10,7 +10,7 @@ You can quickly start your own test using these jupyter document template:
 
 ### Latest Show Cases
 
-- **[How to let your agents use tools to enhance themselves?](https://github.com/Maplemx/Agently/blob/main/playground/using_tools_to_enhance_your_agent.ipynb) `🆕 NEW` `💪 New Feature in v3.1`
+- **[How to let your agents use tools to enhance themselves?](https://github.com/Maplemx/Agently/blob/main/playground/using_tools_to_enhance_your_agent.ipynb)** `🆕 NEW` `💪 New Feature in v3.1`
 - **[How to use AsyncIO and Agently to Manage Complex Process with Concurrency and Asynchronous Dependencies](https://github.com/Maplemx/Agently/blob/main/playground/concurrency_and_asynchornous_dependency.ipynb)**
 - **[Prediction according Given Data Set: GPT-3.5-turbo-1106 vs Gemini Pro](https://github.com/Maplemx/Agently/blob/main/playground/predict_data_according_given_data_set.ipynb)** 
 - **[How to use GOOGLE GEMINI to generate line and choices for NPC in game](https://github.com/Maplemx/Agently/blob/main/playground/NPC_in_game_generate_choices_using_google_gemini.ipynb)**
