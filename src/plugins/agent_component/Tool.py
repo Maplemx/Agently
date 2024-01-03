@@ -10,6 +10,7 @@ class Tool(ComponentABC):
         self.settings = RuntimeCtxNamespace("plugin_settings.agent_component.Tool", self.agent.settings)
         self.tool_manager = self.agent.tool_manager
         self.tool_dict = {}
+        self.must_call_tool_info = None
         self.call_tool_func = self.tool_manager.call_tool_func
         self.set_tool_proxy = self.tool_manager.set_tool_proxy
 
@@ -41,68 +42,105 @@ class Tool(ComponentABC):
             self.tool_dict.update({ key: value })
         return self.agent
 
-    def _prefix(self):
-        if len(self.tool_dict.keys()) > 0:
-            if self.is_debug:
-                print("[Agent Component] Using Tools: Start tool using judgement...")
-            tool_list = []
-            for tool_name, tool_info in self.tool_dict.items():
-                tool_list.append(tool_info)
-            result = (
-                self.agent.worker_request
-                    .input({
-                        "target": self.agent.request.request_runtime_ctx.get("prompt")
-                    })
-                    .info("current date", datetime.now().date())
-                    .info("tools", json.dumps(tool_list))
-                    .instruct("make plans to achieve {input.target}.\n * if use search tool, choose ONLY ONE SEARCH TOOL THAT FIT MOST.")
-                    .output({
-                        "plans": [{
-                            "step_goal": ("String", "brief goal of this step"),
-                            "using_tool": (
-                                {
-                                    "tool_name": ("String", "{tool_name} from {tools}"),
-                                    "args": ("according {args} requirement in {tools}", ),
-                                },
-                                "output Null if do not need to use tool"
-                            ),
-                        }],
-                    })
-                    .start()
-            )
-            tool_results = {}
-            for step in result["plans"]:
-                if "using_tool" in step and isinstance(step["using_tool"], dict) and "tool_name" in step["using_tool"]:
-                    if self.is_debug:
-                        print("[Using Tool]: ", step["using_tool"])
-                    tool_info = self.tool_manager.get_tool_info(step["using_tool"]["tool_name"], full=True)
-                    if tool_info:
-                        tool_kwrags = step["using_tool"]["args"] if "args" in step["using_tool"] and isinstance(step["using_tool"]["args"], dict) else {}
-                        if tool_info["require_proxy"]:
-                            proxy = self.agent.settings.get_trace_back("proxy")
-                            if proxy == None:
-                                proxy = self.agent.tool_manager.get_tool_proxy()
-                            if proxy:
-                                tool_kwrags.update({ "proxy": proxy })
-                        call_result = None
-                        try:
-                            call_result = self.call_tool_func(
-                                tool_info["tool_name"],
-                                **tool_kwrags
-                            )
-                        except Exception as e:
-                            if self.is_debug:
-                                print("[Tool Error]: ", e)
-                        if call_result:
-                            info_key = json.dumps(step["step_goal"])
-                            info_value = call_result["for_agent"] if isinstance(call_result, dict) and "for_agent" in call_result else call_result
-                            tool_results[info_key] = info_value
-                            if self.is_debug:
-                                print("[Result]: ", info_key, info_value)
-                    else:
+    def must_call(self, tool_name: str):
+        tool_info = self.tool_manager.get_tool_info(tool_name, full=True)
+        if tool_info:
+            self.must_call_tool_info = tool_info
+        else:
+            raise Exception(f"[Agent Component] Tool-must call: can not find tool named '{ tool_name }'.")
+
+    def call_plan_func(self, tool):
+        if self.is_debug:
+            print("[Agent Component] Using Tools: Start tool using judgement...")
+        tool_list = []
+        for tool_name, tool_info in self.tool_dict.items():
+            tool_list.append(tool_info)
+        result = (
+            self.agent.worker_request
+                .input({
+                    "target": self.agent.request.request_runtime_ctx.get("prompt")
+                })
+                .info("current date", datetime.now().date())
+                .info("tools", json.dumps(tool_list))
+                .instruct("make plans to achieve {input.target}.\n * if use search tool, choose ONLY ONE SEARCH TOOL THAT FIT MOST.")
+                .output({
+                    "plans": [{
+                        "step_goal": ("String", "brief goal of this step"),
+                        "using_tool": (
+                            {
+                                "tool_name": ("String", "{tool_name} from {tools}"),
+                                "args": ("according {args} requirement in {tools}", ),
+                            },
+                            "output Null if do not need to use tool"
+                        ),
+                    }],
+                })
+                .start()
+        )
+        tool_results = {}
+        for step in result["plans"]:
+            if "using_tool" in step and isinstance(step["using_tool"], dict) and "tool_name" in step["using_tool"]:
+                if self.is_debug:
+                    print("[Using Tool]: ", step["using_tool"])
+                tool_info = self.tool_manager.get_tool_info(step["using_tool"]["tool_name"], full=True)
+                if tool_info:
+                    tool_kwrags = step["using_tool"]["args"] if "args" in step["using_tool"] and isinstance(step["using_tool"]["args"], dict) else {}
+                    if tool_info["require_proxy"]:
+                        proxy = self.agent.settings.get_trace_back("proxy")
+                        if proxy == None:
+                            proxy = self.agent.tool_manager.get_tool_proxy()
+                        if proxy:
+                            tool_kwrags.update({ "proxy": proxy })
+                    call_result = None
+                    try:
+                        call_result = self.call_tool_func(
+                            tool_info["tool_name"],
+                            **tool_kwrags
+                        )
+                    except Exception as e:
                         if self.is_debug:
-                            print(f"[Result]: Can not find tool '{ step['using_tool']['tool_name'] }'")
-            if len(tool_results.keys()) > 0:
+                            print("[Tool Error]: ", e)
+                    if call_result:
+                        info_key = json.dumps(step["step_goal"])
+                        info_value = call_result["for_agent"] if isinstance(call_result, dict) and "for_agent" in call_result else call_result
+                        tool_results[info_key] = info_value
+                        if self.is_debug:
+                            print("[Result]: ", info_key, info_value)
+                else:
+                    if self.is_debug:
+                        print(f"[Result]: Can not find tool '{ step['using_tool']['tool_name'] }'")
+        if len(tool_results.keys()) > 0:
+            return tool_results
+        else:
+            return None
+
+    def customize_call_plan(self, call_plan_func: callable):
+        self.call_plan_func = call_plan_func
+        return self.agent
+
+    def _prefix(self):
+        if self.must_call_tool_info:
+            if self.is_debug:
+                print(f"[Agent Component] Using Tools: Must call '{ self.must_call_tool_info['tool_name'] }'")
+            self.agent.request.request_runtime_ctx.remove("prompt.instruct")
+            self.agent.request.request_runtime_ctx.remove("prompt.output")
+            return {
+                "information": {
+                    "function_must_call": {
+                        "tool_name": self.must_call_tool_info["tool_name"],
+                        "desc": self.must_call_tool_info["desc"],
+                        "args": self.must_call_tool_info["args"],
+                    },
+                },
+                "output": {
+                    "can_call": ("Boolean", "all information above enough to generate all arguments in {function_must_call.args}?"),
+                    "args": ("generate args dict according {function_must_call.args} requirement, leave argument value as null if you don't have enough information."),                    
+                    "question": ("String", "if {can_call}==false, output question for user to collecting enough information."),
+                }
+            }
+        elif len(self.tool_dict.keys()) > 0:
+            tool_results = self.call_plan_func(self)
+            if tool_results and len(tool_results.keys()) > 0:
                 return {
                     "information": tool_results
                 }
@@ -120,8 +158,13 @@ class Tool(ComponentABC):
                 "call_tool": { "func": self.call_tool_func },
                 "set_tool_proxy": { "func": self.set_tool_proxy },
                 "add_public_tools": { "func": self.add_public_tools },
+                "use_public_tools": { "func": self.add_public_tools },
                 "add_public_categories": { "func": self.add_public_categories },
-                "add_all_public_tools": { "func": self.add_all_public_tools }
+                "use_public_categories": { "func": self.add_public_categories },
+                "add_all_public_tools": { "func": self.add_all_public_tools },
+                "use_all_public_tools": { "func": self.add_all_public_tools },
+                "must_call": { "func": self.must_call },
+                "customize_call_plan": { "func": self.customize_call_plan },
             }
         }
 
