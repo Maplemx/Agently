@@ -28,7 +28,7 @@ class NamespaceOps(object):
 
 
     def set(self, keys_with_dots: any, value: any=None):
-        if not value:
+        if value == None:
             self.data_ops.set(self.namespace_name, keys_with_dots)
         else:
             self.data_ops.set(f"{ self.namespace_name }.{ keys_with_dots }", value)
@@ -42,21 +42,21 @@ class NamespaceOps(object):
             self.append(keys_with_dots, value)
 
     def append(self, keys_with_dots: any, value: any=None):
-        if not value:
+        if value == None:
             self.data_ops.append(self.namespace_name, keys_with_dots)
         else:
             self.data_ops.append(f"{ self.namespace_name }.{ keys_with_dots }", value)
         return self.return_to
 
     def extend(self, keys_with_dots: any, value: any=None):
-        if not value:
+        if value == None:
             self.data_ops.extend(self.namespace_name, keys_with_dots)
         else:
             self.data_ops.extend(f"{ self.namespace_name }.{ keys_with_dots }", value)
         return self.return_to
 
     def update(self, keys_with_dots: any, value: any=None):
-        if not value:
+        if value == None:
             self.data_ops.update(self.namespace_name, keys_with_dots)
         else:
             self.data_ops.update(f"{ self.namespace_name }.{ keys_with_dots }", value)
@@ -100,7 +100,10 @@ class DataOps(object):
             for k, v in value.items():
                 self.delta(f"{ keys_with_dots }.{ k }", v)
         else:
-            self.append(keys_with_dots, value)
+            if self.get(keys_with_dots):
+                self.append(keys_with_dots, value)
+            else:
+                self.set(keys_with_dots, value)
 
     def append(self, keys_with_dots: str, value: any):
         pointer, key = self.__locate_pointer(keys_with_dots)
