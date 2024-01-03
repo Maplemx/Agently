@@ -112,7 +112,7 @@ class OpenAI(RequestABC):
                 self.assistant_id = assistant_id
             options = self.model_settings.get_trace_back("options", {})
             if "model" not in options:
-                options.update({ "model": "gpt-3.5-turbo" })
+                options.update({ "model": "gpt-3.5-turbo-1106" })
             return {
                 "stream": True,
                 "messages": self.construct_request_messages(),
@@ -121,7 +121,7 @@ class OpenAI(RequestABC):
         elif self.request_type == "chat":
             options = self.model_settings.get_trace_back("options", {})
             if "model" not in options:
-                options.update({ "model": "gpt-3.5-turbo" })
+                options.update({ "model": "gpt-3.5-turbo-1106" })
             return {
                 "stream": True,
                 "messages": self.construct_request_messages(),
