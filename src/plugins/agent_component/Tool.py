@@ -19,6 +19,14 @@ class Tool(ComponentABC):
         self.tool_dict.update({ tool_name: { "tool_name": tool_name, "desc": desc, "args": args } })
         return self.agent
 
+    def stop_tools(self, tool_name_list: (str, list)):
+        if isinstance(tool_name_list, str):
+            tool_name_list = [tool_name_list]
+        for tool_name in tool_name_list:
+            if tool_name in self.tool_dict:
+                del self.tool_dict[tool_name]
+        return self.agent
+
     def add_public_tools(self, tool_name_list: (str, list)):
         if isinstance(tool_name_list, str):
             tool_name_list = [tool_name_list]
