@@ -5,14 +5,15 @@ from .utils import StorageABC
 class FileStorage(StorageABC):
     def __init__(self, db_name: str="default"):
         self.db_name = db_name
-        if not os.path.exists("./file_storage"):
-            os.mkdir("./file_storage")
+        self.path = "./file_storage"
+        if not os.path.exists(self.path):
+            os.mkdir(self.path)
 
     def __load_from_file(self, table_name: str):
-        if not os.path.exists(f"./file_storage/{ self.db_name }/{ table_name }.data"):
+        if not os.path.exists(f"{ self.path }/{ self.db_name }/{ table_name }.data"):
             return {}
         else:
-            with open(f"./file_storage/{ self.db_name }/{ table_name }.data", "r") as file:
+            with open(f"{ self.path }/{ self.db_name }/{ table_name }.data", "r") as file:
                 try:
                     result = json.loads(file.read())
                     return result
@@ -23,11 +24,11 @@ class FileStorage(StorageABC):
                     return {}
 
     def __save_to_file(self, table_name: str, value: any):        
-        if not os.path.exists(f"./file_storage/{ self.db_name }"):
-            os.mkdir(f"./file_storage/{ self.db_name }")
+        if not os.path.exists(f"{ self.path }/{ self.db_name }"):
+            os.mkdir(f"{ self.path }/{ self.db_name }")
         if not isinstance(value, str):
             value = json.dumps(value)
-        with open(f"./file_storage/{ self.db_name }/{ table_name }.data", "w") as file:
+        with open(f"{ self.path }/{ self.db_name }/{ table_name }.data", "w") as file:
             file.write(value)
             return True
 
