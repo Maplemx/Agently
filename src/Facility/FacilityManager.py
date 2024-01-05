@@ -15,7 +15,7 @@ class FacilityManager(object):
     def refresh_plugins(self):
         facilities = self.plugin_manager.get("facility")
         for facility_name, FacilityPluginClass in facilities.items():
-            setattr(self, facility_name, FacilityPluginClass(storage = self.storage, plugin_manager = self.plugin_manager, settings = RuntimeCtxNamespace(facility_name, self.settings)))
+            setattr(self, facility_name, FacilityPluginClass(storage = self.storage, plugin_manager = self.plugin_manager, settings = self.settings))
 
     def set_settings(self, settings_key: str, settings_value: any):
         self.settings.set(settings_key, settings_value)
