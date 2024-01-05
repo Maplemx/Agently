@@ -9,3 +9,5 @@ def create_agent(*args, **kwargs):
     return AgentFactory().create_agent(*args, **kwargs)
 
 facility = FacilityManager()
+
+set_settings = global_settings.set
