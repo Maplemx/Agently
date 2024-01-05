@@ -69,7 +69,7 @@ def find_all_jsons(origin: str):
         origin,
         flags=re.DOTALL
     )
-    origin = origin.replace("\"\"\"", "\"")
+    origin = origin.replace("\"\"\"", "\"").replace("[OUTPUT]", "$<<OUTPUT>>")
     stage = 1
     json_blocks = []
     block_num = 0
@@ -118,6 +118,7 @@ def find_all_jsons(origin: str):
                     in_quote = not in_quote
                 json_blocks[block_num] += char
             if layer == 0:
+                json_blocks[block_num] = json_blocks[block_num].replace("$<<OUTPUT>>", "[OUTPUT]")
                 block_num += 1
                 stage = 1
     return json_blocks
