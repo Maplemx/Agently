@@ -3,6 +3,7 @@ import json
 import asyncio
 import threading
 import queue
+import inspect
 from ..Request import Request
 from ..WebSocket import WebSocketServer
 from ..utils import RuntimeCtx, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, to_json_desc, find_json, check_version, load_json
@@ -207,6 +208,28 @@ class Agent(object):
         theard.join()        
         reply = reply_queue.get_nowait()
         return reply
+
+    def auto_func(self, func: callable):
+        def wrapper(*args, **kwargs):
+            # generate input dict
+            signature = inspect.signature(func)
+            arguments = signature.bind(*args, **kwargs)
+            arguments.apply_defaults()
+            input_dict = {}
+            for param in signature.parameters:
+                input_dict.update({ param: arguments.arguments[param] })
+            # generate instruction
+            instruction = inspect.getdoc(func)
+            # generate output dict
+            output_dict = signature.return_annotation
+            return (
+                self
+                    .input(input_dict)
+                    .instruct(instruction)
+                    .output(output_dict)
+                    .start()
+            )
+        return wrapper
 
     def start_websocket_server(self, port:int=15365):
         is_debug = self.settings.get_trace_back("is_debug")
