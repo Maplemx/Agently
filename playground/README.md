@@ -2,6 +2,10 @@
 
 We'll present latest Agently framework powered application showcases here and you're more than welcome to share your showcases with us. [[Share You Case Here](https://github.com/Maplemx/Agently/issues/new)]
 
+### Read Development Handbook
+
+[[Agently 3.0 Application Development Handbook](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/application_development_handbook.ipynb)]
+
 ### Start Your Own Test Run
 
 You can quickly start your own test using these jupyter document template:
@@ -10,6 +14,7 @@ You can quickly start your own test using these jupyter document template:
 
 ### Latest Show Cases
 
+- **[Summon a Genie 🧞‍♂️ (Function Decorator) to Generate Agent Powered Function in Runtime](https://github.com/Maplemx/Agently/blob/main/playground/generate_agent_powered_function_in_runtime_using_decorator.ipynb)** `🆕 NEW` `💪 New Feature in v3.1.4`
 - **[How to let your agents use tools to enhance themselves?](https://github.com/Maplemx/Agently/blob/main/playground/using_tools_to_enhance_your_agent.ipynb)** `🆕 NEW` `💪 New Feature in v3.1`
 - **[How to use AsyncIO and Agently to Manage Complex Process with Concurrency and Asynchronous Dependencies](https://github.com/Maplemx/Agently/blob/main/playground/concurrency_and_asynchornous_dependency.ipynb)**
 - **[Prediction according Given Data Set: GPT-3.5-turbo-1106 vs Gemini Pro](https://github.com/Maplemx/Agently/blob/main/playground/predict_data_according_given_data_set.ipynb)** 
