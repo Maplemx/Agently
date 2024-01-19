@@ -6,7 +6,7 @@ from Agently.utils import RuntimeCtxNamespace
 class Tool(ComponentABC):
     def __init__(self, agent: object):
         self.agent = agent
-        self.is_debug = self.agent.settings.get_trace_back("is_debug")
+        self.is_debug = lambda: self.agent.settings.get_trace_back("is_debug")
         self.settings = RuntimeCtxNamespace("plugin_settings.agent_component.Tool", self.agent.settings)
         self.tool_manager = self.agent.tool_manager
         self.tool_dict = {}
@@ -57,20 +57,20 @@ class Tool(ComponentABC):
         else:
             raise Exception(f"[Agent Component] Tool-must call: can not find tool named '{ tool_name }'.")
 
-    def call_plan_func(self, tool):
-        if self.is_debug:
+    async def call_plan_func(self, tool):
+        if self.is_debug():
             print("[Agent Component] Using Tools: Start tool using judgement...")
         tool_list = []
         for tool_name, tool_info in self.tool_dict.items():
             tool_list.append(tool_info)
         result = (
-            self.agent.worker_request
+            await self.agent.worker_request
                 .input({
                     "target": self.agent.request.request_runtime_ctx.get("prompt")
                 })
                 .info("current date", datetime.now().date())
                 .info("tools", json.dumps(tool_list))
-                .instruct("what tools to use for achieving {input.target}.\n * if use search tool, choose ONLY ONE SEARCH TOOL THAT FIT MOST and use the same language as {input.target}.")
+                .instruct("what tools to use for achieving {input.target}.\n * if use search tool, choose ONLY ONE SEARCH TOOL THAT FIT MOST\n * OUTPUT LANGUAGE SAME AS {input.target} IS USING.")
                 .output({
                     "tools_using": [{
                         "purpose": ("String", "what question you want to use tool to solve?"),
@@ -83,12 +83,12 @@ class Tool(ComponentABC):
                         ),
                     }],
                 })
-                .start()
+                .start_async()
         )
         tool_results = {}
         for step in result["tools_using"]:
             if "using_tool" in step and isinstance(step["using_tool"], dict) and "tool_name" in step["using_tool"]:
-                if self.is_debug:
+                if self.is_debug():
                     print("[Using Tool]: ", step["using_tool"])
                 tool_info = self.tool_manager.get_tool_info(step["using_tool"]["tool_name"], full=True)
                 if tool_info:
@@ -106,16 +106,16 @@ class Tool(ComponentABC):
                             **tool_kwrags
                         )
                     except Exception as e:
-                        if self.is_debug:
+                        if self.is_debug():
                             print("[Tool Error]: ", e)
                     if call_result:
                         info_key = str(step["purpose"])
                         info_value = call_result["for_agent"] if isinstance(call_result, dict) and "for_agent" in call_result else call_result
                         tool_results[info_key] = info_value
-                        if self.is_debug:
+                        if self.is_debug():
                             print("[Result]: ", info_key, info_value)
                 else:
-                    if self.is_debug:
+                    if self.is_debug():
                         print(f"[Result]: Can not find tool '{ step['using_tool']['tool_name'] }'")
         if len(tool_results.keys()) > 0:
             return tool_results
@@ -126,9 +126,9 @@ class Tool(ComponentABC):
         self.call_plan_func = call_plan_func
         return self.agent
 
-    def _prefix(self):
+    async def _prefix(self):
         if self.must_call_tool_info:
-            if self.is_debug:
+            if self.is_debug():
                 print(f"[Agent Component] Using Tools: Must call '{ self.must_call_tool_info['tool_name'] }'")
             self.agent.request.request_runtime_ctx.remove("prompt.instruct")
             self.agent.request.request_runtime_ctx.remove("prompt.output")
@@ -147,7 +147,7 @@ class Tool(ComponentABC):
                 }
             }
         elif len(self.tool_dict.keys()) > 0:
-            tool_results = self.call_plan_func(self)
+            tool_results = await self.call_plan_func(self)
             if tool_results and len(tool_results.keys()) > 0:
                 return {
                     "information": tool_results,
