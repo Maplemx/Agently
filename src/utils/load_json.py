@@ -24,7 +24,7 @@ def check_structure(origin: any, compare_target: any, position: str=""):
     else:
         return errors
 
-def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, errors = list):
+async def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, errors = list):
     try:
         '''
         fixed_result = request\
@@ -38,14 +38,14 @@ def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: 
             .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
             .start()
         '''
-        fixed_result = request\
+        fixed_result = await request\
             .input({
                 "error JSON String": origin ,
                 "error": "structure of {error JSON String} is not the same as {except structure}",
                 "error position": errors,
             })\
             .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
-            .start()
+            .start_async()
         json_string = find_json(fixed_result)
         if is_debug:
             print("[Cleaned JSON String]:\n", json_string)
@@ -58,7 +58,7 @@ def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: 
     except Exception as e:
         raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }")
 
-def fix_json_format(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, error: str, position: str):
+async def fix_json_format(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, error: str, position: str):
     try:
         '''
         fixed_result = request\
@@ -72,14 +72,14 @@ def fix_json_format(origin: str, input_dict: any, output_dict: any, request: obj
             .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
             .start()
         '''
-        fixed_result = request\
+        fixed_result = await request\
             .input({
                 "error JSON String": origin ,
                 "error": error,
                 "error position": position,
             })\
             .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
-            .start()
+            .start_async()
         json_string = find_json(fixed_result)
         if is_debug:
             print("[Cleaned JSON String]:\n", json_string)
@@ -92,7 +92,7 @@ def fix_json_format(origin: str, input_dict: any, output_dict: any, request: obj
     except Exception as e:
         raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }")
 
-def load_json(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False):
+async def load_json(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False):
     try:
         json_string = find_json(origin)
         if is_debug:
@@ -115,8 +115,8 @@ def load_json(origin: str, input_dict: any, output_dict: any, request: object, *
     except json.JSONDecodeError as e:
         if is_debug:
             print("[JSON Decode Error Occurred] Start Fixing Process...")
-        return fix_json_format(json_string, input_dict, output_dict, request, is_debug = is_debug, error = e.msg, position = e.pos)
+        return await fix_json_format(json_string, input_dict, output_dict, request, is_debug = is_debug, error = e.msg, position = e.pos)
     except Exception as e:
         if is_debug:
             print("[JSON Decode Error Occurred] Start Fixing Process...")
-        return fix_json_structure(origin, input_dict, output_dict, request, is_debug = is_debug, errors = [str(e)])
+        return await fix_json_structure(origin, input_dict, output_dict, request, is_debug = is_debug, errors = [str(e)])

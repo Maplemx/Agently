@@ -184,7 +184,7 @@ class Agent(object):
 
         # Load JSON and fix if Required
         if self.request.response_cache["type"] == "JSON":
-            self.request.response_cache["reply"] = load_json(
+            self.request.response_cache["reply"] = await load_json(
                 self.request.response_cache["reply"],
                 self.request.response_cache["prompt"]["input"],
                 self.request.response_cache["prompt"]["output"],

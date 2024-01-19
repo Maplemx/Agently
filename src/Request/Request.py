@@ -134,7 +134,7 @@ class Request(object):
                 handle_response(response)
             
         if self.response_cache["type"] == "JSON":
-            self.response_cache["reply"] = load_json(
+            self.response_cache["reply"] = await load_json(
                 self.response_cache["reply"],
                 self.response_cache["prompt"]["input"],
                 self.response_cache["prompt"]["output"],
@@ -157,3 +157,6 @@ class Request(object):
 
     def start(self, request_type: str=None):
         return self.get_result(request_type)
+
+    def start_async(self, request_type: str=None):
+        return self.get_result_async(request_type)
