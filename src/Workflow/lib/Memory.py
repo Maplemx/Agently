@@ -1,0 +1,20 @@
+class Memory:
+  def __init__(self, init_schema = {}) -> None:
+    self.store = init_schema.copy()
+
+  def save(self, name: str, data: any):
+    self.store[name] = data
+  
+  def save_with_dict(self, data: dict):
+    self.store.update(data)
+  
+  def remove(self, name: str):
+    if name in self.store:
+      del self.store[name]
+    return self
+
+  def get(self, name: str):
+    return self.store.get(name)
+  
+  def get_all(self):
+    return self.store.deepcopy()
