@@ -6,8 +6,6 @@ agent_factory\
     .set_settings("model.OpenAI.url", "YOUR-BASE-URL-IF-NEEDED")
 
 # 第 1 步，声明响应函数和初始描述
-
-
 def workflow_handler(command: str, res: any):
   print(f"Result [{command}]: ", res)
 
@@ -18,9 +16,14 @@ workflow = Agently.Workflow(None, workflow_handler, {
 })
 
 # 第 3 步，流程编排
+#
+#     启动 --> 生成策划问题，判断信息完整度 -- [完整] --> 活动策划 --> 输出
+#                ↑                  |
+#            提问并收集信息 _[不完整]__|
+#                                     
+#
 
 # 3.1 创建 chunk 节点（chunk 的类型可以使用 workflow.executor.regist_executor 注册）
-
 # 入口节点
 start_chunk = workflow.schema.create_chunk({
     "title": "活动方案策划",

@@ -6,8 +6,6 @@ agent_factory\
     .set_settings("model.OpenAI.url", "YOUR-BASE-URL-IF-NEEDED")
 
 # 第 1 步，声明响应函数和初始描述
-
-
 def workflow_handler(command: str, res: any):
   print(f"Result [{command}]: ", res)
 
@@ -19,9 +17,9 @@ workflow = Agently.Workflow(None, workflow_handler, {
 
 # 第 3 步，实现 “判断用户意图是购物还是闲聊，路由到情感专家 or 销售导购” 的效果
 #
-#                                     --> 销   售
-#     用户输入 --> 意图判断 --> 意图路由               --> 输出
-#                                     --> 情感专家
+#                                             --> 销   售
+#     启动 --> 用户输入 --> 意图判断 --> 意图路由               --> 输出
+#                                             --> 情感专家
 #
 
 # 3.1 创建 chunk 节点（chunk 的类型可以使用 workflow.executor.regist_executor 注册）
