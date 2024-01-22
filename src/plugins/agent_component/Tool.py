@@ -79,7 +79,7 @@ class Tool(ComponentABC):
                                 "tool_name": ("String", "{tool_name} from {tools}"),
                                 "args": ("according {args} requirement in {tools}", ),
                             },
-                            "output Null if do not need to use tool"
+                            "output null if do not need to use tool"
                         ),
                     }],
                 })
@@ -141,8 +141,8 @@ class Tool(ComponentABC):
                     },
                 },
                 "output": {
-                    "can_call": ("Boolean", "all information above enough to generate all arguments in {function_must_call.args}?"),
-                    "args": ("generate args dict according {function_must_call.args} requirement, leave argument value as null if you don't have enough information."),                    
+                    "can_call": ("Boolean", "Is all information especially from {input} above enough to generate all arguments in {function_must_call.args}?"),
+                    "args": ("if {can_call} == true, generate args dict according {function_must_call.args} requirement, else leave argument value as null"),                    
                     "question": ("String", "if {can_call}==false, output question for user to collecting enough information."),
                 }
             }
