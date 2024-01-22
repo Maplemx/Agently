@@ -56,7 +56,7 @@ async def fix_json_structure(origin: str, input_dict: any, output_dict: any, req
             print("\n--------------------------\n")
         return fixed_result
     except Exception as e:
-        raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }")
+        raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }\nOrigin JSON String:\n{ json_string }")
 
 async def fix_json_format(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, error: str, position: str):
     try:
@@ -90,7 +90,7 @@ async def fix_json_format(origin: str, input_dict: any, output_dict: any, reques
             print("\n--------------------------\n")
         return fixed_result
     except Exception as e:
-        raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }")
+        raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }\nOrigin JSON String:\n{ json_string }")
 
 async def load_json(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False):
     try:
