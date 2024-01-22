@@ -99,6 +99,7 @@ class Agent(object):
                         alias_name,
                         alias_info["func"],
                         return_value = alias_info["return_value"] if "return_value" in alias_info else False,
+                        agent_component_name = agent_component_name,
                     )
 
     def toggle_auto_save(self, is_enabled: bool):
