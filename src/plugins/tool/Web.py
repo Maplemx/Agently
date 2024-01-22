@@ -9,7 +9,9 @@ class Web(ToolABC):
     def __init__(self, tool_manager: object):
         self.tool_manager = tool_manager
 
-    def search(self, keywords: str, *, options: dict={}, proxy: str=None, type: int=1, no_sleep: bool=False):
+    def search(self, keywords: str, *, options: dict={}, proxy: str=None, type: int=1, no_sleep: bool=False, timelimit: str=None):
+        if timelimit:
+            options.update({ "timelimit": timelimit })
         results = []
         '''
         results = {
@@ -22,53 +24,57 @@ class Web(ToolABC):
             search_kwargs["proxies"] = proxy
         if "max_results" not in options:
             options.update({ "max_results": 5 })
-        with DDGS(**search_kwargs) as ddgs:
-            if type == 1:
-                for index, result in enumerate(ddgs.text(
-                    str(keywords),
-                    **options
-                )):
-                    print(result)
-                    results.append({
-                        "title": result["title"],
-                        "brief": result["body"],
-                        "url": result["href"],
-                    })
-                    '''
-                    results["origin"].append(result)
-                    results["for_agent"].append({
-                        "index": index,
-                        "title": result["title"],
-                        "body": result["body"],
-                    })
-                    '''
-            elif type == 2:
-                for index, result in enumerate(ddgs.news(
-                    str(keywords),
-                    **options
-                )):
-                    results.append({
-                        "title": result["title"],
-                        "brief": result["body"],
-                        "url": result["url"],
-                        "source": result["source"],
-                        "date": result["date"],
-                    })
-                    '''
-                    results["origin"].append(result)
-                    results["for_agent"].append({
-                        "index": index,
-                        "title": result["title"],
-                        "body": result["body"],
-                        "date": result["date"],
-                    })
-                    '''
+        try:
+            with DDGS(**search_kwargs) as ddgs:
+                if type == 1:
+                    for index, result in enumerate(ddgs.text(
+                        str(keywords),
+                        **options
+                    )):
+                        results.append({
+                            "title": result["title"],
+                            "brief": result["body"],
+                            "url": result["href"],
+                        })
+                        '''
+                        results["origin"].append(result)
+                        results["for_agent"].append({
+                            "index": index,
+                            "title": result["title"],
+                            "body": result["body"],
+                        })
+                        '''
+                elif type == 2:
+                    for index, result in enumerate(ddgs.news(
+                        str(keywords),
+                        **options
+                    )):
+                        results.append({
+                            "title": result["title"],
+                            "brief": result["body"],
+                            "url": result["url"],
+                            "source": result["source"],
+                            "date": result["date"],
+                        })
+                        '''
+                        results["origin"].append(result)
+                        results["for_agent"].append({
+                            "index": index,
+                            "title": result["title"],
+                            "body": result["body"],
+                            "date": result["date"],
+                        })
+                        '''
+        except Exception as e:
+            results = f"No Result Because: { str(e) }"
         return results
 
     def search_definition(self, item_name: str, *, options: dict={}, proxy: str=None):
         return self.search(f'whatis { item_name }', options=options, proxy=proxy)
 
-    def search_news(self, keywords: str, *, options: dict={}, proxy: str=None):
+    def search_news(self, keywords: str, *, options: dict={}, proxy: str=None, timelimit: str=None):
+        if timelimit:
+            options.update({ "timelimit": timelimit })
         if "timelimit" not in options:
             options.update({ "timelimit": "w" })
         if "max_results" not in options:
