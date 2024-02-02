@@ -14,14 +14,15 @@ You can quickly start your own test using these jupyter document template:
 
 ### Latest Show Cases
 
-- **[How to create event listener functions with alias or decorator? `using ZhipuAI GLM-4!`](https://github.com/Maplemx/Agently/blob/main/playground/create_event_listeners_with_alias_or_decorator.ipynb)** `🆕`
+- **"一句话就能..."Showcase合集** [[飞桨社区中文版](https://aistudio.baidu.com/projectdetail/7439200)]`🆕`
+- **[How to create event listener functions with alias or decorator? `using ZhipuAI GLM-4!`](https://github.com/Maplemx/Agently/blob/main/playground/create_event_listeners_with_alias_or_decorator.ipynb)** 
 - **[Summon a Genie 🧞‍♂️ (Function Decorator) to Generate Agent Powered Function in Runtime](https://github.com/Maplemx/Agently/blob/main/playground/generate_agent_powered_function_in_runtime_using_decorator.ipynb)** `💪 New Feature in v3.1.4`
 - **[How to let your agents use tools to enhance themselves?](https://github.com/Maplemx/Agently/blob/main/playground/using_tools_to_enhance_your_agent.ipynb)** `💪 New Feature in v3.1`
 - **[How to use AsyncIO and Agently to Manage Complex Process with Concurrency and Asynchronous Dependencies](https://github.com/Maplemx/Agently/blob/main/playground/concurrency_and_asynchornous_dependency.ipynb)**
 - **[Prediction according Given Data Set: GPT-3.5-turbo-1106 vs Gemini Pro](https://github.com/Maplemx/Agently/blob/main/playground/predict_data_according_given_data_set.ipynb)** 
 - **[How to use GOOGLE GEMINI to generate line and choices for NPC in game](https://github.com/Maplemx/Agently/blob/main/playground/NPC_in_game_generate_choices_using_google_gemini.ipynb)**
 - **[How to route user to different agents according different Authorities](https://github.com/Maplemx/Agently/blob/main/playground/routing_to_different_agent_group_for_users_with_different_authorities.ipynb)**
-- **Agently Quick Start Demo Collection** [[飞桨社区合作中文版](https://aistudio.baidu.com/projectdetail/7178289)] `🔥 HOT`
+- **Agently快速上手案例集** [[飞桨社区合作中文版](https://aistudio.baidu.com/projectdetail/7178289)] `🔥 HOT`
 - **[How to find connectable pairs from data collection of text headers and tails](https://github.com/Maplemx/Agently/blob/main/playground/finding_connectable_pairs_from_text_tailers_and_headers.ipynb)** 
 - **[How to create a LLM powered character that can change behaviors according mood status in chat](https://github.com/Maplemx/Agently/blob/main/playground/character_change_behaviours_according_mood_status.ipynb)**
 - **[How to create an agent help you to write ad copies according an image](https://github.com/Maplemx/Agently/blob/main/playground/writing_ad_copies_according_image.ipynb)**
