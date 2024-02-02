@@ -30,6 +30,7 @@ class Segment(ComponentABC):
                 "</!%%": ">",
             },
         }
+        self.async_tasks = []
 
     def toggle(self, is_enabled: bool):
         self.agent.settings.set("component_toggles.Segment", is_enabled)
@@ -134,7 +135,7 @@ class Segment(ComponentABC):
                                     if is_await:
                                         await streaming_listener(char)
                                     else:
-                                        asyncio.create_task(streaming_listener(char))
+                                        self.async_tasks.append(asyncio.create_task(streaming_listener(char)))
                                 else:
                                     streaming_listener(char)
                         if self.response_buffer == "<!%%=":
@@ -146,7 +147,7 @@ class Segment(ComponentABC):
                                     if is_await:
                                         await done_listener(done_segment_data)
                                     else:
-                                        asyncio.create_task(done_listener(segment_data))
+                                        self.async_tasks.append(asyncio.create_task(done_listener(segment_data)))
                                 else:
                                     done_listener(segment_data)
                             self.response_buffer = ""
@@ -161,11 +162,13 @@ class Segment(ComponentABC):
                         if is_await:
                             await done_listener(done_segment_data)
                         else:
-                            asyncio.create_task(done_listener(segment_data))
+                            self.async_tasks.append(asyncio.create_task(done_listener(segment_data)))
                     else:
                         done_listener(segment_data)
                 self.agent.request.response_cache["reply"] = self.response_segments_cache
             if event == "response:finally":
+                for async_task in self.async_tasks:
+                    await async_task
                 # clean request runtime
                 self.segments = {}
                 self.response_segments_cache = {}
