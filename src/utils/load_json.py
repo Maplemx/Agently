@@ -1,5 +1,6 @@
 import re
 import json
+import json5
 from .transform import find_json, to_json_desc
 
 def check_structure(origin: any, compare_target: any, position: str=""):
@@ -26,18 +27,6 @@ def check_structure(origin: any, compare_target: any, position: str=""):
 
 async def fix_json_structure(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, errors = list):
     try:
-        '''
-        fixed_result = request\
-            .input({
-                "this JSON is mean to do": input_dict,
-                "expect structure": to_json_desc(output_dict),
-                "error JSON String": origin ,
-                "error": "structure of {error JSON String} is not the same as {except structure}",
-                "error position": errors,
-            })\
-            .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
-            .start()
-        '''
         fixed_result = await request\
             .input({
                 "error JSON String": origin ,
@@ -50,7 +39,7 @@ async def fix_json_structure(origin: str, input_dict: any, output_dict: any, req
         if is_debug:
             print("[Cleaned JSON String]:\n", json_string)
             print("\n--------------------------\n")
-        fixed_result = json.loads(json_string)
+        fixed_result = json5.loads(json_string)
         if is_debug:
             print("[Parse JSON to Dict] Done")
             print("\n--------------------------\n")
@@ -60,18 +49,6 @@ async def fix_json_structure(origin: str, input_dict: any, output_dict: any, req
 
 async def fix_json_format(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False, error: str, position: str):
     try:
-        '''
-        fixed_result = request\
-            .input({
-                "this JSON is mean to do": input_dict,
-                "expect format": to_json_desc(output_dict),
-                "error JSON String": origin ,
-                "error": error,
-                "error position": position,
-            })\
-            .output('FIXED {error JSON String} JSON STRING ONLY WITHOUT EXPLANATION that can be parsed by Python')\
-            .start()
-        '''
         fixed_result = await request\
             .input({
                 "error JSON String": origin ,
@@ -84,7 +61,7 @@ async def fix_json_format(origin: str, input_dict: any, output_dict: any, reques
         if is_debug:
             print("[Cleaned JSON String]:\n", json_string)
             print("\n--------------------------\n")
-        fixed_result = json.loads(json_string)
+        fixed_result = json5.loads(json_string)
         if is_debug:
             print("[Parse JSON to Dict] Done")
             print("\n--------------------------\n")
@@ -98,19 +75,7 @@ async def load_json(origin: str, input_dict: any, output_dict: any, request: obj
         if is_debug:
             print("[Cleaned JSON String]:\n", json_string)
             print("\n--------------------------\n")
-        parsed_dict = json.loads(json_string)
-        '''
-        check_structure_result = check_structure(parsed_dict, output_dict)
-        if check_structure_result != True:
-            if is_debug:
-                print("[JSON Structure Do Not As Expect] Start Fixing Process...")
-            return fix_json_structure(json_string, input_dict, output_dict, request, is_debug = is_debug, errors = check_structure_result)
-        else:
-            if is_debug:
-                print("[Parse JSON to Dict] Done")
-                print("\n--------------------------\n")
-            return parsed_dict
-        '''
+        parsed_dict = json5.loads(json_string)
         return parsed_dict
     except json.JSONDecodeError as e:
         if is_debug:
@@ -120,3 +85,10 @@ async def load_json(origin: str, input_dict: any, output_dict: any, request: obj
         if is_debug:
             print("[JSON Decode Error Occurred] Start Fixing Process...")
         return await fix_json_structure(origin, input_dict, output_dict, request, is_debug = is_debug, errors = [str(e)])
+
+def find_and_load_json(origin: str):
+    try:
+        json_string = find_json(origin)
+        return json5.loads(json_string)
+    except Exception as e:
+        return 'Error'

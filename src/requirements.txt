@@ -9,6 +9,7 @@ erniebot
 zhipuai
 # Format
 PyYAML
+json5
 # Web
 duckduckgo_search
 newspaper3k

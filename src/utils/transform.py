@@ -103,8 +103,8 @@ def find_all_jsons(origin: str):
                     layer += 1
                 elif char == "]" or char == "}":
                     layer -= 1
-                elif char in ("\t", " ", "\n"):
-                    char = ""
+                #elif char in ("\t", " ", "\n"):
+                    #char = ""
                 json_blocks[block_num] += char
             else:
                 if char == "\\":
