@@ -16,14 +16,19 @@ class Session(ComponentABC):
         self.settings.set("auto_save", is_enabled)
         return self.agent
 
+    def toggle_strict_orders(self, is_strict_orders: bool):
+        self.settings.set("strict_orders", is_strict_orders)
+        return self.agent
+
+    def toggle_manual_chat_history(self, is_manual_chat_history: bool):
+        self.settings.set("manual_chat_history", is_manual_chat_history)
+        return self.agent
+
     def set_max_length(self, max_length: int):
         self.settings.set("max_length", max_length)
         return self.agent
 
-    def set_strict_orders(self, is_strict_orders: bool):
-        self.settings.set("strict_orders", is_strict_orders)
-        return self.agent
-
+    
     def active(self, session_id: str=None):
         if self.current_session_id != None:
             self.stop()
@@ -42,7 +47,7 @@ class Session(ComponentABC):
         return self.agent
 
     def stop(self):
-        if self.settings.get_trace_back("auto_save"):
+        if self.settings.get_trace_back("auto_save", True):
             self.agent.agent_storage.table("chat_history").set(self.current_session_id, self.full_chat_history).save()
         self.current_session_id = None
         self.full_chat_history = []
@@ -91,7 +96,7 @@ class Session(ComponentABC):
 
     def get_chat_history(self, *, is_shorten: bool=False):
         if is_shorten:
-            self.recent_chat_history = self.__get_shorten_chat_history(self.recent_chat_history, self.settings.get_trace_back("max_length"))
+            self.recent_chat_history = self.__get_shorten_chat_history(self.recent_chat_history, self.settings.get_trace_back("max_length", 12000))
             return self.recent_chat_history
         else:
             return self.full_chat_history
@@ -148,7 +153,8 @@ class Session(ComponentABC):
         return prefix_result
 
     def _suffix(self, event: str, data: any):
-        if self.current_session_id != None:
+        is_manual_chat_history = self.settings.get_trace_back("manual_chat_history", False)
+        if self.current_session_id != None and not is_manual_chat_history:
             if event == "response:finally":
                 new_chat_history = [
                     { "role": "user", "content": self.__find_input(data["prompt"]["input"]) },
@@ -166,8 +172,9 @@ class Session(ComponentABC):
                 "save_session": { "func": self.save },
                 "stop_session": { "func": self.stop },
                 "toggle_session_auto_save": { "func": self.toggle_auto_save },
+                "toggle_strict_orders": { "func": self.toggle_strict_orders },
+                "toggle_manual_chat_history": { "func": self.toggle_manual_chat_history },
                 "set_chat_history_max_length": { "func": self.set_max_length },
-                "set_strict_orders": { "func": self.set_strict_orders },
                 "add_chat_history": { "func": self.add_chat_history },
                 "get_chat_history": { "func": self.get_chat_history, "return_value": True },
                 "rewrite_chat_history": { "func": self.rewrite_chat_history },
