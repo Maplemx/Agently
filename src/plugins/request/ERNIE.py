@@ -96,7 +96,7 @@ class Ernie(RequestABC):
         # request type: chat
         if self.request_type == "chat":
             if "model" not in options:
-                options["model"] = "ernie-bot-4"
+                options["model"] = "ernie-4.0"
             if "aistudio" not in access_token:
                 raise Exception(
                     f"[Request] ERNIE require 'access-token-for-aistudio' when request type is '{self.request_type}'. Use .set_model_auth({{ 'aistudio': <YOUR-ACCESS-TOKEN-FOR-AISTUDIO> }}) to set.")
