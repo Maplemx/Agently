@@ -1,4 +1,4 @@
-class Memory:
+class Store:
   def __init__(self, init_schema = {}) -> None:
     self.store = init_schema.copy()
 
@@ -13,8 +13,8 @@ class Memory:
       del self.store[name]
     return self
 
-  def get(self, name: str):
-    return self.store.get(name)
+  def get(self, name: str, default = None):
+    return self.store.get(name) or default
   
   def get_all(self):
     return self.store.deepcopy()
