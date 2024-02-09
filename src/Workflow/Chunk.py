@@ -1,36 +1,43 @@
+import inspect
 import uuid
 import copy
-from .utils.verify import validate_dict
 from .utils.find import has_target_by_attr
-from .lib.constants import DEFAULT_INPUT_HANDLE, DEFAULT_OUTPUT_HANDLE
+from .lib.constants import DEFAULT_INPUT_HANDLE, DEFAULT_OUTPUT_HANDLE, EXECUTOR_TYPE_NORMAL
 
+SPECIAL_CHUNK_TYPES = ['Start']
 class SchemaChunk:
     """
-    Workflow Schema 中的单个 chunk 结构，用于提供操作的 API
+    Workflow Schema 中的单个 chunk 结构，用于辅助提供操作的 API，实际运行时，提供 chunk 描述参数交给 MainExecutor 执行
     """
-    def __init__(self, chunk_desc: dict, workflow_schema):
+
+    def __init__(self, workflow_schema = None, type = EXECUTOR_TYPE_NORMAL, executor: callable = None, **chunk_desc):
         """
-        必须参数 type, 可选参数 handles(连接点，{'inputs': [], 'outputs': []}) 字段，如没有 handles 字段，则会自动追加上默认设置、settings、title
+        可选参数 handles(连接点，{'inputs': [], 'outputs': []}) 字段，如没有 handles 字段，则会自动追加上默认设置、interactions、title，必选参数 executor，或 type 为 'Start'
         """
-        # 校验必填字段
-        verified_res = validate_dict(chunk_desc, ['type'])
-        if verified_res['status'] == False:
-            raise ValueError(f"Missing required key: '{verified_res['key']}'")
+        # 校验必填字段(要么 type 为特殊类型，否则必须包含 executor)
+        if not type or (type not in SPECIAL_CHUNK_TYPES):
+            if not executor:
+                raise ValueError("Missing required key: 'executor'")
 
         self.chunk = {
             'id': chunk_desc.get('id', str(uuid.uuid4())),
             'title': chunk_desc.get('title'),
-            'settings': chunk_desc.get('settings'),
-            'type': chunk_desc.get('type'),
+            'interactions': chunk_desc.get('interactions') or {}, # 交互配置
+            'type': type or EXECUTOR_TYPE_NORMAL,
+            'executor': executor,
             'handles': chunk_desc.get('handles', {
                 'inputs': [DEFAULT_INPUT_HANDLE.copy()],
                 'outputs': [DEFAULT_OUTPUT_HANDLE.copy()]
-            })
+            }),
+            # 连接条件（默认无条件连通）
+            'connect_condition': chunk_desc.get('connect_condition') or None,
+            # 当前激活的待连接的 handle 名
+            'active_handle': chunk_desc.get('active_handle') or None
         }
+
         self.workflow_schema = workflow_schema
-        # 当前激活的待连接的 handle 名
-        self.active_handle = None
-        # 解析出默认的连接 handle
+
+        # 解析出默认的输入连接点(有 input 直接用 input 做默认，否则取第一个手柄为默认连接点)
         inputs = self.chunk.get('handles').get('inputs', [])
         self.default_input_handle = None
         if has_target_by_attr(inputs, 'handle', DEFAULT_INPUT_HANDLE['handle']):
@@ -38,13 +45,13 @@ class SchemaChunk:
         elif len(inputs) > 0:
             self.default_input_handle = inputs[0]['handle']
 
+        # 解析出默认的输出连接点(有 output 直接用 output 做默认，否则取第一个手柄为默认连接点)
         outputs = self.chunk.get('handles').get('outputs', [])
         self.default_output_handle = None
         if has_target_by_attr(outputs, 'handle', DEFAULT_OUTPUT_HANDLE['handle']):
             self.default_output_handle = DEFAULT_OUTPUT_HANDLE['handle']
         elif len(outputs) > 0:
             self.default_output_handle = outputs[0]['handle']
-        
     
     def handle(self, name: str):
         """
@@ -52,8 +59,38 @@ class SchemaChunk:
         """
         if not self.has_handle(name) and not self.has_handle(name, False):
             raise ValueError(f"The handle '{name}' for chunk '{self.chunk.get('title', self.chunk['id'])}' does not exist.")
-        shadow_chunk = SchemaChunk(self.get_raw_schema(), self.workflow_schema)
+        shadow_chunk = SchemaChunk(
+            workflow_schema=self.workflow_schema,
+            **self.get_raw_schema()
+        )
         shadow_chunk.set_active_handle(name)
+        return shadow_chunk
+    
+    def if_condition(self, condition: callable = None):
+        """
+        按条件连接
+        """
+        shadow_chunk = SchemaChunk(
+            workflow_schema=self.workflow_schema,
+            **self.get_raw_schema()
+        )
+        shadow_chunk.set_connect_condition(condition)
+        return shadow_chunk
+
+    def else_condition(self):
+        """
+        按当前条件的反条件连接
+        """
+        current_condition = self.chunk.get('connect_condition')
+        if not current_condition:
+            current_condition = lambda values: True
+        else_condition_func = lambda values: not current_condition(values)
+        shadow_chunk = SchemaChunk(
+            workflow_schema=self.workflow_schema,
+            **self.get_raw_schema()
+        )
+
+        shadow_chunk.set_connect_condition(else_condition_func)
         return shadow_chunk
 
     def connect_to(self, chunk):
@@ -70,11 +107,11 @@ class SchemaChunk:
             raise ValueError(f"The two chunk are not mounted under the same 'workflow'.")
 
         # 解析出连接手柄，并判断合法性
-        expect_source_handle = self.active_handle or self.default_output_handle
+        expect_source_handle = self.chunk.get('active_handle') or self.default_output_handle
         if not self.has_handle(expect_source_handle, False):
             raise ValueError(f"The source chunk's connection handle '{expect_source_handle}' does not exist.")
 
-        expect_target_handle = target_chunk.active_handle or target_chunk.default_input_handle
+        expect_target_handle = target_chunk.chunk.get('active_handle') or target_chunk.default_input_handle
         if not target_chunk.has_handle(expect_target_handle):
             raise ValueError(f"The target chunk's connection handle '{expect_target_handle}' does not exist.")
         
@@ -83,7 +120,8 @@ class SchemaChunk:
             self.chunk['id'],
             target_chunk.chunk['id'],
             expect_source_handle,
-            expect_target_handle
+            expect_target_handle,
+            self.chunk.get('connect_condition') or None
         )
         return self
     
@@ -98,7 +136,13 @@ class SchemaChunk:
             if not self.has_handle(name) and not self.has_handle(name, False):
                 raise ValueError(
                     f"The handle '{name}' for chunk '{self.chunk.get('title', self.chunk['id'])}' does not exist.")
-        self.active_handle = name
+        self.chunk['active_handle'] = name
+    
+    def set_connect_condition(self, condition: callable = None):
+        """
+        设置连接的条件
+        """
+        self.chunk['connect_condition'] = condition
     
     def has_handle(self, name: str, from_inputs = True) -> bool:
         """

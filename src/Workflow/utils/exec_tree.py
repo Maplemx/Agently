@@ -1,5 +1,5 @@
 from ..Schema import Schema
-
+from .find import find_by_attr
 
 def prepare_data(schema: Schema):
     edges_target_map = {}
@@ -12,15 +12,6 @@ def prepare_data(schema: Schema):
         edges_source_map.setdefault(edge['target'], []).append(edge)
 
     # Step 2. 进一步处理数据
-    for edge in edges:
-        target = edge['target']
-        target_handle = edge['target_handle']
-        target_node = schema.get_chunk(target)
-        handles_desc = target_node['handles']
-        target_handle_desc = next((point for point in handles_desc.get('inputs', []) if point['handle'] == target_handle), None)
-        if target_handle_desc:
-            edge['target_handle_title'] = target_handle_desc['title'] if 'title' in target_handle_desc else target_handle_desc['handle']
-
     full_logic_tree = []
 
     def build_logic_nodes(current_item, paths = []):
@@ -29,19 +20,13 @@ def prepare_data(schema: Schema):
         current_branch_recorder = {}
         for target in targets:
             node_id = target['target']
-            if node_id in current_branch_recorder:
-                current_branch_recorder[node_id]['sources']['handlers'].append(target['source_handle'])
-            else:
+            if node_id not in current_branch_recorder:
                 target_chunk = (schema.get_chunk(node_id) or {})
                 branch = {
-                    'type': target_chunk.get('type'),
                     'id': node_id,
+                    'executor': target_chunk.get('executor'),
                     'data': target_chunk,
-                    'point_type': 'end' if not edges_target_map.get(node_id) else 'normal',
-                    'sources': {
-                        'id': target['source'],
-                        'handlers': [target['source_handle']]
-                    }
+                    'point_type': 'end' if not edges_target_map.get(node_id) else 'normal'
                 }
                 # 循环依赖的节点需要特殊处理
                 if len(paths) > 0 and branch['id'] in paths:
@@ -61,11 +46,10 @@ def prepare_data(schema: Schema):
     for node in schema.chunks:
         if not edges_source_map.get(node['id'], []):
             root_logic_node = {
-                'type': 'node',
                 'id': node['id'],
+                'executor': node.get('executor'),
                 'data': node,
-                'point_type': 'start',
-                'prev': None
+                'point_type': 'start'
             }
             root_logic_node['branches'] = build_logic_nodes(root_logic_node, [])
             full_logic_tree.append(root_logic_node)
@@ -75,6 +59,15 @@ def prepare_data(schema: Schema):
         'full_logic_tree': full_logic_tree
     }
 
+def extract_default_dep_data(chunk, handle_name: str):
+    """从 chunk 中摘出默认的值（基于其 handle 设置）"""
+    output_handles = (chunk.get('handles') or {}).get('outputs')
+    if not output_handles or len(output_handles) == 0:
+        return None
+    target_handle = find_by_attr(output_handles, 'handle', handle_name)
+    if target_handle and 'default' in target_handle:
+        return target_handle['default']
+    return None
 
 def generate_exec_tree(schema: Schema):
     prepared_data = prepare_data(schema)
@@ -86,11 +79,14 @@ def generate_exec_tree(schema: Schema):
                 {
                     'id': dep['source'],
                     'handler': dep['source_handle'],
-                    'target_handler': dep['target_handle']
+                    'target_handler': dep['target_handle'],
+                    'condition': dep.get('condition') or None,
+                    'default_data': extract_default_dep_data(schema.get_chunk(dep['source']), dep['source_handle'])
                 } for dep in prepared_data['edges_source_map'].get(node['id'], [])
             ],
             'data': node['data'],
-            'point_type': node['point_type'],
+            'executor': node['executor'],
+            'point_type': node['point_type'], # 类型，包含 start/end/loop/normal
             'branches': []
         }
 

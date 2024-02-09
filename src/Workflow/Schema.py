@@ -1,7 +1,7 @@
 from .utils.verify import validate_dict
 from .utils.find import has_target_by_attr, find_by_attr
 from .Chunk import SchemaChunk
-from .lib.constants import DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE, DEFAULT_INPUT_HANDLE
+from .lib.constants import DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE, DEFAULT_INPUT_HANDLE, EXECUTOR_TYPE_NORMAL
 
 class Schema:
     """
@@ -18,11 +18,16 @@ class Schema:
                 .connect_with_edges(schema_data.get('edges', []))
         )
     
-    def create_chunk(self, chunk_desc: dict) -> SchemaChunk:
+    def create_chunk(self, type = EXECUTOR_TYPE_NORMAL, executor: callable = None, **chunk_desc) -> SchemaChunk:
         """
         根据 chunk 的描述，创建 chunk 实例
         """
-        chunk_inst = SchemaChunk(chunk_desc, self)
+        chunk_inst = SchemaChunk(
+            workflow_schema=self,
+            type=type,
+            executor=executor,
+            **chunk_desc
+        )
         self.append_raw_chunk(chunk_inst.get_raw_schema())
         return chunk_inst
 
@@ -67,7 +72,7 @@ class Schema:
     def get_chunk(self, chunk_id):
         return find_by_attr(self.chunks, 'id', chunk_id)
 
-    def connect_chunk(self, source_chunk_id, target_chunk_id, source_handle=DEFAULT_OUTPUT_HANDLE_VALUE, target_handle=DEFAULT_INPUT_HANDLE_VALUE):
+    def connect_chunk(self, source_chunk_id, target_chunk_id, source_handle=DEFAULT_OUTPUT_HANDLE_VALUE, target_handle=DEFAULT_INPUT_HANDLE_VALUE, condition: callable = None):
         """
         连接两个节点，分别输入：源节点id、目标节点id、源节点输出句柄（可选，默认为源节点的输出点）、目标节点的输入句柄（可选，默认为目标节点的输入点）
         """
@@ -91,19 +96,20 @@ class Schema:
             'handles', {'inputs': [], 'outputs': []}).get('outputs', [])
         if has_target_by_attr(source_output_handles, 'handle', source_handle) == False:
             raise ValueError(
-                f'Source node "{source_chunk.get("title",  source_chunk_id)}({source_chunk_id})" lacks output endpoint: {source_handle}')
+                f'Source node "{source_chunk.get("title", source_chunk_id)}({source_chunk_id})" lacks output endpoint: {source_handle}')
 
         target_output_handles = target_chunk.get(
             'handles', {'inputs': [], 'outputs': []}).get('inputs', [])
         if has_target_by_attr(target_output_handles, 'handle', target_handle) == False:
             raise ValueError(
-                f'Target node "{target_chunk.get("title",  target_chunk_id)}({target_chunk_id})" lacks input endpoint: {target_handle}')
+                f'Target node "{target_chunk.get("title", target_chunk_id)}({target_chunk_id})" lacks input endpoint: {target_handle}')
 
         self.edges.append({
             'source': source_chunk_id,
             'target': target_chunk_id,
             'source_handle': source_handle or DEFAULT_OUTPUT_HANDLE_VALUE,
-            'target_handle': target_handle or DEFAULT_INPUT_HANDLE_VALUE
+            'target_handle': target_handle or DEFAULT_INPUT_HANDLE_VALUE,
+            'condition': condition # 连通的开关条件，默认直连
         })
     
     def get_edge(self, edge_id):
@@ -119,6 +125,7 @@ class Schema:
                 edge.get('target'),
                 edge.get('source_handle', DEFAULT_OUTPUT_HANDLE_VALUE),
                 edge.get('target_handle', DEFAULT_INPUT_HANDLE_VALUE),
+                edge.get('condition') or None
             )
         return self
 
