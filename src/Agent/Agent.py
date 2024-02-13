@@ -120,83 +120,88 @@ class Agent(object):
         return self
 
     async def start_async(self, request_type: str=None):
-        is_debug = self.settings.get_trace_back("is_debug")
-        # Auto Save Agent runtime_ctx
-        if self.agent_runtime_ctx.get("agent_auto_save") ==  True:
-            self.save()
-        # Call Prefix Funcs to Prepare Prefix Data(From agent_runtime_ctx To request_runtime_ctx)
-        async def call_prefix_funcs(prefix_funcs):
-            if prefix_funcs != None:
-                for prefix_func in prefix_funcs:
-                    prefix_data = await prefix_func() if asyncio.iscoroutinefunction(prefix_func) else prefix_func()
-                    if prefix_data != None:
-                        if isinstance(prefix_data, tuple) and isinstance(prefix_data[0], str) and prefix_data[1] != None:
-                            key = prefix_data[0] if prefix_data[0].startswith("prompt.") else f"prompt.{ prefix_data[0] }"
-                            self.request.request_runtime_ctx.update(key, prefix_data[1])
-                        elif isinstance(prefix_data, dict):
-                            for key, value in prefix_data.items():
-                                key = key if key.startswith("prompt.") else f"prompt.{ key }"
-                                if value != None:
-                                    self.request.request_runtime_ctx.delta(key, value)
-                        else:
-                            raise Exception("[Agent Component] Prefix return data error: only accept None or Dict({'<request slot name>': <data append to slot>, ... } or Tuple('request slot name', <data append to slot>)")
+        try:
+            is_debug = self.settings.get_trace_back("is_debug")
+            # Auto Save Agent runtime_ctx
+            if self.agent_runtime_ctx.get("agent_auto_save") ==  True:
+                self.save()
+            # Call Prefix Funcs to Prepare Prefix Data(From agent_runtime_ctx To request_runtime_ctx)
+            async def call_prefix_funcs(prefix_funcs):
+                if prefix_funcs != None:
+                    for prefix_func in prefix_funcs:
+                        prefix_data = await prefix_func() if asyncio.iscoroutinefunction(prefix_func) else prefix_func()
+                        if prefix_data != None:
+                            if isinstance(prefix_data, tuple) and isinstance(prefix_data[0], str) and prefix_data[1] != None:
+                                key = prefix_data[0] if prefix_data[0].startswith("prompt.") else f"prompt.{ prefix_data[0] }"
+                                self.request.request_runtime_ctx.update(key, prefix_data[1])
+                            elif isinstance(prefix_data, dict):
+                                for key, value in prefix_data.items():
+                                    key = key if key.startswith("prompt.") else f"prompt.{ key }"
+                                    if value != None:
+                                        self.request.request_runtime_ctx.delta(key, value)
+                            else:
+                                raise Exception("[Agent Component] Prefix return data error: only accept None or Dict({'<request slot name>': <data append to slot>, ... } or Tuple('request slot name', <data append to slot>)")
 
-        prefix_orders = self.settings.get_trace_back("plugin_settings.agent_component.orders.prefix")
-        for agent_component_name in prefix_orders["firstly"]:
-            if agent_component_name in self.agent_request_prefix:
-                await call_prefix_funcs(self.agent_request_prefix[agent_component_name])
-        for agent_component_name in prefix_orders["normally"]:
-            if agent_component_name in self.agent_request_prefix:
-                await call_prefix_funcs(self.agent_request_prefix[agent_component_name])
-        for agent_component_name in prefix_orders["finally"]:
-            if agent_component_name in self.agent_request_prefix:
-                await call_prefix_funcs(self.agent_request_prefix[agent_component_name])      
-        # Request
-        event_generator = await self.request.get_event_generator(request_type)
-    
-        # Call Suffix Func to Handle Response Events
-        if is_debug:
-            print("[Realtime Response]\n")
-        async def call_request_suffix(response):
-            for suffix_func in self.agent_request_suffix:
-                if asyncio.iscoroutinefunction(suffix_func):
-                    await suffix_func(response["event"], response["data"]) 
-                else:
-                    suffix_func(response["event"], response["data"])
+            prefix_orders = self.settings.get_trace_back("plugin_settings.agent_component.orders.prefix")
+            for agent_component_name in prefix_orders["firstly"]:
+                if agent_component_name in self.agent_request_prefix:
+                    await call_prefix_funcs(self.agent_request_prefix[agent_component_name])
+            for agent_component_name in prefix_orders["normally"]:
+                if agent_component_name in self.agent_request_prefix:
+                    await call_prefix_funcs(self.agent_request_prefix[agent_component_name])
+            for agent_component_name in prefix_orders["finally"]:
+                if agent_component_name in self.agent_request_prefix:
+                    await call_prefix_funcs(self.agent_request_prefix[agent_component_name])
 
-        async def handle_response(response):
-            if response["event"] == "response:delta" and is_debug:
-                print(response["data"], end="")
-            if response["event"] == "response:done":
-                if self.request.response_cache["reply"] == None:
-                    self.request.response_cache["reply"] = response["data"]
-                if is_debug:
-                    print("\n--------------------------\n")
-                    print("[Final Reply]\n", self.request.response_cache["reply"], "\n--------------------------\n")
-            await call_request_suffix(response)
+            # Request
+            event_generator = await self.request.get_event_generator(request_type)
+        
+            # Call Suffix Func to Handle Response Events
+            if is_debug:
+                print("[Realtime Response]\n")
+            async def call_request_suffix(response):
+                for suffix_func in self.agent_request_suffix:
+                    if asyncio.iscoroutinefunction(suffix_func):
+                        await suffix_func(response["event"], response["data"]) 
+                    else:
+                        suffix_func(response["event"], response["data"])
 
-        await handle_response({ "event": "response:start", "data": {} })
-        if "__aiter__" in dir(event_generator):
-            async for response in event_generator:
-                await handle_response(response)
-        else:
-            for response in event_generator:
-                await handle_response(response)
+            async def handle_response(response):
+                if response["event"] == "response:delta" and is_debug:
+                    print(response["data"], end="")
+                if response["event"] == "response:done":
+                    if self.request.response_cache["reply"] == None:
+                        self.request.response_cache["reply"] = response["data"]
+                    if is_debug:
+                        print("\n--------------------------\n")
+                        print("[Final Reply]\n", self.request.response_cache["reply"], "\n--------------------------\n")
+                await call_request_suffix(response)
 
-        # Load JSON and fix if Required
-        if self.request.response_cache["type"] == "JSON":
-            self.request.response_cache["reply"] = await load_json(
-                self.request.response_cache["reply"],
-                self.request.response_cache["prompt"]["input"],
-                self.request.response_cache["prompt"]["output"],
-                self.request,
-                is_debug = is_debug,
-            )
+            await handle_response({ "event": "response:start", "data": {} })
+            if "__aiter__" in dir(event_generator):
+                async for response in event_generator:
+                    await handle_response(response)
+            else:
+                for response in event_generator:
+                    await handle_response(response)
 
-        await handle_response({ "event": "response:finally", "data": self.request.response_cache })
+            # Load JSON and fix if Required
+            if self.request.response_cache["type"] == "JSON":
+                self.request.response_cache["reply"] = await load_json(
+                    self.request.response_cache["reply"],
+                    self.request.response_cache["prompt"]["input"],
+                    self.request.response_cache["prompt"]["output"],
+                    self.request,
+                    is_debug = is_debug,
+                )
 
-        self.request_runtime_ctx.empty()
-        return self.request.response_cache["reply"]
+            await handle_response({ "event": "response:finally", "data": self.request.response_cache })
+
+            self.request_runtime_ctx.empty()
+            return self.request.response_cache["reply"]
+        except Exception as e:
+            self.request_runtime_ctx.empty()
+            raise(e)
 
     def start(self, request_type: str=None):
         reply_queue = queue.Queue()
@@ -212,30 +217,6 @@ class Agent(object):
         except:
             reply = None
         return reply
-
-    '''
-    def auto_func(self, func: callable):
-        def wrapper(*args, **kwargs):
-            # generate input dict
-            signature = inspect.signature(func)
-            arguments = signature.bind(*args, **kwargs)
-            arguments.apply_defaults()
-            input_dict = {}
-            for param in signature.parameters:
-                input_dict.update({ param: arguments.arguments[param] })
-            # generate instruction
-            instruction = inspect.getdoc(func)
-            # generate output dict
-            output_dict = signature.return_annotation
-            return (
-                self
-                    .input(input_dict)
-                    .instruct(instruction)
-                    .output(output_dict)
-                    .start()
-            )
-        return wrapper
-    '''
 
     def start_websocket_server(self, port:int=15365):
         is_debug = self.settings.get_trace_back("is_debug")

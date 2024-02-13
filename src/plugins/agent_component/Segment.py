@@ -71,7 +71,7 @@ class Segment(ComponentABC):
         full_output_prompt += f"NOTICE: Segment Count={ len(self.segments.keys()) }, MUST MAKE SURE OUTPUT {{Segment Count}} PARTS OF SEGMENTS\n```\n"
         for name in self.segments:
             full_output_prompt += f"<!%%={ name }>\n{ to_json_desc(self.segments[name]['prompt']) }\n"
-        full_output_prompt += "```\n(DO NOT OUTPUT\`\`\`)\n"
+        full_output_prompt += "```\n(DO NOT OUTPUT```)\n"
         self.agent.output(full_output_prompt)
 
     async def _load_json_with_fix(self, origin: str):
@@ -95,86 +95,94 @@ class Segment(ComponentABC):
     async def _suffix(self, event:str, data: any):
         if not self.is_enabled():
             return None
-        if len(self.segments) > 0:
-            if event == "response:delta":
-                for char in data:
-                    '''For Debug
-                    print('char', char)
-                    print('stage', self.parse_stage)
-                    print('buffer', self.response_buffer)
-                    print('cache', self.response_segments_cache)
-                    print('--------------------')
-                    '''
-                    #Check Start
-                    if self.parse_stage == 0:
-                        if self.response_buffer in self.buffer_next_char["start"] and self.buffer_next_char["start"][self.response_buffer] == char:
-                            self.response_buffer += char
-                        if self.response_buffer == "<!%%=":
-                            self.response_buffer = ""
-                            self.parse_stage = 1
-                            continue
-                    #Record Segment Name
-                    if self.parse_stage == 1:
-                        if char != ">":
-                            self.response_buffer += char
-                        else:
-                            self.current_segment = self.response_buffer
-                            self.response_segments_cache[self.current_segment] = ""
-                            self.response_buffer = ""
-                            self.parse_stage = 2
-                            continue
-                    #Record Segment Content
-                    if self.parse_stage == 2:
-                        if self.response_buffer in self.buffer_next_char["start"] and self.buffer_next_char["start"][self.response_buffer] == char:
-                            self.response_buffer += char
-                        else:
-                            self.response_segments_cache[self.current_segment] += self.response_buffer + char
-                            self.response_buffer = ""
-                            for (streaming_listener, is_await) in self.segments[self.current_segment]["streaming_listeners"]:
-                                if asyncio.iscoroutinefunction(streaming_listener):
-                                    if is_await:
-                                        await streaming_listener(char)
+        try:
+            if len(self.segments) > 0:
+                if event == "response:delta":
+                    for char in data:
+                        '''For Debug
+                        print('char', char)
+                        print('stage', self.parse_stage)
+                        print('buffer', self.response_buffer)
+                        print('cache', self.response_segments_cache)
+                        print('--------------------')
+                        '''
+                        #Check Start
+                        if self.parse_stage == 0:
+                            if self.response_buffer in self.buffer_next_char["start"] and self.buffer_next_char["start"][self.response_buffer] == char:
+                                self.response_buffer += char
+                            if self.response_buffer == "<!%%=":
+                                self.response_buffer = ""
+                                self.parse_stage = 1
+                                continue
+                        #Record Segment Name
+                        if self.parse_stage == 1:
+                            if char != ">":
+                                self.response_buffer += char
+                            else:
+                                self.current_segment = self.response_buffer
+                                self.response_segments_cache[self.current_segment] = ""
+                                self.response_buffer = ""
+                                self.parse_stage = 2
+                                continue
+                        #Record Segment Content
+                        if self.parse_stage == 2:
+                            if self.response_buffer in self.buffer_next_char["start"] and self.buffer_next_char["start"][self.response_buffer] == char:
+                                self.response_buffer += char
+                            else:
+                                self.response_segments_cache[self.current_segment] += self.response_buffer + char
+                                self.response_buffer = ""
+                                for (streaming_listener, is_await) in self.segments[self.current_segment]["streaming_listeners"]:
+                                    if asyncio.iscoroutinefunction(streaming_listener):
+                                        if is_await:
+                                            await streaming_listener(char)
+                                        else:
+                                            self.async_tasks.append(asyncio.create_task(streaming_listener(char)))
                                     else:
-                                        self.async_tasks.append(asyncio.create_task(streaming_listener(char)))
-                                else:
-                                    streaming_listener(char)
-                        if self.response_buffer == "<!%%=":
-                            segment_data = self.response_segments_cache[self.current_segment]
-                            if isinstance(self.segments[self.current_segment]["prompt"], (dict, list, set)):
-                                segment_data = await self._load_json_with_fix(segment_data)
-                            for (done_listener, is_await) in self.segments[self.current_segment]["done_listeners"]:
-                                if asyncio.iscoroutinefunction(done_listener):
-                                    if is_await:
-                                        await done_listener(done_segment_data)
+                                        streaming_listener(char)
+                            if self.response_buffer == "<!%%=":
+                                segment_data = self.response_segments_cache[self.current_segment]
+                                if isinstance(self.segments[self.current_segment]["prompt"], (dict, list, set)):
+                                    segment_data = await self._load_json_with_fix(segment_data)
+                                for (done_listener, is_await) in self.segments[self.current_segment]["done_listeners"]:
+                                    if asyncio.iscoroutinefunction(done_listener):
+                                        if is_await:
+                                            await done_listener(done_segment_data)
+                                        else:
+                                            self.async_tasks.append(asyncio.create_task(done_listener(segment_data)))
                                     else:
-                                        self.async_tasks.append(asyncio.create_task(done_listener(segment_data)))
-                                else:
-                                    done_listener(segment_data)
-                            self.response_buffer = ""
-                            self.current_segment = ""
-                            self.parse_stage = 1
-            if event == "response:done":
-                segment_data = self.response_segments_cache[self.current_segment]
-                if isinstance(self.segments[self.current_segment]["prompt"], (dict, list, set)):
-                    segment_data = await self._load_json_with_fix(segment_data)
-                for (done_listener, is_await) in self.segments[self.current_segment]["done_listeners"]:
-                    if asyncio.iscoroutinefunction(done_listener):
-                        if is_await:
-                            await done_listener(done_segment_data)
+                                        done_listener(segment_data)
+                                self.response_buffer = ""
+                                self.current_segment = ""
+                                self.parse_stage = 1
+                if event == "response:done":
+                    segment_data = self.response_segments_cache[self.current_segment]
+                    if isinstance(self.segments[self.current_segment]["prompt"], (dict, list, set)):
+                        segment_data = await self._load_json_with_fix(segment_data)
+                    for (done_listener, is_await) in self.segments[self.current_segment]["done_listeners"]:
+                        if asyncio.iscoroutinefunction(done_listener):
+                            if is_await:
+                                await done_listener(done_segment_data)
+                            else:
+                                self.async_tasks.append(asyncio.create_task(done_listener(segment_data)))
                         else:
-                            self.async_tasks.append(asyncio.create_task(done_listener(segment_data)))
-                    else:
-                        done_listener(segment_data)
-                self.agent.request.response_cache["reply"] = self.response_segments_cache
-            if event == "response:finally":
-                for async_task in self.async_tasks:
-                    await async_task
-                # clean request runtime
-                self.segments = {}
-                self.response_segments_cache = {}
-                self.parse_stage = 0
-                self.current_segment = ""
-                self.response_buffer = ""
+                            done_listener(segment_data)
+                    self.agent.request.response_cache["reply"] = self.response_segments_cache
+                if event == "response:finally":
+                    for async_task in self.async_tasks:
+                        await async_task
+                    # clean request runtime
+                    self.segments = {}
+                    self.response_segments_cache = {}
+                    self.parse_stage = 0
+                    self.current_segment = ""
+                    self.response_buffer = ""
+        except Exception as e:
+            self.segments = {}
+            self.response_segments_cache = {}
+            self.parse_stage = 0
+            self.current_segment = ""
+            self.response_buffer = ""
+            raise(e)
 
     def export(self):
         return {

@@ -113,35 +113,39 @@ class Request(object):
         return broadcast_event_generator
 
     async def get_result_async(self, request_type: str=None):
-        is_debug = self.settings.get_trace_back("is_debug")
-        event_generator = await self.get_event_generator(request_type)
-        if is_debug:
-            print("[Realtime Response]\n")
-        def handle_response(response):
-            if response["event"] == "response:delta" and is_debug:
-                print(response["data"], end="")
-            if response["event"] == "response:done":
-                if is_debug:
-                    print("\n--------------------------\n")
-                    print("[Final Response]\n", response["data"], "\n--------------------------\n")
-                self.response_cache["reply"] = response["data"]
+        try:
+            is_debug = self.settings.get_trace_back("is_debug")
+            event_generator = await self.get_event_generator(request_type)
+            if is_debug:
+                print("[Realtime Response]\n")
+            def handle_response(response):
+                if response["event"] == "response:delta" and is_debug:
+                    print(response["data"], end="")
+                if response["event"] == "response:done":
+                    if is_debug:
+                        print("\n--------------------------\n")
+                        print("[Final Response]\n", response["data"], "\n--------------------------\n")
+                    self.response_cache["reply"] = response["data"]
 
-        if "__aiter__" in dir(event_generator):
-            async for response in event_generator:
-                handle_response(response)
-        else:
-            for response in event_generator:
-                handle_response(response)
-            
-        if self.response_cache["type"] == "JSON":
-            self.response_cache["reply"] = await load_json(
-                self.response_cache["reply"],
-                self.response_cache["prompt"]["input"],
-                self.response_cache["prompt"]["output"],
-                self,
-                is_debug = is_debug,
-            )
-        return self.response_cache["reply"]
+            if "__aiter__" in dir(event_generator):
+                async for response in event_generator:
+                    handle_response(response)
+            else:
+                for response in event_generator:
+                    handle_response(response)
+                
+            if self.response_cache["type"] == "JSON":
+                self.response_cache["reply"] = await load_json(
+                    self.response_cache["reply"],
+                    self.response_cache["prompt"]["input"],
+                    self.response_cache["prompt"]["output"],
+                    self,
+                    is_debug = is_debug,
+                )
+            return self.response_cache["reply"]
+        except Exception as e:
+            self.request_runtime_ctx.empty()
+            raise(e)
 
     def get_result(self, request_type: str=None):
         reply_queue = queue.Queue()
