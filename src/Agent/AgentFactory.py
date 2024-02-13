@@ -10,11 +10,12 @@ class AgentFactory(object):
             *,
             parent_plugin_manager: object=global_plugin_manager,
             parent_tool_manager: object=global_tool_manager,
+            parent_settings: object=global_settings,
             is_debug = False
         ):
         #runtime ctx
         self.factory_agent_runtime_ctx = RuntimeCtx()
-        self.settings = RuntimeCtx(parent = global_settings)
+        self.settings = RuntimeCtx(parent = parent_settings)
 
         #use plugin manager
         self.plugin_manager = PluginManager(parent = parent_plugin_manager)
