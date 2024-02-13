@@ -102,8 +102,8 @@ class Session(ComponentABC):
             return self.full_chat_history
 
     def rewrite_chat_history(self, new_chat_history: list):
-        self.full_chat_history = new_chat_history
-        self.recent_chat_history = new_chat_history
+        self.full_chat_history = new_chat_history.copy()
+        self.recent_chat_history = new_chat_history.copy()
         return self.agent
 
     def __find_input(self, input_data: any):
