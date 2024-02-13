@@ -67,7 +67,7 @@ class Session(ComponentABC):
     def add_chat_history(self, role: str, content: str):
         if role not in ("user", "assistant"):
             raise Exception("[Agent Component]: Session - add_chat_history() only accept role type 'user' or 'assistant'.")
-        is_strict_orders = self.settings.get("strict_orders")
+        is_strict_orders = self.settings.get_trace_back("strict_orders")
         if is_strict_orders:
             if len(self.full_chat_history) > 0:
                 if self.full_chat_history[-1]["role"] == role:
