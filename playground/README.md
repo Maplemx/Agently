@@ -14,7 +14,8 @@ You can quickly start your own test using these jupyter document template:
 
 ### Latest Show Cases
 
-- **"一句话就能..."Showcase合集** [[飞桨社区中文版](https://aistudio.baidu.com/projectdetail/7439200)]`🆕`
+- **[How to launch local open-source model to drive agent? ](https://github.com/Maplemx/Agently/blob/main/playground/using_local_open_source_model_to_drive_agents.ipynb)_<font color = "red">Agent</font><font color = "blue">ly</font>_ x Xinference**`🆕`
+- **"一句话就能..."Showcase合集** [[飞桨社区中文版](https://aistudio.baidu.com/projectdetail/7439200)]
 - **[How to create event listener functions with alias or decorator? `using ZhipuAI GLM-4!`](https://github.com/Maplemx/Agently/blob/main/playground/create_event_listeners_with_alias_or_decorator.ipynb)** 
 - **[Summon a Genie 🧞‍♂️ (Function Decorator) to Generate Agent Powered Function in Runtime](https://github.com/Maplemx/Agently/blob/main/playground/generate_agent_powered_function_in_runtime_using_decorator.ipynb)** `💪 New Feature in v3.1.4`
 - **[How to let your agents use tools to enhance themselves?](https://github.com/Maplemx/Agently/blob/main/playground/using_tools_to_enhance_your_agent.ipynb)** `💪 New Feature in v3.1`
