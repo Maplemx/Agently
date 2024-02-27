@@ -11,7 +11,7 @@ class AgentFactory(object):
             parent_plugin_manager: object=global_plugin_manager,
             parent_tool_manager: object=global_tool_manager,
             parent_settings: object=global_settings,
-            is_debug = False
+            is_debug: bool=False
         ):
         #runtime ctx
         self.factory_agent_runtime_ctx = RuntimeCtx()
@@ -32,7 +32,7 @@ class AgentFactory(object):
         #debug
         self.set_settings("is_debug", is_debug)
 
-    def create_agent(self, agent_id = None):
+    def create_agent(self, agent_id: str=None, is_debug: bool=False):
         return Agent(
             agent_id = agent_id,
             parent_agent_runtime_ctx = self.factory_agent_runtime_ctx,
@@ -41,6 +41,7 @@ class AgentFactory(object):
             global_websocket_server = self.global_websocket_server,
             parent_plugin_manager = self.plugin_manager,
             parent_settings = self.settings,
+            is_debug = is_debug
         )
 
     def register_plugin(self, module_name: str, plugin_name: str, plugin: callable):

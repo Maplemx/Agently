@@ -20,6 +20,7 @@ class Agent(object):
         global_websocket_server: object,
         parent_plugin_manager: object,
         parent_settings: object,
+        is_debug: bool=False
     ):
         # Integrate
         self.global_storage = global_storage
@@ -40,6 +41,8 @@ class Agent(object):
             parent_request_runtime_ctx = None,
             parent_settings = self.settings,
         )
+        # Debug
+        self.settings.set("is_debug", is_debug)
         # Agent Id
         if agent_id == None:
             self.agent_id = IdGenerator("agent").create()
