@@ -30,12 +30,7 @@ class Segment(ComponentABC):
                 "</!%%": ">",
             },
         }
-        self.async_tasks = []
-
-    def toggle(self, is_enabled: bool):
-        self.agent.settings.set("component_toggles.Segment", is_enabled)
-        self.agent.refresh_plugins()
-        return self.agent   
+        self.async_tasks = []  
 
     def add_segment(self, name: str, output_prompt: any, listener: callable=None, *, is_streaming = False, is_await = False):
         if name not in self.segments:
@@ -97,6 +92,7 @@ class Segment(ComponentABC):
             return None
         try:
             if len(self.segments) > 0:
+                self.segments = {}
                 if event == "response:delta":
                     for char in data:
                         '''For Debug
@@ -171,7 +167,6 @@ class Segment(ComponentABC):
                     for async_task in self.async_tasks:
                         await async_task
                     # clean request runtime
-                    self.segments = {}
                     self.response_segments_cache = {}
                     self.parse_stage = 0
                     self.current_segment = ""
@@ -189,7 +184,6 @@ class Segment(ComponentABC):
             "prefix": self._prefix,
             "suffix": self._suffix,
             "alias": {
-                "toggle_segment": { "func": self.toggle },
                 "segment": { "func": self.add_segment },
                 "add_segment_listener": { "func": self.add_segment_listener },
                 "on_segment_delta": { "func": self.on_segment_delta },
