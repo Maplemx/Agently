@@ -4,6 +4,7 @@ from .Schema import Schema
 from ..utils import RuntimeCtx
 from .._global import global_settings
 from .executors.install import mount_built_in_executors
+from .lib.constants import EXECUTOR_TYPE_NORMAL
 
 class Workflow:
     def __init__(self, *, schema_data: dict = None, settings: dict = {}):
@@ -20,6 +21,19 @@ class Workflow:
         self.executor = MainExecutor(settings)
         # 装载内置类型
         mount_built_in_executors(self.executor)
+        # Chunk Storage
+        self.chunks = {}
+
+    def chunk(self, chunk_id: str, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
+        def create_chunk_decorator(func: callable):
+            return self.chunks.update({
+                chunk_id: self.schema.create_chunk(
+                        executor = func,
+                        type = type,
+                        **chunk_desc
+                    )
+            })
+        return create_chunk_decorator
     
     def startup(self):
         exec_logic_tree = generate_exec_tree(self.schema)
