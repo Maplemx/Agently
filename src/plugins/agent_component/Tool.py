@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from .utils import ComponentABC
-from Agently.utils import RuntimeCtxNamespace
+from Agently.utils import RuntimeCtxNamespace, to_json_desc
 
 class Tool(ComponentABC):
     def __init__(self, agent: object):
@@ -68,8 +68,8 @@ class Tool(ComponentABC):
                 .input({
                     "target": self.agent.request.request_runtime_ctx.get("prompt")
                 })
-                .info("current date", datetime.now().date())
-                .info("tools", json.dumps(tool_list))
+                .info("current date", datetime.now().date().strftime("%Y-%B-%d"))
+                .info("tools", to_json_desc(tool_list))
                 .instruct("what tools to use for achieving {input.target}.\n * if use search tool, choose ONLY ONE SEARCH TOOL THAT FIT MOST\n * OUTPUT LANGUAGE SAME AS {input.target} IS USING.")
                 .output({
                     "tools_using": [{
@@ -151,7 +151,7 @@ class Tool(ComponentABC):
             if tool_results and len(tool_results.keys()) > 0:
                 return {
                     "information": tool_results,
-                    "instruction": ["using markdown format: [keywords](url) to mark info source in your answer."]
+                    "instruction": ["Use format [keywords](url) to mark internet-source information in {OUTPUT}"]
                 }
             else:
                 return None
