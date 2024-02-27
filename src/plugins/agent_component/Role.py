@@ -49,7 +49,7 @@ class Role(ComponentABC):
     def load(self, role_id: str):
         role_id = role_id or self.role_runtime_ctx.get("$ID")
         if role_id is None or role_id == "":
-            raise Exception("[Agent Component: Role] Role ID must be stated before save. Use .set_role_id() to specific it or pass role id into .load_role(<role_id>).")
+            raise Exception("[Agent Component: Role] Role ID must be stated before load. Use .set_role_id() to specific it or pass role id into .load_role(<role_id>).")
         role_data = self.role_storage.get(role_id)
         for key, value in role_data.items():
             self.role_runtime_ctx.update(key, value)

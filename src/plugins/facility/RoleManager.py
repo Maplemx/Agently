@@ -7,8 +7,8 @@ class RoleManager(FacilityABC):
         self.plugin_manager = plugin_manager
         self.role_runtime_ctx = RuntimeCtx()
 
-    def name(self, name: str):
-        self.role_runtime_ctx.set("NAME", name)
+    def set_id(self, role_id: str):
+        self.role_runtime_ctx.set("$ID", role_id)
         return self
 
     def set(self, key: any, value: any=None):
@@ -39,20 +39,16 @@ class RoleManager(FacilityABC):
             self.role_runtime_ctx.extend("DESC", key)
         return self
 
-    def save(self, role_name: str=None):
-        if role_name == None:
-            role_name = self.role_runtime_ctx.get("NAME")
-        if role_name != None and role_name != "":
-            self.storage\
-                .set(role_name, self.role_runtime_ctx.get())\
-                .save()
-            self.role_runtime_ctx.empty()
-            return self
-        else:
-            raise Exception("[Facility: RoleMananger] Role attr 'NAME' must be stated before save.")
+    def save(self, role_id: str=None):
+        role_id = role_id or self.role_runtime_ctx.get("$ID")
+        if role_id is None or role_id == "":
+            raise Exception("[Facility: RoleMananger] Role ID must be stated before save. Use .set_id() to specific it or pass role id into .save(<role_id>).")
+        self.storage.set(role_id, self.role_runtime_ctx.get()).save()
+        self.role_runtime_ctx.empty()
+        return self
 
-    def get(self, role_name: str):
-        return self.storage.get(role_name)
+    def get(self, role_id: str):
+        return self.storage.get(role_id)
 
 def export():
     return ("role_manager", RoleManager)
