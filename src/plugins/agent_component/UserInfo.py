@@ -8,36 +8,36 @@ class UserInfo(ComponentABC):
         self.user_info_storage = self.agent.global_storage.table("user_info")
 
     def set_name(self, name: str):
-        user_info_runtime_ctx = self.__get_user_info_runtime_ctx(target)
-        user_info_runtime_ctx.set("NAME", name)
+        self.user_info_runtime_ctx = self.__get_user_info_runtime_ctx(target)
+        self.user_info_runtime_ctx.set("NAME", name)
         return self.agent
 
     def set(self, key: any, value: any=None):
         if value is not None:
-            user_info_runtime_ctx.set(key, value)
+            self.user_info_runtime_ctx.set(key, value)
         else:
-            user_info_runtime_ctx.set("DESC", key)
+            self.user_info_runtime_ctx.set("DESC", key)
         return self.agent
 
     def update(self, key: any, value: any=None):
         if value is not None:
-            user_info_runtime_ctx.update(key, value)
+            self.user_info_runtime_ctx.update(key, value)
         else:
-            user_info_runtime_ctx.update("DESC", key)
+            self.user_info_runtime_ctx.update("DESC", key)
         return self.agent        
 
     def append(self, key: any, value: any=None):
         if value is not None:
-            user_info_runtime_ctx.append(key, value)
+            self.user_info_runtime_ctx.append(key, value)
         else:
-            user_info_runtime_ctx.append("DESC", key)
+            self.user_info_runtime_ctx.append("DESC", key)
         return self.agent
 
     def extend(self, key: any, value: any=None):
         if value is not None:
-            user_info_runtime_ctx.extend(key, value)
+            self.user_info_runtime_ctx.extend(key, value)
         else:
-            user_info_runtime_ctx.extend("DESC", key)
+            self.user_info_runtime_ctx.extend("DESC", key)
         return self.agent
 
     def save(self, role_name: str=None):
