@@ -35,9 +35,9 @@ class Workflow:
             })
         return create_chunk_decorator
     
-    def startup(self):
+    def start(self):
         runtime_data = resolve_runtime_data(self.schema)
-        self.executor.startup(runtime_data)
+        self.executor.start(runtime_data)
     
     def reset(self, schema_data: dict):
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})

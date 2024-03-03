@@ -6,6 +6,8 @@ from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
 
+workflow_default_logger = get_default_logger('Workflow', logging.INFO)
+
 class MainExecutor:
     def __init__(self, settings={}):
         self.is_running = True
@@ -17,12 +19,12 @@ class MainExecutor:
             max_execution_limit=self.max_execution_limit
         )
         self.store = Store()
-        self.logger = settings.get('logger', get_default_logger('Workflow', settings.get('logger_level', logging.INFO)))
+        self.logger = settings.get('logger', workflow_default_logger)
         # 已注册的执行器类型
         self.registed_executors = {}
         self.chunks_map = {}
 
-    def startup(self, runtime_data: dict):
+    def start(self, runtime_data: dict):
         entries = runtime_data.get('entries') or []
         self.chunks_map = runtime_data.get('chunk_map') or {}
         self._reset_temp_status()

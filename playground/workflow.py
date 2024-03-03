@@ -24,9 +24,9 @@ start_chunk = workflow.schema.create_chunk(
 )
 
 # 用户输入
-def input_executor(inputs_pkg, store):
+def input_executor(input_pkg, store):
     user_input = input('有什么我能帮你的吗？')
-    store.save('用户问题', user_input) # 暂存数据
+    store.set('用户问题', user_input) # 暂存数据
     return user_input
 
 wait_user_input_chunk = workflow.schema.create_chunk(
@@ -38,7 +38,7 @@ wait_user_input_chunk = workflow.schema.create_chunk(
 judge_agent = agent_factory.create_agent()
 judge_chunk = workflow.schema.create_chunk(
     title='意图判断',
-    executor=lambda inputs_pkg, store: judge_agent.input(inputs_pkg['用户问题']).set_role('导购').instruct('判断用户意图是“闲聊”还是“购物”').output({
+    executor=lambda input_pkg, store: judge_agent.input(input_pkg['用户问题']).set_role('导购').instruct('判断用户意图是“闲聊”还是“购物”').output({
         '用户意图': ('String', '\"闲聊\" 还是 \"购物\"')
     }).start(),
     handles = {
@@ -51,7 +51,7 @@ judge_chunk = workflow.schema.create_chunk(
 sales_agent = agent_factory.create_agent()
 sales_agent_chunk = workflow.schema.create_chunk(
     title='销售',
-    executor=lambda inputs_pkg, store: sales_agent.input(store.get('用户问题')).set_role('百货超市的销售').instruct('向用户推销产品，引导用户购买').output({
+    executor=lambda input_pkg, store: sales_agent.input(store.get('用户问题')).set_role('百货超市的销售').instruct('向用户推销产品，引导用户购买').output({
         '回复': ('String', '回答用户的问题')
     }).start(),
     handles = {
@@ -64,7 +64,7 @@ sales_agent_chunk = workflow.schema.create_chunk(
 chat_agent = agent_factory.create_agent()
 chat_agent_chunk = workflow.schema.create_chunk(
     title = '情感专家',
-    executor=lambda inputs_pkg, store: chat_agent.input(store.get('用户问题')).set_role('情感专家').output({
+    executor=lambda input_pkg, store: chat_agent.input(store.get('用户问题')).set_role('情感专家').output({
         '回复': ('String', '回答用户的问题')
     }).start(),
     handles = {
@@ -75,7 +75,7 @@ chat_agent_chunk = workflow.schema.create_chunk(
 
 # 最终的输出打印
 output_chunk = workflow.schema.create_chunk(
-    executor=lambda inputs_pkg, store: print('[Result]', inputs_pkg)
+    executor=lambda input_pkg, store: print('[Result]', input_pkg)
 )
 
 # 3.2 按要求连接各个 chunk
@@ -94,4 +94,4 @@ sales_agent_chunk.connect_to(output_chunk)  # 最后将 ”销售“ 的回复�
 chat_agent_chunk.connect_to(output_chunk)  # 最后将 ”情感专家" 的回复返回
 
 # 第 4 步，执行
-workflow.startup()
+workflow.start()
