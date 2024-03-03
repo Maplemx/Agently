@@ -1,5 +1,5 @@
 from .MainExecutor import MainExecutor
-from .utils.exec_tree import generate_exec_tree
+from .utils.exec_tree import resolve_runtime_data
 from .Schema import Schema
 from ..utils import RuntimeCtx
 from .._global import global_settings
@@ -36,8 +36,8 @@ class Workflow:
         return create_chunk_decorator
     
     def startup(self):
-        exec_logic_tree = generate_exec_tree(self.schema)
-        self.executor.startup(exec_logic_tree)
+        runtime_data = resolve_runtime_data(self.schema)
+        self.executor.startup(runtime_data)
     
     def reset(self, schema_data: dict):
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
