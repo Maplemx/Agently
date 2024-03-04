@@ -28,7 +28,7 @@ start_chunk = workflow.schema.create_chunk(
 question_design_agent = agent_factory.create_agent()
 questions_design_chunk = workflow.schema.create_chunk(
     title = "策划问题生成及判断节点",
-    executor=lambda inputs_pkg, store: (
+    executor=lambda input_pkg, store: (
         question_design_agent
             .input('\n'.join(store.get('已收集的信息', [])))
             .set_role('活动策划师')
@@ -45,10 +45,10 @@ questions_design_chunk = workflow.schema.create_chunk(
 """收集用户问题"""
 collect_user_info_chunk = workflow.schema.create_chunk(
     title="提问并收集信息",
-    executor=lambda inputs_pkg, store: store.save(
+    executor=lambda input_pkg, store: store.set(
       '已收集的信息',
       store.get('已收集的信息', []) +
-        [f'{question or "Please input:"}: {input(question or "Please input:")}' for question in inputs_pkg['问题清单']]
+        [f'{question or "Please input:"}: {input(question or "Please input:")}' for question in input_pkg['问题清单']]
     ),
     handles={
         "inputs": [{"handle": "问题清单"}, {"handle": "启动"}],
@@ -60,7 +60,7 @@ collect_user_info_chunk = workflow.schema.create_chunk(
 planner_agent = agent_factory.create_agent()
 planner_chunk = workflow.schema.create_chunk(
     title='活动策划',
-    executor=lambda inputs_pkg, store: (
+    executor=lambda input_pkg, store: (
         planner_agent
             .input('\n'.join(store.get('已收集的信息', [])))
             .set_role('活动策划师')
@@ -77,7 +77,7 @@ planner_chunk = workflow.schema.create_chunk(
 """最终的输出打印"""
 output_chunk = workflow.schema.create_chunk(
   title='输出',
-  executor = lambda inputs_pkg, store: print('Result: ', inputs_pkg)
+  executor = lambda input_pkg, store: print('Result: ', input_pkg)
 )
 
 # 3.2 按要求连接各个 chunk
@@ -106,4 +106,4 @@ collect_user_info_chunk.connect_to(questions_design_chunk)
 planner_chunk.connect_to(output_chunk)
 
 # 第 4 步，执行
-workflow.startup()
+workflow.start()

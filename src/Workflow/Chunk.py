@@ -18,6 +18,15 @@ class SchemaChunk:
         if not type or (type not in SPECIAL_CHUNK_TYPES):
             if not executor:
                 raise ValueError("Missing required key: 'executor'")
+        
+        handles = chunk_desc.get('handles') or {
+            'inputs': [DEFAULT_INPUT_HANDLE.copy()],
+            'outputs': [DEFAULT_OUTPUT_HANDLE.copy()]
+        }
+        if 'inputs' not in handles:
+            handles['inputs'] = [DEFAULT_INPUT_HANDLE.copy()]
+        if 'outputs' not in handles:
+            handles['outputs'] = [DEFAULT_OUTPUT_HANDLE.copy()]
 
         self.chunk = {
             'id': chunk_desc.get('id', str(uuid.uuid4())),
@@ -25,10 +34,7 @@ class SchemaChunk:
             'interactions': chunk_desc.get('interactions') or {}, # 交互配置
             'type': type or EXECUTOR_TYPE_NORMAL,
             'executor': executor,
-            'handles': chunk_desc.get('handles', {
-                'inputs': [DEFAULT_INPUT_HANDLE.copy()],
-                'outputs': [DEFAULT_OUTPUT_HANDLE.copy()]
-            }),
+            'handles': handles,
             # 连接条件（默认无条件连通）
             'connect_condition': chunk_desc.get('connect_condition') or None,
             # 当前激活的待连接的 handle 名

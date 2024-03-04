@@ -1,5 +1,7 @@
 ## **_<font color = "red">Agent</font><font color = "blue">ly</font>_ 3.0 Guidebook**
 
+**`[new]`** 中文版由浅入深开发文档：[点此访问，一步一步解锁复杂LLMs应用开发技能点](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/Agently_step_by_step_guide.ipynb)
+
 > 📥 How to use: `pip install -U Agently`
 >
 > 💡 Ideas / Bug Report: [Report Issues Here](https://github.com/Maplemx/Agently/issues)
