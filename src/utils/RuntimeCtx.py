@@ -3,7 +3,6 @@ from .DataOps import DataOps, NamespaceOps
 class RuntimeCtxNamespace(NamespaceOps):
     def __init__(self, namespace_name: str, runtime_ctx: object, *, return_to: object=None):
         super().__init__(namespace_name, runtime_ctx, return_to = return_to)
-        self._get = NamespaceOps
 
     def get_trace_back(self, keys_with_dots: (str, None) = None, default: str=None):
         return self.data_ops.get_trace_back(f"{ self.namespace_name }.{ keys_with_dots }" if keys_with_dots else self.namespace_name, default)
@@ -12,7 +11,7 @@ class RuntimeCtxNamespace(NamespaceOps):
         if trace_back:
             return self.get_trace_back(keys_with_dots, default)
         else:
-            return super().get(keys_with_dots, default)
+            return self.data_ops.get(f"{ self.namespace_name }.{ keys_with_dots }" if keys_with_dots else self.namespace_name, default)
 
 class RuntimeCtx(DataOps):
     def __init__ (self, *, parent: object=None, no_copy: bool=False):
@@ -33,7 +32,7 @@ class RuntimeCtx(DataOps):
         return parent_result
 
     def get_trace_back(self, keys_with_dots: (str, None) = None, default: str=None):
-        result = self.get(keys_with_dots)
+        result = self.get(keys_with_dots, trace_back = False)
         parent_result = self.parent.get_trace_back(keys_with_dots) if self.parent else None
         if result or parent_result:
             if isinstance(result, dict):
