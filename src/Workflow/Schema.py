@@ -47,6 +47,12 @@ class Schema:
                 'inputs': [DEFAULT_INPUT_HANDLE.copy()],
                 'outputs': [DEFAULT_OUTPUT_HANDLE.copy()]
             }
+        else:
+            if 'inputs' not in chunk_copy['handles']:
+                chunk_copy['handles']['inputs'] = [DEFAULT_INPUT_HANDLE.copy()]
+            if 'outputs' not in chunk_copy['handles']:
+                chunk_copy['handles']['outputs'] = [
+                    DEFAULT_OUTPUT_HANDLE.copy()]
         
         # 检查是否有重名的 chunk
         if has_target_by_attr(self.chunks, 'id', chunk_copy['id']):

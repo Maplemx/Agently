@@ -1,103 +1,98 @@
 from ..Schema import Schema
-from .find import find_by_attr
+from ..lib.constants import EXECUTOR_TYPE_NORMAL, EXECUTOR_TYPE_START
 
 def prepare_data(schema: Schema):
     edges_target_map = {}
     edges_source_map = {}
     edges = schema.edges
 
-    # Step 1. 处理得到原始数据
     for edge in edges:
         edges_target_map.setdefault(edge['source'], []).append(edge)
         edges_source_map.setdefault(edge['target'], []).append(edge)
 
-    # Step 2. 进一步处理数据
-    full_logic_tree = []
-
-    def build_logic_nodes(current_item, paths = []):
-        targets = edges_target_map.get(current_item['id'], [])
-        branches = []
-        current_branch_recorder = {}
-        for target in targets:
-            node_id = target['target']
-            if node_id not in current_branch_recorder:
-                target_chunk = (schema.get_chunk(node_id) or {})
-                branch = {
-                    'id': node_id,
-                    'executor': target_chunk.get('executor'),
-                    'data': target_chunk,
-                    'point_type': 'end' if not edges_target_map.get(node_id) else 'normal'
-                }
-                # 循环依赖的节点需要特殊处理
-                if len(paths) > 0 and branch['id'] in paths:
-                    branches.append({
-                        **branch,
-                        'branches': [],
-                        'point_type': 'loop'
-                    })
-                    break
-                current_branch_recorder[node_id] = branch
-                new_paths = paths.copy()
-                new_paths.append(current_item['id'])
-                branch['branches'] = build_logic_nodes(branch, new_paths)
-                branches.append(branch)
-        return branches
-
-    for node in schema.chunks:
-        if not edges_source_map.get(node['id'], []):
-            root_logic_node = {
-                'id': node['id'],
-                'executor': node.get('executor'),
-                'data': node,
-                'point_type': 'start'
-            }
-            root_logic_node['branches'] = build_logic_nodes(root_logic_node, [])
-            full_logic_tree.append(root_logic_node)
-
     return {
         'edges_source_map': edges_source_map,
-        'full_logic_tree': full_logic_tree
+        'edges_target_map': edges_target_map
     }
 
-def extract_default_dep_data(chunk, handle_name: str):
-    """从 chunk 中摘出默认的值（基于其 handle 设置）"""
-    output_handles = (chunk.get('handles') or {}).get('outputs')
-    if not output_handles or len(output_handles) == 0:
-        return None
-    target_handle = find_by_attr(output_handles, 'handle', handle_name)
-    if target_handle and 'default' in target_handle:
-        return target_handle['default']
-    return None
-
-def generate_exec_tree(schema: Schema):
+def resolve_runtime_data(schema: Schema):
     prepared_data = prepare_data(schema)
 
-    def create_exec_tree_node(node):
+    def create_exec_chunk(chunk):
+        next_chunks = []
+        next_chunk_map = {}
+        for target in prepared_data['edges_target_map'].get(chunk['id'], []):
+            target_id = target['target']
+            next_chunk = next_chunk_map.get(target_id)
+            # 如之前没存入，则新建
+            if not next_chunk:
+                next_chunk = {
+                    'id': target_id,
+                    'handles': []
+                }
+                next_chunks.append(next_chunk)
+                next_chunk_map[next_chunk['id']] = next_chunk
+            # 往 chunk 中注入当前的 handle
+            next_chunk['handles'].append({
+                'handle': target['target_handle'],
+                'source_handle': target['source_handle'],
+                'condition': target.get('condition') or None
+            })
+                
+        hanldes_desc = chunk.get('handles') or {}
+        inputs_desc = hanldes_desc.get('inputs') or []
         return {
-            'id': node['id'],
+            'id': chunk['id'],
+            'loop_entry': False, # 是否是循环的起点
+            'next_chunks': next_chunks,
+            'type': chunk.get('type') or EXECUTOR_TYPE_NORMAL,
+            'executor': chunk.get('executor'),
             'deps': [
                 {
-                    'id': dep['source'],
-                    'handler': dep['source_handle'],
-                    'target_handler': dep['target_handle'],
-                    'condition': dep.get('condition') or None,
-                    'default_data': extract_default_dep_data(schema.get_chunk(dep['source']), dep['source_handle'])
-                } for dep in prepared_data['edges_source_map'].get(node['id'], [])
+                    'handle': input_desc.get('handle'),
+                    # 运行时的依赖值，会随运行时实时更新，初始尝试从定义中取默认值
+                    'data_slot': {
+                        'is_ready': (input_desc.get('default') != None) or (chunk.get('type') == EXECUTOR_TYPE_START),
+                        'updator': '', # 更新者
+                        'value': input_desc.get('default')
+                    }
+                }
+                for input_desc in inputs_desc
             ],
-            'data': node['data'],
-            'executor': node['executor'],
-            'point_type': node['point_type'], # 类型，包含 start/end/loop/normal
-            'branches': []
+            'data': chunk
         }
+    
+    runtime_chunks_map = {}
+    for chunk in schema.chunks:
+        runtime_chunks_map[chunk['id']] = create_exec_chunk(chunk)
+    
+    # 标识循环起点
+    def update_loop_walker(chunk, paths = []):
+        for next_info in chunk.get('next_chunks'):
+            next_chunk = runtime_chunks_map.get(next_info['id'])
+            if next_chunk:
+                if next_chunk['id'] in paths:
+                    next_chunk['loop_entry'] = True
+                    print(next_chunk['data']['title'])
+                    return
+                update_loop_walker(next_chunk, paths + [next_chunk['id']])
 
-    exec_tree = []
+    entries = []
+    for chunk in schema.chunks:
+        if not prepared_data['edges_source_map'].get(chunk['id'], []):
+            entry_chunk = runtime_chunks_map.get(chunk['id'])
+            if entry_chunk:
+                entries.append(entry_chunk)
+                update_loop_walker(entry_chunk, [entry_chunk['id']])
 
-    def logic_tree_walker(nodes, parent_collections):
-        for node in nodes:
-            exec_tree_node = create_exec_tree_node(node)
-            parent_collections.append(exec_tree_node)
-            if node.get('branches') and node['branches']:
-                logic_tree_walker(node['branches'], exec_tree_node['branches'])
+    return {
+        'entries': entries,
+        'chunk_map': runtime_chunks_map
+    }
 
-    logic_tree_walker(prepared_data['full_logic_tree'], exec_tree)
-    return exec_tree
+def create_empty_data_slot(chunk):
+    return {
+        'is_ready': chunk.get('type') == EXECUTOR_TYPE_START,
+        'updator': '',
+        'value': None
+    }
