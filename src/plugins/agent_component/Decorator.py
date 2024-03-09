@@ -35,12 +35,8 @@ class Decorator(ComponentABC):
             self.agent.add_event_listener(event, func)
         return decorator
 
-    def register_tool(self, tool_info: dict={}):
+    def register_tool(self, **tool_info_kwrags):
         def decorator(func: callable):
-            if isinstance(tool_info, dict):
-                tool_info_kwrags = tool_info
-            else:
-                raise Exception(f"[Agent Component] Argument 'tool_info' of decorator 'tool' only accpet type dict.")
             # get tool name
             if "tool_name" not in tool_info_kwrags:
                 tool_info_kwrags.update({ "tool_name": func.__name__ })
