@@ -4,7 +4,8 @@ from .Schema import Schema
 from ..utils import RuntimeCtx
 from .._global import global_settings
 from .executors.install import mount_built_in_executors
-from .lib.constants import EXECUTOR_TYPE_NORMAL
+from .lib.constants import EXECUTOR_TYPE_NORMAL, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE
+from .lib.painter import draw_with_mermaid
 
 class Workflow:
     def __init__(self, *, schema_data: dict = None, settings: dict = {}):
@@ -41,3 +42,7 @@ class Workflow:
     
     def reset(self, schema_data: dict):
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
+    
+    def draw(self, type='mermaid'):
+        """绘制出图形，默认使用 mermaid，可点击 https://mermaid-js.github.io/mermaid-live-editor/edit 粘贴查看效果"""
+        return draw_with_mermaid(self.schema)
