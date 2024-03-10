@@ -211,14 +211,15 @@ class Agent(object):
         def start_in_theard():
             asyncio.set_event_loop(asyncio.new_event_loop())
             loop = asyncio.get_event_loop()
-            try:
+            if self.settings.get_trace_back("is_debug"):
                 reply = loop.run_until_complete(self.start_async(request_type))
                 reply_queue.put_nowait(reply)
-            except Exception as e:
-                if self.settings.get_trace_back(is_debug):
-                    print(f"[Agent Event Loop] Error: { str(e) }")
-            finally:
-                loop.close()
+            else:
+                try:
+                    reply = loop.run_until_complete(self.start_async(request_type))
+                    reply_queue.put_nowait(reply)
+                finally:
+                    loop.close()
         theard = threading.Thread(target=start_in_theard)
         theard.start()
         theard.join()
