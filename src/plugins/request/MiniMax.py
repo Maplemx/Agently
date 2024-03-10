@@ -1,3 +1,4 @@
+# 基于 MiniMax Pro 接口：https://www.minimaxi.com/document/guides/chat-model/pro/api
 from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, find_json
 from Agently.utils import RuntimeCtxNamespace
 import httpx
@@ -6,29 +7,35 @@ import json
 DEFAULT_AI_BOT_NAME = "智能助理"
 DEFAULT_USER_NAME = "用户"
 # 和身份相关的字段
-REL_ROLE_KEY_NAMES = ['角色', '身份', 'role',
-                      '姓名', '名称', 'name', '扮演', 'role-playing']
+REL_ROLE_KEY_NAMES = ['角色', '身份', 'role', '姓名', '名称', 'name', '扮演', 'role-playing']
 
 class MiniMax(RequestABC):
     def __init__(self, request):
         self.request = request
-        self.request_type = self.request.request_runtime_ctx.get(
-            "request_type", "chat")
+        self.request_type = self.request.request_runtime_ctx.get("request_type", "chat")
         if self.request_type == None:
             self.request_type = "chat"
+
         self.model_name = "MiniMax"
         self.model_settings = RuntimeCtxNamespace(
             f"model.{self.model_name}", self.request.settings)
+        options = self.model_settings.get_trace_back("options", {})
+        self.model_version = options.get('model') or "abab5.5-chat"
+
+        # abab5.5 模型的情况，启用 func 辅助 json 格式输出（保障结构稳定性）
+        self.use_func_fix_json = self.model_version.startswith('abab5.5')
 
     def generate_scene_info(self):
         """标准化业务场景相关的字段"""
         req_messages = []
         req_bot_desc = []
+
         # 处理角色信息（包含角色名称提取和角色信息设定）
         bot_role_name = DEFAULT_AI_BOT_NAME
         role_data = self.request.request_runtime_ctx.get_trace_back(
             "prompt.role")
         if role_data:
+            role_data = fix_define_to_obj(role_data, '角色信息')
             for role_key in REL_ROLE_KEY_NAMES:
                 role_val = get_value_ignore_case(role_data, role_key)
                 if role_val:
@@ -48,6 +55,7 @@ class MiniMax(RequestABC):
         user_info_data = self.request.request_runtime_ctx.get_trace_back(
             "prompt.user_info")
         if user_info_data:
+            user_info_data = fix_define_to_obj(user_info_data, '用户信息')
             for rel_key in REL_ROLE_KEY_NAMES:
                 user_val = get_value_ignore_case(user_info_data, rel_key)
                 if user_val:
@@ -89,19 +97,43 @@ class MiniMax(RequestABC):
             raise Exception(
                 "[Request] Missing 'prompt.input', 'prompt.information', 'prompt.instruction', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
 
+        func_args = {}
         prompt_dict = {}
         if prompt_information_data:
             prompt_dict["[补充信息]"] = str(prompt_information_data)
         if prompt_instruction_data:
             prompt_dict["[处理规则]"] = to_instruction(prompt_instruction_data)
+
         if prompt_output_data:
             if isinstance(prompt_output_data, (dict, list, set)):
-                prompt_dict["[输出要求]"] = {
-                    "TYPE": "可被解析的JSON字符串",
-                    "FORMAT": to_json_desc(prompt_output_data),
-                }
-                self.request.request_runtime_ctx.set(
-                    "response:type", "JSON")
+                # 采用 func 辅助修正格式
+                if self.use_func_fix_json:
+                    func_args["functions"] = [{
+                        "name": "output_result",
+                        "description": "输出结果",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "result": {
+                                    "type": "object",
+                                    "description": to_json_desc(prompt_output_data)
+                                }
+                            },
+                            "required": [ "result" ]
+                        }
+                    }]
+                    func_args['function_call'] = {
+                        "type": "specific",
+                        "name": "output_result"
+                    }
+                # 常规场景
+                else:
+                    prompt_dict["[输出要求]"] = {
+                        "TYPE": "可被解析的JSON字符串",
+                        "FORMAT": to_json_desc(prompt_output_data),
+                    }
+
+                self.request.request_runtime_ctx.set("response:type", "JSON")
             else:
                 prompt_dict["[输出要求]"] = str(prompt_output_data)
 
@@ -114,9 +146,10 @@ class MiniMax(RequestABC):
 
         # 兜底 prompt
         if len(req_bot_desc) == 0:
-            req_bot_desc.append(f"你是一个{bot_role_name}，尽可能准确且专业地回答我的问题")
+            req_bot_desc.append(f"尽可能准确且专业地回答用户问题")
         
         return {
+            **func_args,
             "bot_setting": [{
                 "bot_name": bot_role_name,
                 "content": '\n----\n'.join(req_bot_desc)
@@ -129,27 +162,29 @@ class MiniMax(RequestABC):
         }
 
     def generate_request_data(self):
-        scene_info = self.generate_scene_info()
         options = self.model_settings.get_trace_back("options", {})
-        if "model" not in options:
-            options.update({"model": "abab6-chat"})
+        scene_info = self.generate_scene_info()
 
         return {
             **scene_info,
             **options,
+            "model": self.model_version,
             "stream": True
         }
 
     async def request_model(self, request_data: dict):
         group_id = self.model_settings.get_trace_back("auth.group_id")
         api_key = self.model_settings.get_trace_back("auth.api_key")
+
         if not group_id or not api_key:
             raise Exception(
                 "[Request] Missing 'auth.group_id', 'auth.api_key' in model_settings. At least set value to one of them.")
+
         proxy = self.request.settings.get_trace_back("proxy")
         client_params = {}
         if proxy:
             client_params["proxy"] = proxy
+
         async with httpx.AsyncClient(**client_params) as client:
             async with client.stream(
                 "POST",
@@ -164,23 +199,58 @@ class MiniMax(RequestABC):
                     yield chunk
 
     async def broadcast_response(self, response_generator):
-        full_content = ''
-        full_origin = {}
+        full_res = ''
+        full_res_raw = {}
+        delta_content = ''
+        old_delta_content = ''
         async for part in response_generator:
-            pure_part = part[6:] if part.startswith('data:') else part
-            if pure_part:
-                chunk = json.loads(pure_part)
+            origin_part = part[6:] if part.startswith('data:') else part
+            if origin_part:
+                chunk = json.loads(origin_part)
+                # 异常判断
                 if chunk.get('base_resp') and chunk.get('base_resp').get('status_code'):
                     raise Exception(f"[Response Error]{json.dumps(chunk.get('base_resp'))}")
-                full_origin = chunk
-                full_chunk_content = chunk['choices'][0]['messages'] or []
-                delta_content = full_chunk_content[0]['text']
-                if delta_content:
-                    full_content += delta_content
-                yield ({"event": "response:delta_origin", "data": chunk})
-                yield ({"event": "response:delta", "data": delta_content})
-        yield ({"event": "response:done_origin", "data": full_origin})
-        yield ({"event": "response:done", "data": full_content})
+
+                content_chunk = chunk['choices'][0]
+                content_chunk_message = content_chunk['messages'][0]
+                function_call_chunk = content_chunk_message.get('function_call')
+
+                # func 辅助的场景
+                if self.use_func_fix_json and function_call_chunk:
+                    delta_content = extract_res_from_func_call(
+                        function_call_chunk.get('arguments')
+                    )
+                    
+                    if delta_content:
+                        # 此处是直接替换的
+                        full_res = delta_content
+                        # 尝试计算出增量
+                        delta_content = full_res[len(old_delta_content):]
+                        old_delta_content = full_res
+
+                    # 计算结束
+                    if content_chunk.get('finish_reason') == 'stop':
+                        full_res_raw = chunk
+                        full_chunk_content = extract_res_from_func_call(
+                            (content_chunk_message.get(
+                                'function_call') or {}).get('arguments')
+                        )
+                    else:
+                        yield ({"event": "response:delta_origin", "data": chunk})
+                        yield ({"event": "response:delta", "data": delta_content})
+                # 常规场景
+                else:
+                    full_res_raw = chunk
+                    full_chunk_content = content_chunk['messages'] or []
+                    delta_content = full_chunk_content[0]['text']
+                    
+                    if content_chunk.get('finish_reason') != 'stop':
+                        full_res += delta_content
+                        yield ({"event": "response:delta_origin", "data": chunk})
+                        yield ({"event": "response:delta", "data": delta_content})
+
+        yield ({"event": "response:done_origin", "data": full_res_raw})
+        yield ({"event": "response:done", "data": full_res})
 
     def export(self):
         return {
@@ -190,18 +260,30 @@ class MiniMax(RequestABC):
         }
 
 
+# 修复定义信息
+def fix_define_to_obj(value, default_key = '信息'):
+    if isinstance(value, str):
+        return {
+            default_key: value
+        }
+    return value
+
+# 忽略大小写，从 dict 中获取对应键的值
 def get_value_ignore_case(dictionary, key):
     for k, v in dictionary.items():
         if k.lower() == key.lower():
             return v
     return None
 
+# 用户消息体构建
 def to_user_msg(msg, user_name):
     return {"sender_type": "USER", "sender_name": user_name, "text": msg}
 
+# 回复消息体构建
 def to_bot_msg(msg, bot_name):
     return {"sender_type": "BOT", "sender_name": bot_name, "text": msg}
 
+# 将标准历史消息转成 MiniMax 适配的格式
 def fix_history(chat_history, user_name = '', robot_name = ''):
     def fix(chat_item):
         return {
@@ -211,5 +293,10 @@ def fix_history(chat_history, user_name = '', robot_name = ''):
         }
     return map(fix, chat_history)
 
+# 从 function call 中获取参数数据
+def extract_res_from_func_call(args_str: str):
+    return (args_str or '').replace("result=", "", 1)
+
+# 主导出函数
 def export():
     return "MiniMax", MiniMax
