@@ -73,7 +73,6 @@ def resolve_runtime_data(schema: Schema):
             if next_chunk:
                 if next_chunk['id'] in paths:
                     next_chunk['loop_entry'] = True
-                    print(next_chunk['data']['title'])
                     return
                 update_loop_walker(next_chunk, paths + [next_chunk['id']])
 
