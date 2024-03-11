@@ -13,7 +13,9 @@ class Kimi(RequestABC):
             self.request_type = "chat"
 
     def _create_client(self):
-        client_params = {}
+        client_params = {
+            "base_url": "https://api.moonshot.cn/v1",
+        }
         base_url = self.model_settings.get_trace_back("url")
         if base_url:
             client_params.update({ "base_url": base_url })
@@ -25,7 +27,6 @@ class Kimi(RequestABC):
             client_params.update({ "api_key": api_key })
         else:
             raise Exception("[Request] Kimi require api_key. use .set_auth({ 'api_key': '<Your-API-Key>' }) to set it.")
-        print("client_params",client_params)
         client = OpenAIClient(**client_params)
         return client
 
@@ -110,15 +111,13 @@ class Kimi(RequestABC):
                 "messages": self.construct_request_messages(),
                 **options
             }
-        elif self.request1_type == "vision":
+        elif self.request_type == "vision":
             raise Exception("[Request] Kimi does not support vision")
             # return {
             #     "stream": True,
             #     "messages": self.construct_request_messages(),
             #     **options
             # }
-        #为啥openai.py未含有该参数？
-        # options.update({"temperature": "0.3"})
 
     async def request_model(self, request_data: dict):
         # request_chat_model
@@ -134,7 +133,6 @@ class Kimi(RequestABC):
     async def broadcast_response(self, response_generator):
         response_message = {}
         async for part in response_generator:
-            print(part)
             delta = dict(part.choices[0].delta)
             for key, value in delta.items():
                 if key not in response_message:
