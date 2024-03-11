@@ -2,7 +2,6 @@ from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc
 from openai import AsyncOpenAI as OpenAIClient
 from Agently.utils import RuntimeCtxNamespace
 import httpx
-import time
 
 class Kimi(RequestABC):
     def __init__(self, request):
