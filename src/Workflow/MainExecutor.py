@@ -6,10 +6,9 @@ from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
 
-workflow_default_logger = get_default_logger('Workflow', logging.INFO)
-
 class MainExecutor:
-    def __init__(self, settings={}):
+    def __init__(self, workflow_id, settings={}):
+        self.workflow_id = workflow_id
         self.is_running = True
         self.running_status = 'idle'
         self.settings = settings
@@ -19,6 +18,10 @@ class MainExecutor:
             max_execution_limit=self.max_execution_limit
         )
         self.store = Store()
+        if self.settings.get_trace_back("is_debug"):
+            workflow_default_logger = get_default_logger(self.workflow_id, logging.INFO)
+        else:
+            workflow_default_logger = get_default_logger(self.workflow_id, logging.WARNING)
         self.logger = settings.get('logger', workflow_default_logger)
         # 已注册的执行器类型
         self.registed_executors = {}
