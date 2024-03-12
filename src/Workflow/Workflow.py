@@ -6,12 +6,14 @@ from .._global import global_settings
 from .executors.install import mount_built_in_executors
 from .lib.constants import EXECUTOR_TYPE_NORMAL, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE
 from .lib.painter import draw_with_mermaid
+from Agently.utils import IdGenerator
 
 class Workflow:
-    def __init__(self, *, schema_data: dict = None, settings: dict = {}):
+    def __init__(self, *, schema_data: dict = None, settings: dict = {}, workflow_id:str=None):
         """
         Workflow，初始参数 schema_data 形如 { 'chunks': [], 'edges': [] }，handler 为要处理响应的函数
         """
+        self.workflow_id = workflow_id or IdGenerator("workflow").create()
         # 处理设置
         self.settings = RuntimeCtx(parent = global_settings)
         if settings:
@@ -19,13 +21,15 @@ class Workflow:
         # 初始 schema
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
         # 初始化执行器
-        self.executor = MainExecutor(settings)
+        self.executor = MainExecutor(self.workflow_id, self.settings)
         # 装载内置类型
         mount_built_in_executors(self.executor)
         # Chunk Storage
         self.chunks = {}
 
     def chunk(self, chunk_id: str, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
+        if "title" not in chunk_desc or chunk_desc["title"] == "":
+            chunk_desc.update({ "title": chunk_id })
         def create_chunk_decorator(func: callable):
             return self.chunks.update({
                 chunk_id: self.schema.create_chunk(
