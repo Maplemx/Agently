@@ -28,10 +28,10 @@ class Request(object):
         self.plugin_manager = PluginManager(parent = parent_plugin_manager)
         # Namespace
         self.model = RuntimeCtxNamespace("model", self.settings, return_to = self)
-        self.prompt_general = RuntimeCtxNamespace("prompt.general", self.request_runtime_ctx, return_to = self)
+        self.prompt_general = RuntimeCtxNamespace("prompt.general_instruction", self.request_runtime_ctx, return_to = self)
         self.prompt_role = RuntimeCtxNamespace("prompt.role", self.request_runtime_ctx, return_to = self)
         self.prompt_user_info = RuntimeCtxNamespace("prompt.user_info", self.request_runtime_ctx, return_to = self)
-        self.prompt_abstract = RuntimeCtxNamespace("prompt.abstract", self.request_runtime_ctx, return_to = self)
+        self.prompt_abstract = RuntimeCtxNamespace("prompt.headline", self.request_runtime_ctx, return_to = self)
         self.prompt_chat_history = RuntimeCtxNamespace("prompt.chat_history", self.request_runtime_ctx, return_to = self)
         self.prompt_input = RuntimeCtxNamespace("prompt.input", self.request_runtime_ctx, return_to = self)
         self.prompt_information = RuntimeCtxNamespace("prompt.information", self.request_runtime_ctx, return_to = self)
