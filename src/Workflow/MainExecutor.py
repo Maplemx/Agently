@@ -1,8 +1,8 @@
 import logging
 import uuid
-from .utils.exec_tree import create_empty_data_slot
+from .utils.exec_tree import create_empty_data_slot, disable_chunk_dep_ticket, create_new_chunk_slot_with_val
 from .utils.logger import get_default_logger
-from .utils.find import find_by_attr
+from .utils.find import find_by_attr, has_target
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
 
@@ -79,7 +79,6 @@ class MainExecutor:
             # 如果执行完成后，还有待执行任务，则需手动执行
             if len(slow_tasks) > 0:
                 self._execute_slow_tasks(slow_tasks)
-        
 
     def _execute_partial(
             self,
@@ -91,33 +90,62 @@ class MainExecutor:
         """执行某个分组，在单次分组里，不会存在循环节点，遇到循环节点，会另起一个分组执行"""
 
         # 针对循环，存入缓执行组中，延后执行
-        if chunk['id'] in visited_record:
-            if chunk.get('loop_entry') == True:
-                slow_tasks.append(chunk)
+        if (chunk.get('loop_entry') == True) and (chunk['id'] in visited_record):
+            print('may loop', self._get_chunk_title(chunk))
+            slow_tasks.append(chunk)
             return
 
-        # 1、校验上游依赖是否就绪
-        if not self._check_dep_ready(chunk):
-            self.logger.info(f"'{self._get_chunk_title(chunk)}' dependencies not ready.")
+        # 获取执行chunk的依赖数据（每个手柄可能有多份就绪的数据）
+        single_dep_map = self._extract_execution_single_dep_data(chunk)
+        while single_dep_map['is_ready']:
+            # 基于依赖数据快照，执行分组
+            self._execute_partial_core(
+                chunk=chunk,
+                slow_tasks=slow_tasks,
+                executing_ids=executing_ids,
+                visited_record=visited_record,
+                single_dep_map=single_dep_map['data']
+            )
+            # 收回本次用到的执行票据
+            self._disable_dep_execution_ticket(
+                single_dep_map=single_dep_map['data'],
+                chunk=chunk
+            )
+            # 再次更新获取依赖（如没有了，则停止了）
+            single_dep_map = self._extract_execution_single_dep_data(chunk)
+
+    def _execute_partial_core(
+            self,
+            chunk,
+            slow_tasks = [], # 缓执行任务
+            executing_ids = [], # 执行中的任务
+            visited_record = [], # 已执行记录
+            single_dep_map = {} # 依赖项（已拆组之后的）
+        ):
+        """分组执行的核心方法，需前置处理完依赖检测及依赖数据提取"""
+
+        # 针对循环，存入缓执行组中，延后执行
+        if (chunk.get('loop_entry') == True) and (chunk['id'] in visited_record):
+            print('may loop', self._get_chunk_title(chunk))
+            slow_tasks.append(chunk)
             return
 
-
-        # 2、执行当前 chunk
+        # 1、执行当前 chunk
         execute_id = uuid.uuid4()
         executing_ids.append(execute_id)
         self.logger.info(f"Execute '{self._get_chunk_title(chunk)}'")
-        exec_value =  self._exec_chunk_core(chunk)
+        exec_value =  self._exec_chunk_with_dep_core(chunk, single_dep_map)
         self.breaking_hub.recoder(chunk)  # 更新中断器信息
         visited_record.append(chunk['id']) # 更新执行记录
         
-        # 3、执行完成后，继续下游任务
-        # 提取当前执行的结果，尝试将当前执行结果注入到下游的运行依赖插槽上 next_chunk['deps'][]['data_slot'] = 'xxx'
+        # 2、执行完成后，继续下游任务
+        # 提取当前执行的结果，尝试将当前执行结果注入到下游的运行依赖插槽上 next_chunk['deps'][]['data_slots'][] = 'xxx'
         for next_info in chunk['next_chunks']:
             next_chunk = self.chunks_map.get(next_info['id'])
             if not next_chunk:
                 continue
 
-            # 针对目标 chunk 的目标 handle 的插槽位，注入最新的值（注意如果是条件连接线，需要在条件满足时才更新）
+            # 针对目标 chunk 的目标 handle 的插槽位，注入最新的值（带执行票据的）。（注意如果是条件连接线，需要在条件满足时才更新）
             for next_rel_handle in next_info['handles']:
                 source_handle = next_rel_handle['source_handle']
                 target_handle = next_rel_handle['handle']
@@ -130,13 +158,18 @@ class MainExecutor:
                     if judge_res != True:
                         continue
                 
+                # 在下一个 chunk 的依赖定义中，找到与当前 chunk 的当前 handle 定义的部分，尝试更新其插槽值依赖
+                self.logger.debug(f"Try update chunk '{self._get_chunk_title(next_chunk)}' dep handle '{target_handle}' with value:{source_value}")
                 next_chunk_target_dep = find_by_attr(next_chunk['deps'], 'handle', target_handle)
                 if next_chunk_target_dep:
-                    next_chunk_target_dep['data_slot'] = {
-                        'is_ready': True,
-                        'updator': chunk['id'],
-                        'value': source_value,
-                    }
+                    next_chunk_dep_slots = next_chunk_target_dep['data_slots'] or []
+                    # 1、首先清空掉之前由当前节点设置，但票据已失效的值
+                    next_chunk_target_dep['data_slots'] = next_chunk_dep_slots = [
+                        slot for slot in next_chunk_dep_slots if ((slot['updator'] == chunk['id']) and slot['execution_ticket'] == '')
+                    ]
+
+                    # 2、再把本次新的值加入到该下游 chunk 的对应输入点的插槽位中
+                    next_chunk_dep_slots.append(create_new_chunk_slot_with_val(chunk['id'], source_value))
 
         # 依次尝试执行下游节点
         for next_info in chunk['next_chunks']:
@@ -144,6 +177,7 @@ class MainExecutor:
             if not next_chunk:
                 continue
 
+            self.logger.debug(f"From chunk '{self._get_chunk_title(chunk)}' call next chunk '{self._get_chunk_title(next_chunk)}'")
             self._execute_partial(next_chunk, slow_tasks, executing_ids, visited_record)
         
         # 任务执行完后，清理执行中的状态
@@ -168,42 +202,9 @@ class MainExecutor:
                 executing_ids=[],
                 visited_record=[]
             )
-            # if len(other_slow_tasks) > 0:
-            #     self._execute_slow_tasks(other_slow_tasks)
-
-    def _get_chunk_executor(self, name: str):
-        """
-        根据类型名称获取执行器
-        """
-        return self.registed_executors.get(name)
-
-    def _reset_temp_status(self):
-        """
-        重置临时状态
-        """
-        self.running_status = 'idle'
-        # 中断处理
-        self.breaking_hub = BreakingHub(
-            breaking_handler=self._handle_breaking,
-            max_execution_limit=self.max_execution_limit
-        )
-
-    def _get_chunk_res_setter_key(self, chunk):
-        """
-        获取存储数据的 key（需要考虑循环调用的场景）
-        """
-        return f"{chunk['id']}_{self.breaking_hub.get_counts(chunk) + 1}"
-
-    def _get_chunk_res_getter_key(self, chunk):
-        """
-        获取读取数据的 key（需要考虑循环调用的场景）
-        """
-        return f"{chunk['id']}_{self.breaking_hub.get_counts(chunk)}"
 
     def _exec_chunk_core(self, chunk):
-        """
-        执行任务（执行到此处的都是上游数据已就绪了的）
-        """
+        """ 执行任务（执行到此处的都是上游数据已就绪了的） """
         # 简化参数
         deps_dict = {}
         for dep in chunk['deps']:
@@ -221,17 +222,94 @@ class MainExecutor:
             raise Exception(e)
 
         return exec_res
+    
+    def _exec_chunk_with_dep_core(self, chunk, specified_deps = {}):
+        """ 执行任务（执行到此处的都是上游数据已就绪了的） """
+        # 简化参数
+        deps_dict = {}
+        print(specified_deps)
+        for dep_handle in specified_deps:
+            deps_dict[dep_handle] = specified_deps[dep_handle]['value']
 
-    def _check_dep_ready(self, chunk):
-        """监测依赖是否就绪"""
-        deps = chunk.get('deps', [])
-        if len(deps) == 0:
-            return True
+        # 交给执行器执行
+        executor_type = chunk['data']['type']
+        chunk_executor = self._get_chunk_executor(executor_type) or chunk.get('executor')
+        exec_res = None
+        try:
+            exec_res = chunk_executor(deps_dict, self.store)
+        except Exception as e:
+            self.logger.error(f"Node Execution Exception: '{self._get_chunk_title(chunk)}'({chunk['id']}) {e}")
+            # 主动中断执行
+            raise Exception(e)
+
+        return exec_res
+    
+    def _extract_execution_single_dep_data(self, chunk):
+        """实时获取某个 chunk 的一组全量可执行数据（如没有，则返回 None）"""
+        deps = chunk.get('deps')
+        if not deps or len(deps) == 0:
+            return { "is_ready": True, "data": None }
+        single_dep_map = {}
+        exist_exec_ticket = False
 
         for dep in deps:
-            if dep['data_slot']['is_ready'] == False:
-                return False
-        return True
+            slots = dep['data_slots'] or []
+            handle_name = dep['handle']
+            # 暂存的就绪的数据（循环中会不停更新，后头的会覆盖前头的），注意，就绪的数据也有可能就是 None，所以 None 不代表没有就绪数据
+            tmp_ready_slot = None
+            # 是否有就绪的值
+            has_ready_value = False
+            for slot in slots:
+                # 找到就绪的数据
+                if slot['is_ready']:
+                    has_ready_value = True
+                    # 先暂存就绪的数据作为临时数据（后面的会覆盖前头的）
+                    tmp_ready_slot = slot
+
+                    # 如果目前全局还没遇到过有票据，且当前为有票据的情况，则作为本次执行的消耗票据
+                    if slot['execution_ticket'] and not exist_exec_ticket:
+                        exist_exec_ticket = True
+                        single_dep_map[handle_name] = slot
+                        break
+
+            # 如果跑完所有，还是没设置值（可能没有就绪的数据，或者就绪的数据都是有票据的），需要从就绪的数据中强行取一个作为本次的值
+            if (handle_name not in single_dep_map) and has_ready_value:
+                single_dep_map[handle_name] = tmp_ready_slot
+
+            # 如果本轮跑完都没有设置值，则标识该 handle 数据未就绪，直接返回
+            if handle_name not in single_dep_map:
+                return { "is_ready": False, "data": None }
+
+        return { "is_ready": True, "data": single_dep_map }
+
+    def _disable_dep_execution_ticket(self, single_dep_map, chunk):
+        """销毁chunk对应的依赖执行票据（一般在执行结束后操作）"""
+        for dep_handle in single_dep_map:
+            # 找到被执行的 id
+            effect_id = single_dep_map[dep_handle]['id']
+            for dep in chunk['deps']:
+                slots = dep['data_slots'] or []
+                for slot in slots:
+                    # 将当前 chunk 中对应手柄的数据项中的对应目标数据的执行票据收回
+                    if slot['id'] == effect_id:
+                        disable_chunk_dep_ticket(slot)
+
+    def _get_chunk_executor(self, name: str):
+        """
+        根据类型名称获取执行器
+        """
+        return self.registed_executors.get(name)
+
+    def _reset_temp_status(self):
+        """
+        重置临时状态
+        """
+        self.running_status = 'idle'
+        # 中断处理
+        self.breaking_hub = BreakingHub(
+            breaking_handler=self._handle_breaking,
+            max_execution_limit=self.max_execution_limit
+        )
 
     def _chunks_clean_walker(self, root_chunk):
         """尝试对某个节点以下的分支做一轮清理工作"""
