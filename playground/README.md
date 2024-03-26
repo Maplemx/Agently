@@ -13,7 +13,12 @@ You can quickly start your own test using these jupyter document template:
 [[Quick Start Template in English](https://github.com/Maplemx/Agently/blob/main/playground/test_run_template.ipynb)] | [[中文版快速试用模板](https://github.com/Maplemx/Agently/blob/main/playground/%E7%BA%BF%E4%B8%8A%E5%BF%AB%E9%80%9F%E8%AF%95%E7%94%A8%E6%A8%A1%E6%9D%BF.ipynb)]
 
 ### Latest Show Cases
-
+- **Agently Workflow Series**:
+  - [01 - Let's Get Started by Building a Multi-Round Chat with Agently Workflow!](https://github.com/Maplemx/Agently/blob/main/playground/workflow_series_01_building_a_multi_round_chat.ipynb)
+  - [02 - Using Condition to Branch Off](https://github.com/Maplemx/Agently/blob/main/playground/workflow_series_02_using_condition_to_branch_off.ipynb)
+  - [03 - Using Decorator to Create Chunks Faster](https://github.com/Maplemx/Agently/blob/main/playground/workflow_series_03_using_decorator_to_create_chunks.ipynb)
+  - [04 - Draw a Workflow Graph to Help You Observe the Workflow](https://github.com/Maplemx/Agently/blob/main/playground/workflow_series_04_draw_a_workflow_graph.ipynb)
+  - [05 - Seperating Generation Steps and Reply to User in Every Step](https://github.com/Maplemx/Agently/blob/main/playground/workflow_series_05_seperating_generation_steps_and_reply_in_every_step.ipynb)
 - **[How to launch local open-source model to drive agent? ](https://github.com/Maplemx/Agently/blob/main/playground/using_local_open_source_model_to_drive_agents.ipynb)_<font color = "red">Agent</font><font color = "blue">ly</font>_ x Xinference**`🆕`
 - **"一句话就能..."Showcase合集** [[飞桨社区中文版](https://aistudio.baidu.com/projectdetail/7439200)]
 - **[How to create event listener functions with alias or decorator? `using ZhipuAI GLM-4!`](https://github.com/Maplemx/Agently/blob/main/playground/create_event_listeners_with_alias_or_decorator.ipynb)** 
