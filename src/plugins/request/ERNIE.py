@@ -104,7 +104,7 @@ class Ernie(RequestABC):
             system_prompt = ""
             for message in messages:
                 if message["role"] == "system":
-                    system_prompt += f"{ message["content"] }\n"
+                    system_prompt += f"{ message['content'] }\n"
                 else:
                     request_messages.append(message)
             request_data = {

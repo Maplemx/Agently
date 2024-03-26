@@ -84,7 +84,7 @@ class OAIClient(RequestABC):
             if message["role"] == "system":
                 # no_multi_system_messages=True
                 if self.message_rules["no_multi_system_messages"]:
-                    system_prompt += f"{ message["content"] }\n"
+                    system_prompt += f"{ message['content'] }\n"
                 # no_multi_system_messages=False
                 else:
                     system_messages.append(message)
@@ -151,7 +151,7 @@ class OAIClient(RequestABC):
                 if chat_history_data:
                     prompt_dict["[HISTORY LOGS]"] = ""
                     for message in chat_history_data:
-                        prompt_dict["[HISTORY LOGS]"] += f"{ message["role"] }: { message["content"] }\n"
+                        prompt_dict["[HISTORY LOGS]"] += f"{ message['role'] }: { message['content'] }\n"
                 if prompt_input_data:
                     prompt_dict["[INPUT]"] = to_instruction(prompt_input_data)
                 if prompt_information_data:
