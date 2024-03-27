@@ -13,10 +13,12 @@ class OAIClient(RequestABC):
         self.default_options = {
             "stream": True
         }
-        self.message_rules = {
-            "no_multi_system_messages": True, # Will combine multi system messages into one message
-            "strict_orders": True, # Will arrange message in orders like "user-assisantant-user-assisntant-..."
-        }
+        if not self.model_settings.get_trace_back("message_rules.no_multi_system_messages"):
+            self.model_settings.set("message_rules.no_multi_system_messages", True)
+        if not self.model_settings.get_trace_back("message_rules.strict_orders"):
+            self.model_settings.set("message_rules.strict_orders", True)
+        if not self.model_settings.get_trace_back("message_rules.no_multi_type_messages"):
+            self.model_settings.set("message_rules.no_multi_type_messages", True)    
 
     def construct_request_messages(self):
         #init request messages
@@ -83,14 +85,14 @@ class OAIClient(RequestABC):
         for message in request_messages:
             if message["role"] == "system":
                 # no_multi_system_messages=True
-                if self.message_rules["no_multi_system_messages"]:
+                if self.model_settings.get_trace_back("message_rules.no_multi_system_messages"):
                     system_prompt += f"{ message['content'] }\n"
                 # no_multi_system_messages=False
                 else:
                     system_messages.append(message)
             else:
                 # strict_orders=True
-                if self.message_rules["strict_orders"]:
+                if self.model_settings.get_trace_back("message_rules.strict_orders"):
                     if len(chat_messages) == 0 and message["role"] != "user":
                         chat_messages.append({ "role": "user", "content": "What did we talked about?" })
                         current_role = not current_role
@@ -104,10 +106,18 @@ class OAIClient(RequestABC):
                 else:
                     chat_messages.append(message)
         # no_multi_system_messages=True
-        if self.message_rules["no_multi_system_messages"] and system_prompt != "":
+        if self.model_settings.get_trace_back("message_rules.no_multi_system_messages") and system_prompt != "":
             system_messages.append({ "role": "system", "content": system_prompt })
         formatted_messages = system_messages.copy()
         formatted_messages.extend(chat_messages)
+        # no_multi_type_messages=True
+        if self.model_settings.get_trace_back("message_rules.no_multi_type_messages"):
+            current_messages = formatted_messages.copy()
+            formatted_messages = []
+            for message in current_messages:
+                for item in message["content"]:
+                    if item["type"] == "text":
+                        formatted_messages.append({ "role": message["role"], "content": item["text"] })
         return formatted_messages
 
     def construct_completion_prompt(self):
