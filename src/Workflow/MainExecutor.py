@@ -104,12 +104,12 @@ class MainExecutor:
                 slow_tasks=slow_tasks,
                 executing_ids=executing_ids,
                 visited_record=visited_record,
-                single_dep_map=single_dep_map['data']
-            )
-            # 收回本次用到的执行票据
-            self._disable_dep_execution_ticket(
                 single_dep_map=single_dep_map['data'],
-                chunk=chunk
+                # 执行后，收回本次用到的执行票据（仅在自身完了后才执行）
+                on_executed=lambda: self._disable_dep_execution_ticket(
+                    single_dep_map=single_dep_map['data'],
+                    chunk=chunk
+                )
             )
             # 再次更新获取依赖（如没有了，则停止了）
             single_dep_map = self._extract_execution_single_dep_data(chunk)
@@ -117,10 +117,11 @@ class MainExecutor:
     def _execute_partial_core(
             self,
             chunk,
-            slow_tasks = [], # 缓执行任务
-            executing_ids = [], # 执行中的任务
-            visited_record = [], # 已执行记录
-            single_dep_map = {} # 依赖项（已拆组之后的）
+            slow_tasks: list, # 缓执行任务
+            executing_ids: list, # 执行中的任务
+            visited_record: list, # 已执行记录
+            single_dep_map: dict, # 依赖项（已拆组之后的）
+            on_executed: callable # 执行完的回调
         ):
         """分组执行的核心方法，需前置处理完依赖检测及依赖数据提取"""
 
@@ -137,6 +138,8 @@ class MainExecutor:
         exec_value =  self._exec_chunk_with_dep_core(chunk, single_dep_map)
         self.breaking_hub.recoder(chunk)  # 更新中断器信息
         visited_record.append(chunk['id']) # 更新执行记录
+        if on_executed:
+            on_executed()
         
         # 2、执行完成后，继续下游任务
         # 提取当前执行的结果，尝试将当前执行结果注入到下游的运行依赖插槽上 next_chunk['deps'][]['data_slots'][] = 'xxx'
