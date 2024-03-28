@@ -18,10 +18,8 @@ class MainExecutor:
             max_execution_limit=self.max_execution_limit
         )
         self.store = Store()
-        if self.settings.get_trace_back("is_debug"):
-            workflow_default_logger = get_default_logger(self.workflow_id, logging.INFO)
-        else:
-            workflow_default_logger = get_default_logger(self.workflow_id, logging.WARNING)
+        # workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
+        workflow_default_logger = get_default_logger(self.workflow_id)
         self.logger = settings.get('logger', workflow_default_logger)
         # 已注册的执行器类型
         self.registed_executors = {}
@@ -97,7 +95,7 @@ class MainExecutor:
 
         # 获取执行chunk的依赖数据（每个手柄可能有多份就绪的数据）
         single_dep_map = self._extract_execution_single_dep_data(chunk)
-        while single_dep_map['is_ready']:
+        while (single_dep_map['is_ready'] and single_dep_map['has_ticket']):
             # 基于依赖数据快照，执行分组
             self._execute_partial_core(
                 chunk=chunk,
@@ -134,7 +132,9 @@ class MainExecutor:
         # 1、执行当前 chunk
         execute_id = uuid.uuid4()
         executing_ids.append(execute_id)
-        self.logger.info(f"Execute '{self._get_chunk_title(chunk)}'")
+        self.logger.info(
+            f"Execute '{self._get_chunk_title(chunk)}'")
+        self.logger.debug("With dependent data: ", single_dep_map)
         exec_value =  self._exec_chunk_with_dep_core(chunk, single_dep_map)
         self.breaking_hub.recoder(chunk)  # 更新中断器信息
         visited_record.append(chunk['id']) # 更新执行记录
@@ -168,7 +168,7 @@ class MainExecutor:
                     next_chunk_dep_slots = next_chunk_target_dep['data_slots'] or []
                     # 1、首先清空掉之前由当前节点设置，但票据已失效的值
                     next_chunk_target_dep['data_slots'] = next_chunk_dep_slots = [
-                        slot for slot in next_chunk_dep_slots if ((slot['updator'] == chunk['id']) and slot['execution_ticket'] == '')
+                        slot for slot in next_chunk_dep_slots if not ((slot['updator'] == chunk['id']) and slot['execution_ticket'] == '')
                     ]
 
                     # 2、再把本次新的值加入到该下游 chunk 的对应输入点的插槽位中
@@ -251,7 +251,7 @@ class MainExecutor:
         """实时获取某个 chunk 的一组全量可执行数据（如没有，则返回 None）"""
         deps = chunk.get('deps')
         if not deps or len(deps) == 0:
-            return { "is_ready": True, "data": None }
+            return {"is_ready": True, "data": None, "has_ticket": True}
         single_dep_map = {}
         exist_exec_ticket = False
 
@@ -281,9 +281,9 @@ class MainExecutor:
 
             # 如果本轮跑完都没有设置值，则标识该 handle 数据未就绪，直接返回
             if handle_name not in single_dep_map:
-                return { "is_ready": False, "data": None }
+                return {"is_ready": False, "data": None, "has_ticket": exist_exec_ticket}
 
-        return { "is_ready": True, "data": single_dep_map }
+        return {"is_ready": True, "data": single_dep_map, "has_ticket": exist_exec_ticket}
 
     def _disable_dep_execution_ticket(self, single_dep_map, chunk):
         """销毁chunk对应的依赖执行票据（一般在执行结束后操作）"""
