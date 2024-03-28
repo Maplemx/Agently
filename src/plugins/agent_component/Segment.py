@@ -92,7 +92,6 @@ class Segment(ComponentABC):
             return None
         try:
             if len(self.segments) > 0:
-                self.segments = {}
                 if event == "response:delta":
                     for char in data:
                         '''For Debug
@@ -167,6 +166,7 @@ class Segment(ComponentABC):
                     for async_task in self.async_tasks:
                         await async_task
                     # clean request runtime
+                    self.segments = {}
                     self.response_segments_cache = {}
                     self.parse_stage = 0
                     self.current_segment = ""

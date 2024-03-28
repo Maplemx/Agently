@@ -29,21 +29,18 @@ class Ernie(RequestABC):
         general_instruction_data = self.request.request_runtime_ctx.get(
             "prompt.general_instruction")
         if general_instruction_data:
-            request_messages.append({"role": "user",
+            request_messages.append({"role": "system",
                                      "content": f"[重要指导说明]\n{to_instruction(general_instruction_data)}"})
-            request_messages.append({"role": "assistant", "content": "OK"})
         # - role
         role_data = self.request.request_runtime_ctx.get("prompt.role")
         if role_data:
             request_messages.append(
-                {"role": "user", "content": f"[角色及行为设定]\n{to_instruction(role_data)}"})
-            request_messages.append({"role": "assistant", "content": "OK"})
+                {"role": "system", "content": f"[角色及行为设定]\n{to_instruction(role_data)}"})
         # - user info
         user_info_data = self.request.request_runtime_ctx.get("prompt.user_info")
         if user_info_data:
             request_messages.append(
-                {"role": "user", "content": f"[用户信息]\n{to_instruction(user_info_data)}"})
-            request_messages.append({"role": "assistant", "content": "OK"})
+                {"role": "system", "content": f"[用户信息]\n{to_instruction(user_info_data)}"})
         # - headline
         headline_data = self.request.request_runtime_ctx.get("prompt.headline")
         if headline_data:
@@ -102,11 +99,21 @@ class Ernie(RequestABC):
                     f"[Request] ERNIE require 'access-token-for-aistudio' when request type is '{self.request_type}'. Use .set_model_auth({{ 'aistudio': <YOUR-ACCESS-TOKEN-FOR-AISTUDIO> }}) to set.")
             erniebot.api_type = "aistudio"
             erniebot.access_token = access_token["aistudio"]
+            messages = self.construct_request_messages()
+            request_messages = []
+            system_prompt = ""
+            for message in messages:
+                if message["role"] == "system":
+                    system_prompt += f"{ message['content'] }\n"
+                else:
+                    request_messages.append(message)
             request_data = {
-                "messages": self.construct_request_messages(),
+                "messages": request_messages,
                 "stream": True,
                 **options,
             }
+            if system_prompt != "":
+                request_data.update({ "system": system_prompt })
         # request type: embedding
         elif self.request_type == "embedding":
             if "model" not in options:

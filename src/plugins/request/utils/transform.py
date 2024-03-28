@@ -44,7 +44,7 @@ def to_json_desc(origin, layer_count = 0):
         json_string += ("\t" * layer_count) + "[\n"
         for item in origin:
             json_string += ("\t" * (layer_count + 1)) + to_json_desc(item, layer_count + 1) + ",\n"
-        json_string += ("\t" * (layer_count + 1)) + "...\n"
+        json_string += ("\t" * (layer_count + 1)) + "\\\\...\n"
         if layer_count > 0:
             json_string += ("\t" * layer_count) + "],"
         else:
