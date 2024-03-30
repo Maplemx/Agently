@@ -2,7 +2,7 @@ import logging
 import uuid
 from .utils.exec_tree import create_empty_data_slot, disable_chunk_dep_ticket, create_new_chunk_slot_with_val
 from .utils.logger import get_default_logger
-from .utils.find import find_by_attr, has_target
+from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
 
@@ -18,8 +18,7 @@ class MainExecutor:
             max_execution_limit=self.max_execution_limit
         )
         self.store = Store()
-        # workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
-        workflow_default_logger = get_default_logger(self.workflow_id)
+        workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
         self.logger = settings.get('logger', workflow_default_logger)
         # 已注册的执行器类型
         self.registed_executors = {}
