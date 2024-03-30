@@ -52,12 +52,6 @@ def resolve_runtime_data(schema: Schema):
                 {
                     'handle': input_desc.get('handle'),
                     # 运行时的依赖值，会随运行时实时更新，初始尝试从定义中取默认值
-                    'data_slot': {
-                        'is_ready': (input_desc.get('default') != None) or (chunk.get('type') == EXECUTOR_TYPE_START),
-                        'updator': '', # 更新者
-                        'value': input_desc.get('default')
-                    },
-                    # 默认初始值
                     'data_slots': [{
                         'id': uuid.uuid4(), # 唯一 id，设置后就不变了，用于标识管理
                         'is_ready': True,
