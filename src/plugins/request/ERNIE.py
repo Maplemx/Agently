@@ -27,7 +27,7 @@ class Ernie(RequestABC):
         request_messages = []
         # - general instruction
         general_instruction_data = self.request.request_runtime_ctx.get(
-            "prompt.general_instruction")
+            "prompt.general")
         if general_instruction_data:
             request_messages.append({"role": "system",
                                      "content": f"[重要指导说明]\n{to_instruction(general_instruction_data)}"})
@@ -41,8 +41,8 @@ class Ernie(RequestABC):
         if user_info_data:
             request_messages.append(
                 {"role": "system", "content": f"[用户信息]\n{to_instruction(user_info_data)}"})
-        # - headline
-        headline_data = self.request.request_runtime_ctx.get("prompt.headline")
+        # - abstract
+        headline_data = self.request.request_runtime_ctx.get("prompt.abstract")
         if headline_data:
             request_messages.append(
                 {"role": "user", "content": f"[主题及摘要]{to_instruction(headline_data)}"})
@@ -53,24 +53,24 @@ class Ernie(RequestABC):
             request_messages.extend(chat_history_data)
         # - request message (prompt)
         prompt_input_data = self.request.request_runtime_ctx.get("prompt.input")
-        prompt_information_data = self.request.request_runtime_ctx.get("prompt.information")
-        prompt_instruction_data = self.request.request_runtime_ctx.get("prompt.instruction")
+        prompt_info_data = self.request.request_runtime_ctx.get("prompt.info")
+        prompt_instruct_data = self.request.request_runtime_ctx.get("prompt.instruct")
         prompt_output_data = self.request.request_runtime_ctx.get("prompt.output")
         # --- only input
-        if not prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
+        if not prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
             raise Exception(
-                "[Request] Missing 'prompt.input', 'prompt.information', 'prompt.instruction', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
-        if prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
+                "[Request] Missing 'prompt.input', 'prompt.info', 'prompt.instruct', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
+        if prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
             request_messages.append({"role": "user", "content": to_instruction(prompt_input_data)})
         # --- construct prompt
         else:
             prompt_dict = {}
             if prompt_input_data:
                 prompt_dict["[输入]"] = to_instruction(prompt_input_data)
-            if prompt_information_data:
-                prompt_dict["[补充信息]"] = str(prompt_information_data)
-            if prompt_instruction_data:
-                prompt_dict["[处理规则]"] = to_instruction(prompt_instruction_data)
+            if prompt_info_data:
+                prompt_dict["[补充信息]"] = str(prompt_info_data)
+            if prompt_instruct_data:
+                prompt_dict["[处理规则]"] = to_instruction(prompt_instruct_data)
             if prompt_output_data:
                 if isinstance(prompt_output_data, (dict, list, set)):
                     prompt_dict["[输出要求]"] = {

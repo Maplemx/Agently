@@ -18,7 +18,7 @@ class Claude(RequestABC):
         #init request messages
         request_messages = []
         # - general instruction
-        general_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.general_instruction")
+        general_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.general")
         if general_instruction_data:
             request_messages.append({ "role": "system", "content": [{"type": "text", "text": f"[GENERAL INSTRUCTION]\n{ to_instruction(general_instruction_data) }" }] })
         # - role
@@ -29,8 +29,8 @@ class Claude(RequestABC):
         user_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.user_info")
         if user_info_data:
             request_messages.append({ "role": "system", "content": [{"type": "text", "text": f"[ABOUT USER]\n{ to_instruction(user_info_data) }" }] })
-        # - headline
-        headline_data = self.request.request_runtime_ctx.get_trace_back("prompt.headline")
+        # - abstract
+        headline_data = self.request.request_runtime_ctx.get_trace_back("prompt.abstract")
         if headline_data:
             request_messages.append({ "role": "assistant", "content": [{"type": "text", "text": to_instruction(headline_data) }] })
         # - chat history
@@ -39,26 +39,26 @@ class Claude(RequestABC):
             request_messages.extend(chat_history_data)
         # - request message (prompt)
         prompt_input_data = self.request.request_runtime_ctx.get_trace_back("prompt.input")
-        prompt_information_data = self.request.request_runtime_ctx.get_trace_back("prompt.information")
-        prompt_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruction")
+        prompt_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.info")
+        prompt_instruct_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruct")
         prompt_output_data = self.request.request_runtime_ctx.get_trace_back("prompt.output")
         # - files
         files_data = self.request.request_runtime_ctx.get_trace_back("prompt.files")
         # --- only input
-        if not prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
-            raise Exception("[Request] Missing 'prompt.input', 'prompt.information', 'prompt.instruction', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
+        if not prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
+            raise Exception("[Request] Missing 'prompt.input', 'prompt.info', 'prompt.instruct', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
         prompt_text = ""
-        if prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
+        if prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
             prompt_text = to_instruction(prompt_input_data)
         # --- construct prompt
         else:
             prompt_dict = {}
             if prompt_input_data:
                 prompt_dict["[INPUT]"] = to_instruction(prompt_input_data)
-            if prompt_information_data:
-                prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_information_data)
-            if prompt_instruction_data:
-                prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruction_data)
+            if prompt_info_data:
+                prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_info_data)
+            if prompt_instruct_data:
+                prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruct_data)
             if prompt_output_data:
                 if isinstance(prompt_output_data, (dict, list, set)):
                     prompt_dict["[OUTPUT REQUIREMENT]"] = {
