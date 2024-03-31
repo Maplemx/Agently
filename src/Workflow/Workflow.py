@@ -4,7 +4,7 @@ from .Schema import Schema
 from ..utils import RuntimeCtx
 from .._global import global_settings
 from .executors.install import mount_built_in_executors
-from .lib.constants import EXECUTOR_TYPE_NORMAL, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE
+from .lib.constants import EXECUTOR_TYPE_NORMAL
 from .lib.painter import draw_with_mermaid
 from Agently.utils import IdGenerator
 

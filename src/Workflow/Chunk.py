@@ -17,15 +17,6 @@ class SchemaChunk:
         if not type or (type not in SPECIAL_CHUNK_TYPES):
             if not executor:
                 raise ValueError("Missing required key: 'executor'")
-        
-        handles = chunk_desc.get('handles') or {
-            'inputs': [DEFAULT_INPUT_HANDLE.copy()],
-            'outputs': [DEFAULT_OUTPUT_HANDLE.copy()]
-        }
-        if 'inputs' not in handles:
-            handles['inputs'] = [DEFAULT_INPUT_HANDLE.copy()]
-        if 'outputs' not in handles:
-            handles['outputs'] = [DEFAULT_OUTPUT_HANDLE.copy()]
 
         self.chunk = {
             'id': chunk_desc.get('id', str(uuid.uuid4())),
@@ -33,7 +24,7 @@ class SchemaChunk:
             'interactions': chunk_desc.get('interactions') or {}, # 交互配置
             'type': type or EXECUTOR_TYPE_NORMAL,
             'executor': executor,
-            'handles': handles,
+            'handles': self._fix_handles(chunk_desc.get('handles')),
             # 连接条件（默认无条件连通）
             'connect_condition': chunk_desc.get('connect_condition') or None,
             # 当前激活的待连接的 handle 名
@@ -155,3 +146,28 @@ class SchemaChunk:
         """
         search_range = self.chunk.get('handles').get('inputs' if from_inputs else 'outputs', [])
         return has_target_by_attr(search_range, 'handle', name)
+
+    def _fix_handles(self, custom_handles):
+        """修正用户传入的 handles 配置"""
+        # 处理默认 handle
+        handles = custom_handles or {
+            'inputs': [DEFAULT_INPUT_HANDLE.copy()],
+            'outputs': [DEFAULT_OUTPUT_HANDLE.copy()]
+        }
+        if 'inputs' not in handles:
+            handles['inputs'] = [DEFAULT_INPUT_HANDLE.copy()]
+        if 'outputs' not in handles:
+            handles['outputs'] = [DEFAULT_OUTPUT_HANDLE.copy()]
+
+        # 处理 handle 点简写的情况（如：{ "inputs": ['topic', 'type'], "outputs": [{"handle": "output"}] } 中的 inputs 的定义方式）
+        def fix_handle_core(handle_list):
+            if not handle_list:
+                return
+            if handle_list and len(handle_list):
+                for idx, handle in enumerate(handle_list):
+                    if isinstance(handle, str):
+                        handle_list[idx] = { "handle": handle }
+
+        fix_handle_core(handles['inputs'])
+        fix_handle_core(handles['outputs'])
+        return handles
