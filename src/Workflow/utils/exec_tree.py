@@ -1,5 +1,6 @@
 from ..Schema import Schema
 from ..lib.constants import EXECUTOR_TYPE_NORMAL, EXECUTOR_TYPE_START
+import uuid
 
 def prepare_data(schema: Schema):
     edges_target_map = {}
@@ -51,11 +52,13 @@ def resolve_runtime_data(schema: Schema):
                 {
                     'handle': input_desc.get('handle'),
                     # 运行时的依赖值，会随运行时实时更新，初始尝试从定义中取默认值
-                    'data_slot': {
-                        'is_ready': (input_desc.get('default') != None) or (chunk.get('type') == EXECUTOR_TYPE_START),
-                        'updator': '', # 更新者
+                    'data_slots': [{
+                        'id': uuid.uuid4(), # 唯一 id，设置后就不变了，用于标识管理
+                        'is_ready': True,
+                        'execution_ticket': uuid.uuid4(), # 可执行票据，可派发
+                        'updator': 'default', # 更新者
                         'value': input_desc.get('default')
-                    }
+                    }] if (input_desc.get('default') != None) or (chunk.get('type') == EXECUTOR_TYPE_START) else []
                 }
                 for input_desc in inputs_desc
             ],
@@ -94,4 +97,32 @@ def create_empty_data_slot(chunk):
         'is_ready': chunk.get('type') == EXECUTOR_TYPE_START,
         'updator': '',
         'value': None
+    }
+
+def create_empty_data_slots(chunk):
+    return [{
+        'is_ready': True,
+        'updator': '',
+        'value': None
+    }] if chunk.get('type') == EXECUTOR_TYPE_START else []
+
+def reset_chunk_slot_val(slot):
+    """清空掉某个dep slot 的值"""
+    slot['value'] = None
+    slot['is_ready'] = False
+    slot['execution_ticket'] = ''
+    slot['updator'] = ''
+
+def disable_chunk_dep_ticket(slot):
+    """回收执行票据"""
+    slot['execution_ticket'] = ''
+
+def create_new_chunk_slot_with_val(ref_chunk_id, new_val):
+    """创建一个新的带有值的slot"""
+    return {
+        'id': uuid.uuid4(), # 唯一 id，设置后就不变了，用于标识管理
+        'is_ready': True,
+        'execution_ticket': uuid.uuid4(), # 可执行票据，可派发
+        'updator': ref_chunk_id, # 更新者
+        'value': new_val
     }

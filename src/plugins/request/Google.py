@@ -13,31 +13,31 @@ class Google(RequestABC):
         #init request messages
         request_messages = []
         # - general instruction
-        general_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.general_instruction")
+        general_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.general")
         if general_instruction_data:
-            request_messages.append({ "role": "user", "parts": [{ "text": f"[YOUR GENERAL INSTRUCTION]?" }] })
+            request_messages.append({ "role": "user", "parts": [{ "text": f"[YOUR GENERAL INSTRUCTION]:" }] })
             request_messages.append({ "role": "model", "parts": [{ "text": f"{ to_instruction(general_instruction_data) }" }] })
         # - role
         role_data = self.request.request_runtime_ctx.get_trace_back("prompt.role")
         if role_data:
-            request_messages.append({ "role": "user", "parts": [{ "text": f"[YOUR ROLE SETTINGS]?" }] })
+            request_messages.append({ "role": "user", "parts": [{ "text": f"[YOUR ROLE DESCRIPTION]:" }] })
             request_messages.append({ "role": "model", "parts": [{ "text": f"{ to_instruction(role_data) }" }] })
         # - user info
         user_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.user_info")
         if user_info_data:
-            request_messages.append({ "role": "user", "parts": [{ "text": f"[USER INFO WHOM YOU'RE TALKING TO]?" }] })
+            request_messages.append({ "role": "user", "parts": [{ "text": f"[USER'S INTRODUCTION ABOUT HIMSELF/HERSELF]:" }] })
             request_messages.append({ "role": "model", "parts": [{ "text": f"{ to_instruction(user_info_data) }" }] })
-        # - headline
-        headline_data = self.request.request_runtime_ctx.get_trace_back("prompt.headline")
+        # - abstract
+        headline_data = self.request.request_runtime_ctx.get_trace_back("prompt.abstract")
         if headline_data:
-            request_messages.append({ "role": "user", "parts": [{ "text": f"[HEADLINE ABOUT WHAT WE'RE TALKING ABOUT]?" }] })
+            request_messages.append({ "role": "user", "parts": [{ "text": f"[ABSTRACT ABOUT CHAT HISTORY BEFORE]:" }] })
             request_messages.append({ "role": "model", "parts": [{ "text": f"{ to_instruction(headline_data) }" }] })
         # - chat history
         chat_history_data = self.request.request_runtime_ctx.get_trace_back("prompt.chat_history")
         if chat_history_data:
             # make sure start with role "user"
             if chat_history_data[0]["role"] != "user":
-                request_messages.append({ "role": "user", "parts": [{ "text": "[CHAT HISTORY]:" }] })
+                request_messages.append({ "role": "user", "parts": [{ "text": "[LATEST CHAT HISTORY]:" }] })
                 current_role = "model"
             else:
                 current_role = "user"
@@ -54,26 +54,26 @@ class Google(RequestABC):
                 request_messages.append({ "role": "model", "parts": [{ "text": "[CHAT HISTORY END]" }] })
         # - request message (prompt)
         prompt_input_data = self.request.request_runtime_ctx.get_trace_back("prompt.input")
-        prompt_information_data = self.request.request_runtime_ctx.get_trace_back("prompt.information")
-        prompt_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruction")
+        prompt_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.info")
+        prompt_instruct_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruct")
         prompt_output_data = self.request.request_runtime_ctx.get_trace_back("prompt.output")
         # - files
         files_data = self.request.request_runtime_ctx.get_trace_back("prompt.files")
         # --- only input
-        if not prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
-            raise Exception("[Request] Missing 'prompt.input', 'prompt.information', 'prompt.instruction', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
+        if not prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
+            raise Exception("[Request] Missing 'prompt.input', 'prompt.info', 'prompt.instruct', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
         prompt_text = ""
-        if prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
+        if prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
             prompt_text = to_instruction(prompt_input_data)
         # --- construct prompt
         else:
             prompt_dict = {}
             if prompt_input_data:
                 prompt_dict["[INPUT]"] = to_instruction(prompt_input_data)
-            if prompt_information_data:
-                prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_information_data)
-            if prompt_instruction_data:
-                prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruction_data)
+            if prompt_info_data:
+                prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_info_data)
+            if prompt_instruct_data:
+                prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruct_data)
             if prompt_output_data:
                 if isinstance(prompt_output_data, (dict, list, set)):
                     prompt_dict["[OUTPUT REQUIREMENT]"] = {

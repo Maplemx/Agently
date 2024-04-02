@@ -45,7 +45,7 @@ class MiniMax(RequestABC):
 
         # 处理指令
         general_instruction_data = self.request.request_runtime_ctx.get_trace_back(
-            "prompt.general_instruction")
+            "prompt.general")
         if general_instruction_data:
             req_bot_desc.append(
                 f"[重要指导说明]{to_instruction(general_instruction_data)}")
@@ -67,7 +67,7 @@ class MiniMax(RequestABC):
 
         # 主题摘要
         headline_data = self.request.request_runtime_ctx.get_trace_back(
-            "prompt.headline")
+            "prompt.abstract")
         if headline_data:
             req_messages.append(to_user_msg(
                 f"[这是我们要聊的话题]：{to_instruction(headline_data)}", user_role_name))
@@ -86,23 +86,23 @@ class MiniMax(RequestABC):
         # - request message (prompt)
         prompt_input_data = self.request.request_runtime_ctx.get(
             "prompt.input")
-        prompt_information_data = self.request.request_runtime_ctx.get(
-            "prompt.information")
-        prompt_instruction_data = self.request.request_runtime_ctx.get(
-            "prompt.instruction")
+        prompt_info_data = self.request.request_runtime_ctx.get(
+            "prompt.info")
+        prompt_instruct_data = self.request.request_runtime_ctx.get(
+            "prompt.instruct")
         prompt_output_data = self.request.request_runtime_ctx.get(
             "prompt.output")
         # --- only input
-        if not prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
+        if not prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
             raise Exception(
-                "[Request] Missing 'prompt.input', 'prompt.information', 'prompt.instruction', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
+                "[Request] Missing 'prompt.input', 'prompt.info', 'prompt.instruct', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
 
         func_args = {}
         prompt_dict = {}
-        if prompt_information_data:
-            prompt_dict["[补充信息]"] = str(prompt_information_data)
-        if prompt_instruction_data:
-            prompt_dict["[处理规则]"] = to_instruction(prompt_instruction_data)
+        if prompt_info_data:
+            prompt_dict["[补充信息]"] = str(prompt_info_data)
+        if prompt_instruct_data:
+            prompt_dict["[处理规则]"] = to_instruction(prompt_instruct_data)
 
         if prompt_output_data:
             if isinstance(prompt_output_data, (dict, list, set)):

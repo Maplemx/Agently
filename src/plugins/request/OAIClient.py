@@ -24,7 +24,7 @@ class OAIClient(RequestABC):
         #init request messages
         request_messages = []
         # - general instruction
-        general_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.general_instruction")
+        general_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.general")
         if general_instruction_data:
             request_messages.append({ "role": "system", "content": [{"type": "text", "text": f"[GENERAL INSTRUCTION]\n{ to_instruction(general_instruction_data) }" }] })
         # - role
@@ -35,8 +35,8 @@ class OAIClient(RequestABC):
         user_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.user_info")
         if user_info_data:
             request_messages.append({ "role": "system", "content": [{"type": "text", "text": f"[ABOUT USER]\n{ to_instruction(user_info_data) }" }] })
-        # - headline
-        headline_data = self.request.request_runtime_ctx.get_trace_back("prompt.headline")
+        # - abstract
+        headline_data = self.request.request_runtime_ctx.get_trace_back("prompt.abstract")
         if headline_data:
             request_messages.append({ "role": "assistant", "content": [{"type": "text", "text": f"[ABSTRACT]\n{ to_instruction(headline_data) }" }] })
         # - chat history
@@ -45,24 +45,24 @@ class OAIClient(RequestABC):
             request_messages.extend(chat_history_data)
         # - request message (prompt)
         prompt_input_data = self.request.request_runtime_ctx.get_trace_back("prompt.input")
-        prompt_information_data = self.request.request_runtime_ctx.get_trace_back("prompt.information")
-        prompt_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruction")
+        prompt_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.info")
+        prompt_instruct_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruct")
         prompt_output_data = self.request.request_runtime_ctx.get_trace_back("prompt.output")
         # --- only input
-        if not prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
-            raise Exception("[Request] Missing 'prompt.input', 'prompt.information', 'prompt.instruction', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
+        if not prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
+            raise Exception("[Request] Missing 'prompt.input', 'prompt.info', 'prompt.instruct', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
         prompt_text = ""
-        if prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
+        if prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
             prompt_text = to_instruction(prompt_input_data)
         # --- construct prompt
         else:
             prompt_dict = {}
             if prompt_input_data:
                 prompt_dict["[INPUT]"] = to_instruction(prompt_input_data)
-            if prompt_information_data:
-                prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_information_data)
-            if prompt_instruction_data:
-                prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruction_data)
+            if prompt_info_data:
+                prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_info_data)
+            if prompt_instruct_data:
+                prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruct_data)
             if prompt_output_data:
                 if isinstance(prompt_output_data, (dict, list, set)):
                     prompt_dict["[OUTPUT REQUIREMENT]"] = {
@@ -124,7 +124,7 @@ class OAIClient(RequestABC):
         # - init prompt
         completion_prompt = ""
         # - general instruction
-        general_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.general_instruction")
+        general_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.general")
         if general_instruction_data:
             completion_prompt += f"[GENERAL INSTRUCTION]\n{ to_instruction(general_instruction_data) }\n"
         # - role
@@ -135,20 +135,20 @@ class OAIClient(RequestABC):
         user_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.user_info")
         if user_info_data:
             completion_prompt += f"[ABOUT USER]\n{ to_instruction(user_info_data) }\n"
-        # - headline
-        headline_data = self.request.request_runtime_ctx.get_trace_back("prompt.headline")
+        # - abstract
+        headline_data = self.request.request_runtime_ctx.get_trace_back("prompt.abstract")
         if headline_data:
             completion_prompt += f"[ABSTRACT]\n{ to_instruction(headline_data) }\n"
         # - main prompt
         chat_history_data = self.request.request_runtime_ctx.get_trace_back("prompt.chat_history")
         prompt_input_data = self.request.request_runtime_ctx.get_trace_back("prompt.input")
-        prompt_information_data = self.request.request_runtime_ctx.get_trace_back("prompt.information")
-        prompt_instruction_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruction")
+        prompt_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.info")
+        prompt_instruct_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruct")
         prompt_output_data = self.request.request_runtime_ctx.get_trace_back("prompt.output")
-        if not prompt_input_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data and not chat_history_data:
-            raise Exception("[Request] Missing 'prompt.chat_history', 'prompt.input', 'prompt.information', 'prompt.instruction', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
+        if not prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data and not chat_history_data:
+            raise Exception("[Request] Missing 'prompt.chat_history', 'prompt.input', 'prompt.info', 'prompt.instruct', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
         # --- only input
-        if prompt_input_data and not chat_history_data and not prompt_information_data and not prompt_instruction_data and not prompt_output_data:
+        if prompt_input_data and not chat_history_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data:
             if completion_prompt == "":
                 completion_prompt += to_instruction(prompt_input_data)
             else:
@@ -164,10 +164,10 @@ class OAIClient(RequestABC):
                         prompt_dict["[HISTORY LOGS]"] += f"{ message['role'] }: { message['content'] }\n"
                 if prompt_input_data:
                     prompt_dict["[INPUT]"] = to_instruction(prompt_input_data)
-                if prompt_information_data:
-                    prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_information_data)
-                if prompt_instruction_data:
-                    prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruction_data)
+                if prompt_info_data:
+                    prompt_dict["[HELPFUL INFORMATION]"] = str(prompt_info_data)
+                if prompt_instruct_data:
+                    prompt_dict["[INSTRUCTION]"] = to_instruction(prompt_instruct_data)
                 if prompt_output_data:
                     prompt_dict["[OUTPUT REQUIREMENT]"] = {
                         "TYPE": "JSON can be parsed in Python",
@@ -182,10 +182,10 @@ class OAIClient(RequestABC):
                 )
             # without output format
             else:
-                if prompt_information_data:
-                    completion_prompt += f"[HELPFUL INFORMATION]\n{ str(prompt_information_data) }\n"
-                if prompt_instruction_data:
-                    completion_prompt += f"[INSTRUCTION]\n{ to_instruction(prompt_instruction_data) }\n"
+                if prompt_info_data:
+                    completion_prompt += f"[HELPFUL INFORMATION]\n{ str(prompt_info_data) }\n"
+                if prompt_instruct_data:
+                    completion_prompt += f"[INSTRUCTION]\n{ to_instruction(prompt_instruct_data) }\n"
                 if prompt_output_data:
                     completion_prompt += f"[OUTPUT REQUIREMENT]\n{ str(prompt_output_data) }\n"
                 completion_prompt += "[OUTPUT]\n"

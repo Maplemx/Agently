@@ -28,14 +28,14 @@ class Request(object):
         self.plugin_manager = PluginManager(parent = parent_plugin_manager)
         # Namespace
         self.model = RuntimeCtxNamespace("model", self.settings, return_to = self)
-        self.prompt_general = RuntimeCtxNamespace("prompt.general_instruction", self.request_runtime_ctx, return_to = self)
+        self.prompt_general = RuntimeCtxNamespace("prompt.general", self.request_runtime_ctx, return_to = self)
         self.prompt_role = RuntimeCtxNamespace("prompt.role", self.request_runtime_ctx, return_to = self)
         self.prompt_user_info = RuntimeCtxNamespace("prompt.user_info", self.request_runtime_ctx, return_to = self)
-        self.prompt_abstract = RuntimeCtxNamespace("prompt.headline", self.request_runtime_ctx, return_to = self)
+        self.prompt_abstract = RuntimeCtxNamespace("prompt.abstract", self.request_runtime_ctx, return_to = self)
         self.prompt_chat_history = RuntimeCtxNamespace("prompt.chat_history", self.request_runtime_ctx, return_to = self)
         self.prompt_input = RuntimeCtxNamespace("prompt.input", self.request_runtime_ctx, return_to = self)
-        self.prompt_information = RuntimeCtxNamespace("prompt.information", self.request_runtime_ctx, return_to = self)
-        self.prompt_instruction = RuntimeCtxNamespace("prompt.instruction", self.request_runtime_ctx, return_to = self)
+        self.prompt_info = RuntimeCtxNamespace("prompt.info", self.request_runtime_ctx, return_to = self)
+        self.prompt_instruct = RuntimeCtxNamespace("prompt.instruct", self.request_runtime_ctx, return_to = self)
         self.prompt_output = RuntimeCtxNamespace("prompt.output", self.request_runtime_ctx, return_to = self)
         self.prompt_files = RuntimeCtxNamespace("prompt.files", self.request_runtime_ctx, return_to = self)
         # Alias
@@ -44,6 +44,17 @@ class Request(object):
 
     def set_settings(self, settings_key: str, settings_value: any):
         self.settings.set(settings_key, settings_value)
+        return self
+
+    def set_request_prompt(self, key: str, value: any):
+        self.request_runtime_ctx.set(f"prompt.{ key }", value)
+        return self
+
+    def get_request_prompt(self, key: str):
+        return self.request_runtime_ctx.get(f"prompt.{ key }")
+
+    def remove_request_prompt(self, key: str):
+        self.request_runtime_ctx.remove(f"prompt.{ key }")
         return self
 
     def _register_default_alias(self, alias_manager):
@@ -65,11 +76,14 @@ class Request(object):
         alias_manager.register("abstract", self.prompt_abstract.assign)
         alias_manager.register("chat_history", self.prompt_chat_history.assign)
         alias_manager.register("input", self.prompt_input.assign)
-        alias_manager.register("info", self.prompt_information.assign)
-        alias_manager.register("instruct", self.prompt_instruction.assign)
+        alias_manager.register("info", self.prompt_info.assign)
+        alias_manager.register("instruct", self.prompt_instruct.assign)
         alias_manager.register("output", self.prompt_output.assign)
         alias_manager.register("file", self.prompt_files.append)
-        alias_manager.register("files", self.prompt_files.extend)        
+        alias_manager.register("files", self.prompt_files.extend)
+        alias_manager.register("set_request_prompt", self.set_request_prompt)
+        alias_manager.register("get_request_prompt", self.get_request_prompt)
+        alias_manager.register("remove_request_prompt", self.remove_request_prompt) 
         
     async def get_event_generator(self, request_type: str=None):
         # Set Request Type

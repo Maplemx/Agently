@@ -122,12 +122,25 @@ class Agent(object):
         self.settings.set(settings_key, settings_value)
         return self
 
+    def set_agent_prompt(self, key: str, value: any):
+        self.agent_runtime_ctx.set(f"prompt.{ key }", value)
+        return self
+
+    def get_agent_prompt(self, key: str):
+        return self.agent_runtime_ctx.get(f"prompt.{ key }")
+
+    def remove_agent_prompt(self, key: str):
+        self.agent_runtime_ctx.remove(f"prompt.{ key }")
+        return self
+
     async def start_async(self, request_type: str=None):
         try:
             is_debug = self.settings.get_trace_back("is_debug")
             # Auto Save Agent runtime_ctx
             if self.agent_runtime_ctx.get("agent_auto_save") ==  True:
                 self.save()
+            # Load Prompt in Agent runtime_ctx to Request runtime_ctx
+            self.request_runtime_ctx.set("prompt", self.agent_runtime_ctx.get("prompt", {}))
             # Call Prefix Funcs to Prepare Prefix Data(From agent_runtime_ctx To request_runtime_ctx)
             async def call_prefix_funcs(prefix_funcs):
                 if prefix_funcs != None:
