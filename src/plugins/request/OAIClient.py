@@ -86,7 +86,9 @@ class OAIClient(RequestABC):
             if message["role"] == "system":
                 # no_multi_system_messages=True
                 if self.model_settings.get_trace_back("message_rules.no_multi_system_messages"):
-                    system_prompt += f"{ message['content'] }\n"
+                    for content in message["content"]:
+                        if content["type"] == "text":
+                            system_prompt += f"{ content['text'] }\n"
                 # no_multi_system_messages=False
                 else:
                     system_messages.append(message)
@@ -107,7 +109,13 @@ class OAIClient(RequestABC):
                     chat_messages.append(message)
         # no_multi_system_messages=True
         if self.model_settings.get_trace_back("message_rules.no_multi_system_messages") and system_prompt != "":
-            system_messages.append({ "role": "system", "content": system_prompt })
+            system_messages.append({
+                "role": "system",
+                "content": [{
+                    "type": "text",
+                    "text": system_prompt
+                }]
+            })
         formatted_messages = system_messages.copy()
         formatted_messages.extend(chat_messages)
         # no_multi_type_messages=True
