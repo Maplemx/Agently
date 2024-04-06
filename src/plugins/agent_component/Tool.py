@@ -133,7 +133,7 @@ class Tool(ComponentABC):
             self.agent.request.request_runtime_ctx.remove("prompt.instruct")
             self.agent.request.request_runtime_ctx.remove("prompt.output")
             return {
-                "information": {
+                "info": {
                     "function_must_call": {
                         "tool_name": self.must_call_tool_info["tool_name"],
                         "desc": self.must_call_tool_info["desc"],
@@ -150,8 +150,8 @@ class Tool(ComponentABC):
             tool_results = await self.call_plan_func(self)
             if tool_results and len(tool_results.keys()) > 0:
                 return {
-                    "information": tool_results,
-                    "instruction": ["Use format [keywords](url) to mark internet-source information in {OUTPUT}"]
+                    "info": tool_results,
+                    "instruct": ["Use format [keywords](url) to mark internet-source information in {OUTPUT}"]
                 }
             else:
                 return None
