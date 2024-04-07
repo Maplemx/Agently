@@ -235,9 +235,9 @@ class OAIClient(RequestABC):
         base_url = self.model_settings.get_trace_back("url")
         if base_url:
             client_params.update({ "base_url": base_url })
-        proxy = self.model_settings.get_trace_back("proxy")
+        proxy = self.request.settings.get_trace_back("proxy")
         if proxy:
-            client_params.update({ "http_client": httpx.Client( proxies = proxy ) })
+            client_params.update({ "http_client": httpx.AsyncClient( proxies = proxy ) })
         api_key = self.model_settings.get_trace_back("auth.api_key")
         if api_key:
             client_params.update({ "api_key": api_key })

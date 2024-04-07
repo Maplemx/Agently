@@ -22,7 +22,7 @@ class OpenAI(RequestABC):
             client_params.update({ "base_url": base_url })
         proxy = self.request.settings.get_trace_back("proxy")
         if proxy:
-            client_params.update({ "http_client": httpx.Client( proxies = proxy ) })
+            client_params.update({ "http_client": httpx.AsyncClient( proxies = proxy ) })
         api_key = self.model_settings.get_trace_back("auth.api_key")
         if api_key:
             client_params.update({ "api_key": api_key })
@@ -112,7 +112,7 @@ class OpenAI(RequestABC):
                 self.assistant_id = assistant_id
             options = self.model_settings.get_trace_back("options", {})
             if "model" not in options:
-                options.update({ "model": "gpt-3.5-turbo-1106" })
+                options.update({ "model": "gpt-3.5-turbo" })
             return {
                 "stream": True,
                 "messages": self.construct_request_messages(),
@@ -121,7 +121,7 @@ class OpenAI(RequestABC):
         elif self.request_type == "chat":
             options = self.model_settings.get_trace_back("options", {})
             if "model" not in options:
-                options.update({ "model": "gpt-3.5-turbo-1106" })
+                options.update({ "model": "gpt-3.5-turbo" })
             return {
                 "stream": True,
                 "messages": self.construct_request_messages(),
@@ -181,7 +181,7 @@ class OpenAI(RequestABC):
 
     async def request_gpt(self, request_data: dict):
         client = self._create_client()
-        if self.request.request_runtime_ctx.get("response:type") == "JSON" and request_data["model"] in ("gpt-3.5-turbo-1106", "gpt-4-1106-preview"):
+        if self.request.request_runtime_ctx.get("response:type") == "JSON":
             request_data.update({ "response_format": { "type": "json_object" } })
         stream = await client.chat.completions.create(
             **request_data
