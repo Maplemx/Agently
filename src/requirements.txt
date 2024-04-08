@@ -12,7 +12,8 @@ PyYAML
 json5
 # Web
 duckduckgo_search
-newspaper3k
+beautifulsoup4
+requests
 # Calulate
 numpy
 scipy

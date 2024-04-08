@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime
 from .utils import ComponentABC
@@ -11,6 +12,7 @@ class Tool(ComponentABC):
         self.tool_manager = self.agent.tool_manager
         self.tool_dict = {}
         self.must_call_tool_info = None
+        self.get_tool_func = self.tool_manager.get_tool_func
         self.call_tool_func = self.tool_manager.call_tool_func
         self.set_tool_proxy = self.tool_manager.set_tool_proxy
 
@@ -101,10 +103,11 @@ class Tool(ComponentABC):
                             tool_kwrags.update({ "proxy": proxy })
                     call_result = None
                     try:
-                        call_result = self.call_tool_func(
-                            tool_info["tool_name"],
-                            **tool_kwrags
-                        )
+                        tool_func = self.get_tool_func(tool_info["tool_name"])
+                        if asyncio.iscoroutinefunction(tool_func):
+                            call_result = await tool_func(**tool_kwrags)
+                        else:
+                            call_result = tool_func(**tool_kwrags)
                     except Exception as e:
                         if self.is_debug():
                             print("[Tool Error]: ", e)
@@ -151,7 +154,6 @@ class Tool(ComponentABC):
             if tool_results and len(tool_results.keys()) > 0:
                 return {
                     "info": tool_results,
-                    "instruct": ["Use format [keywords](url) to mark internet-source information in {OUTPUT}"]
                 }
             else:
                 return None

@@ -1,3 +1,4 @@
+import asyncio
 from .RuntimeCtx import RuntimeCtx, RuntimeCtxNamespace
 
 class ToolManager(object):
@@ -71,7 +72,11 @@ class ToolManager(object):
     def call_tool_func(self, tool_name: str, *args, **kwargs):
         func = self.get_tool_func(tool_name)
         if func:
-            return func(*args, **kwargs)
+            if asyncio.iscoroutinefunction(func):
+                loop = asyncio.get_event_loop()
+                return loop.run_until_complete(func(*args, **kwargs))
+            else:
+                return func(*args, **kwargs)
         else:
             return None
 

@@ -2,8 +2,8 @@ from .utils import ToolABC
 import time
 import httpx
 from duckduckgo_search import DDGS
-from newspaper import Article as NsArticle, Config as NsConfig
-#from bs4 import BeautifulSoup
+import requests
+from bs4 import BeautifulSoup
 
 class Web(ToolABC):
     def __init__(self, tool_manager: object):
@@ -36,14 +36,6 @@ class Web(ToolABC):
                             "brief": result["body"],
                             "url": result["href"],
                         })
-                        '''
-                        results["origin"].append(result)
-                        results["for_agent"].append({
-                            "index": index,
-                            "title": result["title"],
-                            "body": result["body"],
-                        })
-                        '''
                 elif type == 2:
                     for index, result in enumerate(ddgs.news(
                         str(keywords),
@@ -56,15 +48,6 @@ class Web(ToolABC):
                             "source": result["source"],
                             "date": result["date"],
                         })
-                        '''
-                        results["origin"].append(result)
-                        results["for_agent"].append({
-                            "index": index,
-                            "title": result["title"],
-                            "body": result["body"],
-                            "date": result["date"],
-                        })
-                        '''
         except Exception as e:
             results = f"No Result Because: { str(e) }"
         return results
@@ -82,40 +65,28 @@ class Web(ToolABC):
         return self.search(keywords, options=options, proxy=proxy, type=2)
 
     def browse(self, url: str, *, retry_times:int = 0, proxy: str=None):
-        ns_config = NsConfig()
-        if proxy:
-            if proxy.startswith("http:"):
-                ns_config.proxies = { "http": proxy }
-            elif proxy.startswith("https:"):
-                ns_config.proxies = { "https": proxy }
-        ns_config.request_timeout = 20
-        ns_config.browser_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-        ns_config.browser_accept = "*/*"
-        ns_config.fetch_images = False
-        ns_config.memoize_articles = False
-        ns_article = NsArticle(url, config = ns_config)
-        ns_article.download()
-        ns_article.parse()
-        result = ns_article.text
-        return result
-        '''
-        if len(result) < 200:
-            request_params = {}
+        try:
+            request_options = {}
             if proxy:
-                request_params.update({ "proxies": proxy })
-            response = httpx.get(url, **request_params)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, "html.parser")
-                result = re.sub(r"\n{3,}", "\n\n", soup.get_text())
-                return result
+                if proxy.startswith("http:"):
+                    request_options.update({ "proxies": { "http": proxy } })
+                elif proxy.startswith("https:"):
+                    request_options.update({ "proxies": { "https": proxy } })
+            request_options.update({ "headers": { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"} })
+            page_response = requests.get(url, **request_options)
+            soup = BeautifulSoup(page_response.content, 'html.parser')
+            paragraphs = soup.find_all('p')
+            texts = [p.get_text() for p in paragraphs]
+            page_content = '\n'.join(texts)
+            if page_content and page_content != "":
+                return page_content
             else:
-                if retry_times < 3:
-                    return self.browse(url, retry_times = retry_times + 1)
-                else:
-                    return "Can not open the web page."
-        else:
-            return result
-        '''
+                return f"Can not get content from url: { url }"
+        except Exception as e:
+            if retry_times < 3:
+                return self.browse(url, retry_times = retry_times + 1, proxy = proxy)
+            else:
+                return f"Can not get content from url: { url }\nError: { str(e) }"
 
     def export(self):
         return {
