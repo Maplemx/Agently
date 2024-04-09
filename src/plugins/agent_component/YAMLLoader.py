@@ -19,7 +19,7 @@ class YAMLLoader(ComponentABC):
                     agently_tuple_list[1] = self.transform_to_agently_style(value, variables=variables)
                 else:
                     result.update({ key: self.transform_to_agently_style(value, variables=variables) })
-            if agently_tuple_list[0] and agently_tuple_list[1]:
+            if agently_tuple_list[0] or agently_tuple_list[1]:
                 result = (agently_tuple_list[0], agently_tuple_list[1])
             return result
         if isinstance(target, list):
