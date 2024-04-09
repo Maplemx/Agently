@@ -1,5 +1,5 @@
 from openai import AsyncOpenAI as OpenAIClient
-from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, find_json
+from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, find_json, format_request_messages
 from Agently.utils import RuntimeCtxNamespace
 import httpx
 import json
@@ -75,58 +75,6 @@ class OAIClient(RequestABC):
             prompt_text = to_prompt_structure(prompt_dict, end="[OUTPUT]:\n")
         request_messages.append({ "role": "user", "content": [{"type": "text", "text": prompt_text }] })
         return request_messages
-
-    def format_request_messages(self, request_messages):
-        system_prompt = ""
-        system_messages = []
-        chat_messages = []
-        role_list = ["user", "assistant"]
-        current_role = 0
-        for message in request_messages:
-            if message["role"] == "system":
-                # no_multi_system_messages=True
-                if self.model_settings.get_trace_back("message_rules.no_multi_system_messages"):
-                    for content in message["content"]:
-                        if content["type"] == "text":
-                            system_prompt += f"{ content['text'] }\n"
-                # no_multi_system_messages=False
-                else:
-                    system_messages.append(message)
-            else:
-                # strict_orders=True
-                if self.model_settings.get_trace_back("message_rules.strict_orders"):
-                    if len(chat_messages) == 0 and message["role"] != "user":
-                        chat_messages.append({ "role": "user", "content": "What did we talked about?" })
-                        current_role = not current_role
-                    if message["role"] == role_list[current_role]:
-                        chat_messages.append(message)
-                        current_role = not current_role
-                    else:
-                        content = f"{ chat_messages[-1]['content'] }\n{ message['content'] }"
-                        chat_messages[-1]['content'] = content
-                # strict_orders=False
-                else:
-                    chat_messages.append(message)
-        # no_multi_system_messages=True
-        if self.model_settings.get_trace_back("message_rules.no_multi_system_messages") and system_prompt != "":
-            system_messages.append({
-                "role": "system",
-                "content": [{
-                    "type": "text",
-                    "text": system_prompt
-                }]
-            })
-        formatted_messages = system_messages.copy()
-        formatted_messages.extend(chat_messages)
-        # no_multi_type_messages=True
-        if self.model_settings.get_trace_back("message_rules.no_multi_type_messages"):
-            current_messages = formatted_messages.copy()
-            formatted_messages = []
-            for message in current_messages:
-                for item in message["content"]:
-                    if item["type"] == "text":
-                        formatted_messages.append({ "role": message["role"], "content": item["text"] })
-        return formatted_messages
 
     def construct_completion_prompt(self):
         # - init prompt
@@ -218,7 +166,7 @@ class OAIClient(RequestABC):
                 options.update({ key: value })
         if self.request_type == "chat":
             return {
-                "messages": self.format_request_messages(self.construct_request_messages()),
+                "messages": format_request_messages(self.construct_request_messages(), self.model_settings),
                 **options,
             }
         elif self.request_type == "completions":
