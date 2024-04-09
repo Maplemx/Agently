@@ -107,7 +107,7 @@ def start_yaml(workflow, yaml_dict, *, draw):
 
 def start_yaml_from_path(workflow, yaml_path, *, draw):
     try:
-        with open(yaml_path, "r") as yaml_file:
+        with open(yaml_path, "r", encoding="utf-8") as yaml_file:
             yaml_dict = yaml.safe_load(yaml_file)
             return start_yaml(workflow, yaml_dict, draw=draw)
     except Exception as e:
