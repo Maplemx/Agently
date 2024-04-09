@@ -1,4 +1,4 @@
-from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, find_json
+from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, find_json, format_request_messages
 from Agently.utils import RuntimeCtxNamespace
 import httpx
 import json
@@ -8,6 +8,12 @@ class Claude(RequestABC):
         self.request = request
         self.model_name = "Claude"
         self.model_settings = RuntimeCtxNamespace(f"model.{ self.model_name }", self.request.settings)
+        if not self.model_settings.get_trace_back("message_rules.no_multi_system_messages"):
+            self.model_settings.set("message_rules.no_multi_system_messages", False)
+        if not self.model_settings.get_trace_back("message_rules.strict_orders"):
+            self.model_settings.set("message_rules.strict_orders", True)
+        if not self.model_settings.get_trace_back("message_rules.no_multi_type_messages"):
+            self.model_settings.set("message_rules.no_multi_type_messages", False)
         self.default_options = {
             "model": "claude-3-sonnet-20240229",
             "max_tokens": 4096,
@@ -72,15 +78,20 @@ class Claude(RequestABC):
         request_messages.append({ "role": "user", "content": [{"type": "text", "text": prompt_text }] })
         return request_messages
 
+    
+
     def generate_request_data(self):
         options = self.model_settings.get_trace_back("options", {})
         return {
-            "messages": self.construct_request_messages(),
+            "messages": format_request_messages(self.construct_request_messages(), self.model_settings),
             "options": options,
         }
 
     async def request_model(self, request_data: dict):
         api_key = self.model_settings.get_trace_back("auth.api_key")
+        base_url = self.model_settings.get_trace_back("url", "https://api.anthropic.com/v1")
+        if base_url.endswith("/"):
+            base_url = base_url[:-1]
         proxy = self.request.settings.get_trace_back("proxy")
         messages = request_data["messages"]
         system_prompt = ""
@@ -111,7 +122,7 @@ class Claude(RequestABC):
         async with httpx.AsyncClient(**client_params) as client:
             async with client.stream(
                 "POST",
-                "https://api.anthropic.com/v1/messages",
+                f"{ base_url }/messages",
                 **request_params
             ) as response:
                 async for chunk in response.aiter_lines():
