@@ -5,7 +5,7 @@ from .utils import StorageABC
 class FileStorage(StorageABC):
     def __init__(self, db_name: str="default"):
         self.db_name = db_name
-        self.path = "./file_storage"
+        self.path = "./.Agently"
         if not os.path.exists(self.path):
             os.mkdir(self.path)
 
