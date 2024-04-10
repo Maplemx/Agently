@@ -8,9 +8,12 @@ def format_request_messages(request_messages, model_settings):
         if message["role"] == "system":
             # no_multi_system_messages=True
             if model_settings.get_trace_back("message_rules.no_multi_system_messages"):
-                for content in message["content"]:
-                    if content["type"] == "text":
-                        system_prompt += f"{ content['text'] }\n"
+                if isinstance(message["content"], str):
+                    system_prompt += f"{ message['content'] }\n"
+                elif isinstance(message["content"], list):
+                    for content in message["content"]:
+                        if content["type"] == "text":
+                            system_prompt += f"{ content['text'] }\n"
             # no_multi_system_messages=False
             else:
                 system_messages.append(message)
@@ -45,7 +48,10 @@ def format_request_messages(request_messages, model_settings):
         current_messages = formatted_messages.copy()
         formatted_messages = []
         for message in current_messages:
-            for item in message["content"]:
-                if item["type"] == "text":
-                    formatted_messages.append({ "role": message["role"], "content": item["text"] })
+            if isinstance(message["content"], str):
+                formatted_messages.append(message)
+            elif isinstance(message["content"], list):
+                for item in message["content"]:
+                    if item["type"] == "text":
+                        formatted_messages.append({ "role": message["role"], "content": item["text"] })
     return formatted_messages
