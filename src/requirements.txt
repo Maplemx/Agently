@@ -1,3 +1,5 @@
+# Async Ensurence
+nest_asyncio
 # Network
 httpx
 aiohttp
