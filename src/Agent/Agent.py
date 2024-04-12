@@ -122,6 +122,10 @@ class Agent(object):
         self.settings.set(settings_key, settings_value)
         return self
 
+    def set_global_variable(self, variable_name: str, variable_value: any):
+        self.settings.set(f"global_variables.{ variable_name }", variable_value)
+        return self
+
     def set_agent_prompt(self, key: str, value: any):
         self.agent_runtime_ctx.set(f"prompt.{ key }", value)
         return self

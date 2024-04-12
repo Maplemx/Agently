@@ -31,6 +31,10 @@ class YAMLLoader(ComponentABC):
             result = str(target)
             for key, value in variables.items():
                 result = result.replace("${" + str(key) + "}", str(value))
+            global_variables = self.agent.settings.get("global_variables")
+            if global_variables:
+                for key, value in global_variables.items():
+                    result = result.replace("${" + str(key) + "}", str(value))
             return result
 
     def load_yaml_prompt(self, *, path:str=None, yaml:str=None, use_agently_style:bool=True, variables:dict={}):
