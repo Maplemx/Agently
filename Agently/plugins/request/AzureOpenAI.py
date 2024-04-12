@@ -1,15 +1,15 @@
 from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc
-from openai import AsyncOpenAI as OpenAIClient
+from openai import AsyncAzureOpenAI
 from Agently.utils import RuntimeCtxNamespace
 import httpx
 import time
 
-class OpenAI(RequestABC):
+class AzureOpenAI(RequestABC):
     def __init__(self, request):
         self.request = request
         self.use_assistant = False
         self.assistant_id = None
-        self.model_name = "OpenAI"
+        self.model_name = "AzureOpenAI"
         self.model_settings = RuntimeCtxNamespace(f"model.{ self.model_name }", self.request.settings)
         self.request_type = self.request.request_runtime_ctx.get("request_type", "chat")
         if self.request_type == None:
@@ -17,18 +17,23 @@ class OpenAI(RequestABC):
 
     def _create_client(self):
         client_params = {}
-        base_url = self.model_settings.get_trace_back("url")
-        if base_url:
-            client_params.update({ "base_url": base_url })
+
         proxy = self.request.settings.get_trace_back("proxy")
         if proxy:
             client_params.update({ "http_client": httpx.AsyncClient( proxies = proxy ) })
+
         api_key = self.model_settings.get_trace_back("auth.api_key")
-        if api_key:
-            client_params.update({ "api_key": api_key })
-        else:
-            raise Exception("[Request] OpenAI require api_key. use .set_auth({ 'api_key': '<Your-API-Key>' }) to set it.")
-        client = OpenAIClient(**client_params)
+        api_version = self.model_settings.get_trace_back("auth.api_version")
+        azure_endpoint = self.model_settings.get_trace_back("auth.azure_endpoint")
+        if not (api_key and api_version and azure_endpoint):
+            raise Exception("[Request: AzureOpenAI] Missing required auth items: [`api_key`, `api_version`, `azure_endpoint`]. Use .set_settings('model.AzureOpenAI.auth', { 'api_key': 'xxxxxx', 'api_version': 'xxxxxx', 'azure_endpoint': 'xxxxxx' }) to state.")
+        client_params.update({
+            "api_key": api_key,
+            "api_version": api_version,
+            "azure_endpoint": azure_endpoint,
+        })
+
+        client = AsyncAzureOpenAI(**client_params)
         return client
 
     def construct_request_messages(self):
@@ -112,7 +117,7 @@ class OpenAI(RequestABC):
                 self.assistant_id = assistant_id
             options = self.model_settings.get_trace_back("options", {})
             if "model" not in options:
-                options.update({ "model": "gpt-3.5-turbo" })
+                options.update({ "model": "gpt-35-turbo" })
             return {
                 "stream": True,
                 "messages": self.construct_request_messages(),
@@ -121,7 +126,7 @@ class OpenAI(RequestABC):
         elif self.request_type == "chat":
             options = self.model_settings.get_trace_back("options", {})
             if "model" not in options:
-                options.update({ "model": "gpt-3.5-turbo" })
+                options.update({ "model": "gpt-35-turbo" })
             return {
                 "stream": True,
                 "messages": self.construct_request_messages(),
@@ -130,7 +135,7 @@ class OpenAI(RequestABC):
         elif self.request_type == "vision":
             options = self.model_settings.get_trace_back("options", {})
             if "model" not in options:
-                options.update({ "model": "gpt-4-vision-preview" })
+                options.update({ "model": "gpt-4" })
             return {
                 "stream": True,
                 "messages": self.construct_request_messages(),
@@ -240,4 +245,4 @@ class OpenAI(RequestABC):
         }
 
 def export():
-    return ("OpenAI", OpenAI)
+    return ("AzureOpenAI", AzureOpenAI)
