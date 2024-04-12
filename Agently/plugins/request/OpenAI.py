@@ -210,14 +210,17 @@ class OpenAI(RequestABC):
     async def broadcast_response_with_streaming(self, response_generator):
         response_message = {}
         async for part in response_generator:
-            delta = dict(part.choices[0].delta)
-            for key, value in delta.items():
-                if key not in response_message:
-                    response_message[key] = value or ""
-                else:
-                    response_message[key] += value or ""
-            yield({ "event": "response:delta_origin", "data": part })
-            yield({ "event": "response:delta", "data": part.choices[0].delta.content or "" })
+            if "choices" in dir(part) and isinstance(part.choices, list) and len(part.choices) > 0:
+                delta = dict(part.choices[0].delta)
+                for key, value in delta.items():
+                    if key not in response_message:
+                        response_message[key] = value or ""
+                    else:
+                        response_message[key] += value or ""
+                yield({ "event": "response:delta_origin", "data": part })
+                yield({ "event": "response:delta", "data": part.choices[0].delta.content or "" })
+            else:
+                yield({ "event": "response:delta_origin", "data": part })
         yield({ "event": "response:done_origin", "data": response_message })
         yield({ "event": "response:done", "data": response_message["content"] })
 
