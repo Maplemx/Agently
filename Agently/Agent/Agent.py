@@ -207,13 +207,16 @@ class Agent(object):
 
             # Load JSON and fix if Required
             if self.request.response_cache["type"] == "JSON":
-                self.request.response_cache["reply"] = await load_json(
+                reply = await load_json(
                     self.request.response_cache["reply"],
                     self.request.response_cache["prompt"]["input"],
                     self.request.response_cache["prompt"]["output"],
                     self.request,
                     is_debug = is_debug,
                 )
+                if isinstance(reply, str) and reply.startswith("$$$JSON_ERROR:"):
+                    raise Exception(reply[14:])
+                self.request.response_cache["reply"] = reply
 
             await handle_response({ "event": "response:finally", "data": self.request.response_cache })
 

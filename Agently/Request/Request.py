@@ -149,13 +149,16 @@ class Request(object):
                     handle_response(response)
                 
             if self.response_cache["type"] == "JSON":
-                self.response_cache["reply"] = await load_json(
+                reply = await load_json(
                     self.response_cache["reply"],
                     self.response_cache["prompt"]["input"],
                     self.response_cache["prompt"]["output"],
                     self,
                     is_debug = is_debug,
                 )
+                if isinstance(reply, str) and reply.startswith("$$$JSON_ERROR:"):
+                    raise Exception(reply[14:])
+                self.response_cache["reply"] = reply
             return self.response_cache["reply"]
         except Exception as e:
             self.request_runtime_ctx.empty()
