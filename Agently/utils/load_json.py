@@ -29,6 +29,8 @@ async def fix_json(origin: str, input_dict: any, output_dict: any, request: obje
     try:
         fixed_result = await request\
             .input({
+                "input": input_dict,
+                "expect JSON String format": output_dict,
                 "error JSON String": origin ,
                 "error info": errors,
             })\
@@ -44,7 +46,7 @@ async def fix_json(origin: str, input_dict: any, output_dict: any, request: obje
             print("\n--------------------------\n")
         return fixed_result
     except Exception as e:
-        raise Exception(f"[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }\nOrigin JSON String:\n{ json_string }")
+        return f"$$$JSON_ERROR:[Agent Request] Error still occured when try to fix JSON decode error: { str(e) }\nOrigin JSON String:\n{ origin }" 
 
 async def load_json(origin: str, input_dict: any, output_dict: any, request: object, *, is_debug: bool=False):
     try:
