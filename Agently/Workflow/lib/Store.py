@@ -1,3 +1,5 @@
+import copy
+
 class Store:
   def __init__(self, init_schema = {}) -> None:
     self.store = init_schema.copy()
@@ -17,4 +19,4 @@ class Store:
     return self.store.get(name) or default
   
   def get_all(self):
-    return self.store.deepcopy()
+    return copy.deepcopy(self.store)
