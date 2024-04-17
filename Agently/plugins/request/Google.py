@@ -109,7 +109,7 @@ class Google(RequestABC):
         async with httpx.AsyncClient(**client_params) as client:
             async with client.stream(
                 "POST",
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={ api_key }",
+                f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:streamGenerateContent?key={ api_key }",
                 **request_params
             ) as response:
                 async for chunk in response.aiter_lines():
