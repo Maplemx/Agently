@@ -32,7 +32,7 @@ class Session(ComponentABC):
     def active(self, session_id: str=None):
         if self.current_session_id != None:
             self.stop()
-        if session_id == None:
+        if session_id == None or session_id == "":
             self.current_session_id = str(uuid.uuid1())
         else:
             self.current_session_id = session_id
@@ -48,7 +48,7 @@ class Session(ComponentABC):
 
     def stop(self):
         if self.settings.get_trace_back("auto_save", True):
-            self.agent.agent_storage.table("chat_history").set(self.current_session_id, self.full_chat_history).save()
+            self.save()
         self.current_session_id = None
         self.full_chat_history = []
         self.recent_chat_history = []
@@ -144,7 +144,7 @@ class Session(ComponentABC):
 
     def _prefix(self):
         prefix_result = {}
-        if self.current_session_id != None:
+        if self.current_session_id != None and self.current_session_id != "":
             self.shorten_chat_history()
             prefix_result.update({ "chat_history": self.recent_chat_history })
         abstract = self.abstract.get()
@@ -154,7 +154,7 @@ class Session(ComponentABC):
 
     def _suffix(self, event: str, data: any):
         is_manual_chat_history = self.settings.get_trace_back("manual_chat_history", False)
-        if self.current_session_id != None and not is_manual_chat_history:
+        if self.current_session_id != None and self.current_session_id != "" and not is_manual_chat_history:
             if event == "response:finally":
                 new_chat_history = [
                     { "role": "user", "content": self.__find_input(data["prompt"]["input"]) },
