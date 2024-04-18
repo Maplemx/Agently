@@ -65,28 +65,41 @@ class Tool(ComponentABC):
         tool_list = []
         for tool_name, tool_info in self.tool_dict.items():
             tool_list.append(tool_info)
-        result = (
-            await self.agent.worker_request
-                .input({
-                    "target": self.agent.request.request_runtime_ctx.get("prompt")
-                })
-                .info("current date", datetime.now().date().strftime("%Y-%B-%d"))
-                .info("tools", to_json_desc(tool_list))
-                .instruct("what tools to use for achieving {input.target}.\n * if use search tool, choose ONLY ONE SEARCH TOOL THAT FIT MOST\n * OUTPUT LANGUAGE SAME AS {input.target} IS USING.")
-                .output({
-                    "tools_using": [{
-                        "purpose": ("String", "what question you want to use tool to solve?"),
-                        "using_tool": (
-                            {
-                                "tool_name": ("String", "{tool_name} from {tools}"),
-                                "args": ("according {args} requirement in {tools}", ),
-                            },
-                            "output null if do not need to use tool"
-                        ),
-                    }],
-                })
-                .start_async()
-        )
+        try:
+            result = (
+                await self.agent.worker_request
+                    .input({
+                        "target": self.agent.request.request_runtime_ctx.get("prompt")
+                    })
+                    .info("current date", datetime.now().date().strftime("%Y-%B-%d"))
+                    .info("tools", to_json_desc(tool_list))
+                    .instruct(
+                        "rule",
+                        [
+                            "decide whether and what tools to use for achieving {input.target}.",
+                            "* if use search tool, choose ONLY ONE SEARCH TOOL THAT FIT MOST",
+                            "* search keywords should use same language as {input.target}",
+                        ]
+                    )
+                    .output({
+                        "need_tool": ("Boolean", "judge if you need to use tool to reply {input.target} or not?"),
+                        "input_target_language": ("String", "language of {input.target}"),
+                        "tools_using": ([{
+                            "purpose": ("String", "what question you want to use tool to solve?"),
+                            "using_tool": (
+                                {
+                                    "tool_name": ("String", "{tool_name} from {tools}"),
+                                    "args": ("according {args} requirement in {tools}", ),
+                                },
+                            ),
+                        }], "output [] if {need_tool} == false"),
+                    })
+                    .start_async()
+            )
+        except Exception as e:
+            return { "Tools using error": str(e) }
+        if "tools_using" not in result or result["tools_using"] == []:
+            return None
         tool_results = {}
         for step in result["tools_using"]:
             if "using_tool" in step and isinstance(step["using_tool"], dict) and "tool_name" in step["using_tool"]:
@@ -109,6 +122,7 @@ class Tool(ComponentABC):
                         else:
                             call_result = tool_func(**tool_kwrags)
                     except Exception as e:
+                        call_result = str(e)
                         if self.is_debug():
                             print("[Tool Error]: ", e)
                     if call_result:
@@ -154,6 +168,7 @@ class Tool(ComponentABC):
             if tool_results and len(tool_results.keys()) > 0:
                 return {
                     "info": tool_results,
+                    "instruct": "Response according {helpful information} provided.\nProvide URL for keywords in markdown format if needed.\nIf error occured or not enough information, response you don't know honestly unless you are very sure about the answer without information support."
                 }
             else:
                 return None

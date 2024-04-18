@@ -44,7 +44,7 @@ class Agent(object):
         # Debug
         self.settings.set("is_debug", is_debug)
         # Agent Id
-        if agent_id == None:
+        if agent_id == None or agent_id == "":
             self.agent_id = IdGenerator("agent").create()
         else:
             self.agent_id = agent_id
