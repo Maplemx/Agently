@@ -216,14 +216,19 @@ class OAIClient(RequestABC):
         elif self.request_type == "completions":
             response_message = {}
             async for part in response_generator:
-                delta = dict(part.choices[0])
-                for key, value in delta.items():
-                    if key not in response_message and value is not None:
-                        response_message[key] = value
-                    elif key in response_message and value is not None:
-                        response_message[key] += value
-                yield({ "event": "response:delta_origin", "data": delta })
-                yield({ "event": "response:delta", "data": delta["text"] or "" })
+                if "choices" in dir(part) and isinstance(part.choices, list) and len(part.choices) > 0:
+                    delta = dict(part.choices[0])
+                    for key, value in delta.items():
+                        if key not in response_message and value is not None:
+                            response_message[key] = value
+                        elif key in response_message and value is not None:
+                            response_message[key] += value
+                    yield({ "event": "response:delta_origin", "data": delta })
+                    yield({ "event": "response:delta", "data": delta["text"] or "" })
+                else:
+                    if self.request.settings.get_trace_back("is_debug"):
+                    print(f"[Request] OpenAI Error: { str(dict(part)) }")
+                yield({ "event": "response:delta_origin", "data": part })
             yield({ "event": "response:done_origin", "data": response_message })
             yield({ "event": "response:done", "data": response_message["text"] })
                 

@@ -14,15 +14,15 @@ class EventListener(ComponentABC):
         return self.agent
 
     def on_delta(self, listener: callable, *, is_await:bool=False):
-        self.add("response:delta", listener, is_await)
+        self.add("response:delta", listener, is_await=is_await)
         return self.agent
 
     def on_done(self, listener: callable, *, is_await:bool=False):
-        self.add("response:done", listener, is_await)
+        self.add("response:done", listener, is_await=is_await)
         return self.agent
 
     def on_finally(self, listener: callable, *, is_await:bool=False):
-        self.add("response:finally", listener, is_await)
+        self.add("response:finally", listener, is_await=is_await)
         return self.agent
 
     async def _suffix(self, event:str, data: any):
