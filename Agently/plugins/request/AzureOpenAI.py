@@ -225,6 +225,8 @@ class AzureOpenAI(RequestABC):
                 yield({ "event": "response:delta_origin", "data": part })
                 yield({ "event": "response:delta", "data": part.choices[0].delta.content or "" })
             else:
+                if self.request.settings.get_trace_back("is_debug"):
+                    print(f"[Request] OpenAI Error: { str(dict(part)) }")
                 yield({ "event": "response:delta_origin", "data": part })
         yield({ "event": "response:done_origin", "data": response_message })
         yield({ "event": "response:done", "data": response_message["content"] })
