@@ -1,0 +1,22 @@
+# Async Ensurence
+# nest_asyncio
+# Network
+httpx
+aiohttp
+websockets
+tornado
+# Model Client
+openai
+erniebot
+zhipuai
+# Format
+PyYAML
+json5
+# Web
+duckduckgo_search
+beautifulsoup4
+requests
+# Calulate
+numpy
+scipy
+sympy
