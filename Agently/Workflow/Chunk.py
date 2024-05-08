@@ -1,9 +1,9 @@
 import uuid
 import copy
 from .utils.find import has_target_by_attr
-from .lib.constants import DEFAULT_INPUT_HANDLE, DEFAULT_OUTPUT_HANDLE, EXECUTOR_TYPE_NORMAL
+from .lib.constants import DEFAULT_INPUT_HANDLE, DEFAULT_OUTPUT_HANDLE, EXECUTOR_TYPE_NORMAL, EXECUTOR_TYPE_START
 
-SPECIAL_CHUNK_TYPES = ['Start']
+SPECIAL_CHUNK_TYPES = [EXECUTOR_TYPE_START]
 class SchemaChunk:
     """
     Workflow Schema 中的单个 chunk 结构，用于辅助提供操作的 API，实际运行时，提供 chunk 描述参数交给 MainExecutor 执行

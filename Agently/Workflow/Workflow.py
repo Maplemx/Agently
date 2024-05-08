@@ -1,5 +1,5 @@
 from .MainExecutor import MainExecutor
-from .utils.exec_tree import resolve_runtime_data
+from .utils.exec_tree import generate_executed_schema
 from .Schema import Schema
 from ..utils import RuntimeCtx
 from .._global import global_settings
@@ -61,9 +61,9 @@ class Workflow:
         else:
             raise Exception("[Workflow] At least one parameter in `yaml_str` and `path` is required when using workflow.load_yaml().")
     
-    def start(self):
-        runtime_data = resolve_runtime_data(self.schema)
-        self.executor.start(runtime_data)
+    def start(self, start_data = None):
+        executed_schema = generate_executed_schema(self.schema)
+        self.executor.start(executed_schema, start_data)
     
     def reset(self, schema_data: dict):
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})

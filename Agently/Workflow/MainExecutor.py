@@ -5,32 +5,37 @@ from .utils.logger import get_default_logger
 from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
+from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME
 
 class MainExecutor:
     def __init__(self, workflow_id, settings={}):
+        # == Step 1. 初始化设定配置 ==
         self.workflow_id = workflow_id
-        self.is_running = True
-        self.running_status = 'idle'
         self.settings = settings
         self.max_execution_limit = (settings or {}).get('max_execution_limit') or 10
+        workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
+        self.logger = settings.get('logger', workflow_default_logger)
+        # == Step 2. 初始化状态配置 ==
+        self.running_status = 'idle'
+        # 中断器
         self.breaking_hub = BreakingHub(
             breaking_handler = self._handle_breaking,
             max_execution_limit=self.max_execution_limit
         )
+        # 运行时数据存储
         self.store = Store()
-        workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
-        self.logger = settings.get('logger', workflow_default_logger)
-        # 已注册的执行器类型
+        # 已注册的执行器
         self.registed_executors = {}
+        # 执行节点字典
         self.chunks_map = {}
 
-    def start(self, runtime_data: dict):
-        entries = runtime_data.get('entries') or []
-        self.chunks_map = runtime_data.get('chunk_map') or {}
-        self._reset_temp_status()
+    def start(self, executed_schema: dict, start_data: any = None):
+        self._reset_all_status()
+        # 尝试灌入初始数据
+        self.store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
+        self.chunks_map = executed_schema.get('chunk_map') or {}
         self.running_status = 'start'
-
-        self._execute_main(entries)
+        self._execute_main(executed_schema.get('entries') or [])
         self.running_status = 'end'
 
     def regist_executor(self, name: str, executor):
@@ -47,21 +52,6 @@ class MainExecutor:
             del self.registed_executors[name]
 
         return self
-
-    def handle_command(self, data):
-        """
-        用于接收处理外部指令
-        """
-        if data is None or self.is_running == False or data["dataset"] is None:
-            return
-
-        command = data["dataset"]["command"]
-        command_data = data["dataset"]["data"]
-        if command == "input":
-            if command_data and command_data["content"] and command_data['schema']:
-                self.input(command_data["content"], command_data['schema'])
-        elif command == "destroy":
-            self.is_running = False
     
     def _execute_main(self, entries: list):
         """执行入口"""
@@ -328,16 +318,20 @@ class MainExecutor:
         """
         return self.registed_executors.get(name)
 
-    def _reset_temp_status(self):
-        """
-        重置临时状态
-        """
+    def _reset_all_status(self):
+        """重置状态配置"""
         self.running_status = 'idle'
-        # 中断处理
+        # 中断器
         self.breaking_hub = BreakingHub(
             breaking_handler=self._handle_breaking,
             max_execution_limit=self.max_execution_limit
         )
+        # 运行时数据存储
+        self.store = Store()
+        # 已注册的执行器
+        self.registed_executors = {}
+        # 执行节点字典
+        self.chunks_map = {}
 
     def _chunks_clean_walker(self, root_chunk):
         """尝试对某个节点以下的分支做一轮清理工作"""
