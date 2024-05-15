@@ -30,7 +30,7 @@ class MainExecutor:
         self.chunks_map = {}
 
     def start(self, executed_schema: dict, start_data: any = None):
-        self._reset_all_status()
+        self._reset_all_runtime_status()
         # 尝试灌入初始数据
         self.store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
         self.chunks_map = executed_schema.get('chunk_map') or {}
@@ -252,10 +252,15 @@ class MainExecutor:
         executor_type = chunk['data']['type']
         chunk_executor = self._get_chunk_executor(executor_type) or chunk.get('executor')
         exec_res = None
+        if not chunk_executor:
+            err_msg = f"Node Error-'{self._get_chunk_title(chunk)}'({chunk['id']}): The 'executor' is required but get 'NoneType'"
+            self.logger.error(err_msg)
+            # 主动中断执行
+            raise Exception(err_msg)
         try:
             exec_res = chunk_executor(deps_dict, self.store)
         except Exception as e:
-            self.logger.error(f"Node Execution Exception: '{self._get_chunk_title(chunk)}'({chunk['id']}) {e}")
+            self.logger.error(f"Node Execution Exception-'{self._get_chunk_title(chunk)}'({chunk['id']}):\n {e}")
             # 主动中断执行
             raise Exception(e)
 
@@ -318,7 +323,7 @@ class MainExecutor:
         """
         return self.registed_executors.get(name)
 
-    def _reset_all_status(self):
+    def _reset_all_runtime_status(self):
         """重置状态配置"""
         self.running_status = 'idle'
         # 中断器
@@ -328,8 +333,6 @@ class MainExecutor:
         )
         # 运行时数据存储
         self.store = Store()
-        # 已注册的执行器
-        self.registed_executors = {}
         # 执行节点字典
         self.chunks_map = {}
 
