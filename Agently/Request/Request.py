@@ -176,6 +176,8 @@ class Request(object):
                 try:
                     reply = loop.run_until_complete(self.get_result_async(request_type))
                     reply_queue.put_nowait(reply)
+                except:
+                    reply = None
                 finally:
                     loop.close()
         theard = threading.Thread(target=start_in_theard)
