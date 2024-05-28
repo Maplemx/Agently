@@ -1,11 +1,13 @@
 import logging
 import uuid
+import asyncio
+import inspect
 from .utils.exec_tree import disable_chunk_dep_ticket, create_new_chunk_slot_with_val
 from .utils.logger import get_default_logger
 from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
-from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME
+from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME
 
 class MainExecutor:
     def __init__(self, workflow_id, settings={}):
@@ -35,8 +37,9 @@ class MainExecutor:
         self.store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
         self.chunks_map = executed_schema.get('chunk_map') or {}
         self.running_status = 'start'
-        self._execute_main(executed_schema.get('entries') or [])
+        asyncio.run(self._execute_main(executed_schema.get('entries') or []))
         self.running_status = 'end'
+        return self.store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
 
     def regist_executor(self, name: str, executor):
         """
@@ -53,21 +56,29 @@ class MainExecutor:
 
         return self
     
-    def _execute_main(self, entries: list):
+    async def _execute_main(self, entries: list):
         """执行入口"""
-        for entry_chunk in entries:
+
+        # 1、声明单个执行逻辑（异步）
+        async def execute_from_entry(entry):
             slow_tasks = []
-            self._execute_partial(
-                entry_chunk,
+            await self._execute_partial(
+                entry,
                 slow_tasks=slow_tasks,
                 executing_ids=[],
                 visited_record=[]
             )
             # 如果执行完成后，还有待执行任务，则需手动执行
             if len(slow_tasks) > 0:
-                self._execute_slow_tasks(slow_tasks)
+                await self._execute_slow_tasks(slow_tasks)
 
-    def _execute_partial(
+        # 2、收集执行任务
+        entry_tasks = [execute_from_entry(entry_chunk) for entry_chunk in entries]
+
+        # 3、最后再统一执行
+        await asyncio.gather(*entry_tasks)
+
+    async def _execute_partial(
             self,
             chunk,
             slow_tasks: list, # 缓执行任务
@@ -77,7 +88,7 @@ class MainExecutor:
         """一组分组执行的核心方法"""
 
         # 1、执行当前 chunk
-        has_been_executed = self._execute_single_chunk(
+        has_been_executed = await self._execute_single_chunk(
             chunk=chunk,
             slow_tasks=slow_tasks,
             executing_ids=executing_ids,
@@ -89,13 +100,11 @@ class MainExecutor:
 
         # 2、依次先单独执行下游直接子 chunk 自身
         executed_child_chunks = []
-        for next_info in chunk['next_chunks']:
-            next_chunk = self.chunks_map.get(next_info['id'])
-            if not next_chunk:
-                continue
-
-            self.logger.debug(f"From chunk '{self._get_chunk_title(chunk)}' call next chunk '{self._get_chunk_title(next_chunk)}'")
-            child_executed = self._execute_single_chunk(
+        # 2.1 声明执行处理逻辑
+        async def execute_child_chunk(next_chunk):
+            self.logger.debug(
+                f"From chunk '{self._get_chunk_title(chunk)}' call next chunk '{self._get_chunk_title(next_chunk)}'")
+            child_executed = await self._execute_single_chunk(
                 chunk=next_chunk,
                 slow_tasks=slow_tasks,
                 executing_ids=executing_ids,
@@ -105,7 +114,20 @@ class MainExecutor:
             if child_executed:
                 executed_child_chunks.append(next_chunk['id'])
 
+        # 2.2 收集执行任务
+        to_be_executed_child_tasks = []
+        for next_info in chunk['next_chunks']:
+            next_chunk = self.chunks_map.get(next_info['id'])
+            if not next_chunk:
+                continue
+            to_be_executed_child_tasks.append(execute_child_chunk(next_chunk))
+
+        # 2.3 等待集中执行完（以便在保持状态正确的前提下，继续后续流程）
+        await asyncio.gather(*to_be_executed_child_tasks)
+
         # 3、然后再依次递归处理已执行了的下游直接子节点的下级节点
+        # 3.1 收集直接子节点的待执行的下游任务
+        next_child_tasks = []
         for next_child_id in executed_child_chunks:
             next_chunk = self.chunks_map.get(next_child_id)
             # 找不到定义，或者压根之前未成功执行时，则直接
@@ -118,20 +140,26 @@ class MainExecutor:
                     grandchild_chunk_info['id'])
                 if not grandchild_chunk:
                     continue
-                # 回到总入口，递归处理后辈节点
-                self._execute_partial(
-                    chunk=grandchild_chunk,
-                    slow_tasks=slow_tasks,
-                    executing_ids=executing_ids,
-                    visited_record=visited_record
+                # 回到总入口，递归处理后辈节点（收集阶段，执行在后头并行执行）
+                next_child_tasks.append(
+                    self._execute_partial(
+                        chunk=grandchild_chunk,
+                        slow_tasks=slow_tasks,
+                        executing_ids=executing_ids,
+                        visited_record=visited_record
+                    )
                 )
 
-        # 尝试执行缓执行任务
+        # 3.2 集中等待后辈任务执行完
+        if len(next_child_tasks):
+            await asyncio.gather(*next_child_tasks)
+
+        # 4、最后尝试执行缓执行任务（如循环，要在慢于常规任务的执行）
         if len(executing_ids) == 0:
-            self._execute_slow_tasks(slow_tasks)
+            await self._execute_slow_tasks(slow_tasks)
             slow_tasks.clear()
     
-    def _execute_single_chunk(
+    async def _execute_single_chunk(
         self,
         chunk,
         slow_tasks: list,  # 缓执行任务
@@ -152,7 +180,7 @@ class MainExecutor:
         while (single_dep_map['is_ready'] and single_dep_map['has_ticket']):
             has_been_executed = True
             # 基于依赖数据快照，执行分组
-            self._execute_single_chunk_core(
+            await self._execute_single_chunk_core(
                 chunk=chunk,
                 executing_ids=executing_ids,
                 visited_record=visited_record,
@@ -167,7 +195,7 @@ class MainExecutor:
             single_dep_map = self._extract_execution_single_dep_data(chunk)
         return has_been_executed
 
-    def _execute_single_chunk_core(
+    async def _execute_single_chunk_core(
         self,
         chunk,
         executing_ids: list,  # 执行中的任务
@@ -181,7 +209,7 @@ class MainExecutor:
         self.logger.info(
             f"Execute '{self._get_chunk_title(chunk)}'")
         # self.logger.debug("With dependent data: ", single_dep_map)
-        exec_value = self._exec_chunk_with_dep_core(chunk, single_dep_map)
+        exec_value = await self._exec_chunk_with_dep_core(chunk, single_dep_map)
         self.breaking_hub.recoder(chunk)  # 更新中断器信息
         visited_record.append(chunk['id'])  # 更新执行记录
 
@@ -201,7 +229,7 @@ class MainExecutor:
                 # 有条件的情况下，仅在条件满足时，才更新下游节点的数据
                 condition_call = next_rel_handle.get('condition')
                 if condition_call:
-                    judge_res = condition_call(source_value)
+                    judge_res = condition_call(source_value, self.store)
                     if judge_res != True:
                         continue
 
@@ -225,7 +253,7 @@ class MainExecutor:
         # 任务执行完后，清理执行中的状态
         executing_ids.remove(execute_id)
 
-    def _execute_slow_tasks(self, slow_tasks):
+    async def _execute_slow_tasks(self, slow_tasks):
         """尝试执行低优任务"""
         if len(slow_tasks) == 0:
             return
@@ -234,14 +262,14 @@ class MainExecutor:
             # 先清空下游所有节点数据
             self._chunks_clean_walker(chunk)
             # 再启动执行
-            self._execute_partial(
+            await self._execute_partial(
                 chunk,
                 slow_tasks=[],
                 executing_ids=[],
                 visited_record=[]
             )
     
-    def _exec_chunk_with_dep_core(self, chunk, specified_deps = {}):
+    async def _exec_chunk_with_dep_core(self, chunk, specified_deps = {}):
         """ 执行任务（执行到此处的都是上游数据已就绪了的） """
         # 简化参数
         deps_dict = {}
@@ -258,7 +286,11 @@ class MainExecutor:
             # 主动中断执行
             raise Exception(err_msg)
         try:
-            exec_res = chunk_executor(deps_dict, self.store)
+            # 如果执行器是异步的，采用 await调用
+            if inspect.iscoroutinefunction(chunk_executor):
+                exec_res = await chunk_executor(deps_dict, self.store)
+            else:
+                exec_res = chunk_executor(deps_dict, self.store)
         except Exception as e:
             self.logger.error(f"Node Execution Exception-'{self._get_chunk_title(chunk)}'({chunk['id']}):\n {e}")
             # 主动中断执行

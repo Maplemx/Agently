@@ -79,8 +79,8 @@ class SchemaChunk:
         """
         current_condition = self.chunk.get('connect_condition')
         if not current_condition:
-            current_condition = lambda values: True
-        else_condition_func = lambda values: not current_condition(values)
+            current_condition = lambda values, store: True
+        else_condition_func = lambda values, store: not current_condition(values, store)
         shadow_chunk = SchemaChunk(
             workflow_schema=self.workflow_schema,
             **self.get_raw_schema()

@@ -63,7 +63,8 @@ class Workflow:
     
     def start(self, start_data = None):
         executed_schema = generate_executed_schema(self.schema)
-        self.executor.start(executed_schema, start_data)
+        res = self.executor.start(executed_schema, start_data)
+        return res
     
     def reset(self, schema_data: dict):
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
