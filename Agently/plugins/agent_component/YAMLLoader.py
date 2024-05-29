@@ -46,7 +46,7 @@ class YAMLLoader(ComponentABC):
             raise Exception(f"[Agent Component: YAMLReader]: one parameter between `path` or `yaml` must be provided.")
         try:
             if path:
-                with open(path, "r") as yaml_file:
+                with open(path, "r", encoding="utf-8") as yaml_file:
                     yaml_dict = YAML.safe_load(yaml_file)
                     if use_agently_style:
                         yaml_dict = self.transform_to_agently_style(yaml_dict, variables=variables)
@@ -60,7 +60,16 @@ class YAMLLoader(ComponentABC):
         agent_alias_list = dir(self.agent)
         for alias, value in yaml_dict.items():
             if alias in agent_alias_list:
-                getattr(self.agent, alias)(value)
+                args = []
+                kwargs = {}                    
+                if isinstance(value, dict) and ("$args" in value or "$kwargs" in value):
+                    if "$args" in value and isinstance(value["$args"], list):
+                        args = value["$args"].copy()
+                    if "$kwargs" in value and isinstance(value["$kwargs"], dict):
+                        kwargs = value["$kwargs"].copy()
+                    getattr(self.agent, alias)(*args, **kwargs)
+                else:
+                    getattr(self.agent, alias)(value)
         return self.agent
 
     def export(self):

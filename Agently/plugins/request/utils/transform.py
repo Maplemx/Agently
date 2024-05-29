@@ -2,6 +2,11 @@ import json
 import re
 import yaml
 
+def tuple_representer(dumper, data):
+    return dumper.represent_list(data)
+
+yaml.add_representer(tuple, tuple_representer)
+
 def to_prompt_structure(prompt_dict: dict, layer_count: int=1, end: str=""):
     prompt = ""
     for key, content in prompt_dict.items():
