@@ -31,13 +31,13 @@ class MainExecutor:
         # 执行节点字典
         self.chunks_map = {}
 
-    def start(self, executed_schema: dict, start_data: any = None):
+    async def start(self, executed_schema: dict, start_data: any = None):
         self._reset_all_runtime_status()
         # 尝试灌入初始数据
         self.store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
         self.chunks_map = executed_schema.get('chunk_map') or {}
         self.running_status = 'start'
-        asyncio.run(self._execute_main(executed_schema.get('entries') or []))
+        await self._execute_main(executed_schema.get('entries') or [])
         self.running_status = 'end'
         return self.store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
 
@@ -98,7 +98,7 @@ class MainExecutor:
         if not has_been_executed:
             return
 
-        # 2、依次先单独执行下游直接子 chunk 自身
+        # 2、执行下游直接子 chunk 自身
         executed_child_chunks = []
         # 2.1 声明执行处理逻辑
         async def execute_child_chunk(next_chunk):
@@ -125,7 +125,7 @@ class MainExecutor:
         # 2.3 等待集中执行完（以便在保持状态正确的前提下，继续后续流程）
         await asyncio.gather(*to_be_executed_child_tasks)
 
-        # 3、然后再依次递归处理已执行了的下游直接子节点的下级节点
+        # 3、递归处理已执行了的下游直接子节点的下级节点
         # 3.1 收集直接子节点的待执行的下游任务
         next_child_tasks = []
         for next_child_id in executed_child_chunks:
