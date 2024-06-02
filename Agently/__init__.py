@@ -16,3 +16,7 @@ facility = FacilityManager()
 lib = facility
 
 set_settings = global_settings.set
+
+def register_plugin(model_name:str, plugin_name: str, plugin: callable):
+    global_plugin_manager.register(model_name, plugin_name, plugin)
+    facility.refresh_plugins()
