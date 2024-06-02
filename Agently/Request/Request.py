@@ -178,8 +178,7 @@ class Request(object):
                     reply = loop.run_until_complete(self.get_result_async(request_type))
                     reply_queue.put_nowait(reply)
                 except Exception as e:
-                    if is_debug:
-                        print(f"[Request] Error: { str(e) }")
+                    raise Exception(f"[Request] Error: { str(e) }")
                     reply = None
                 finally:
                     loop.close()
