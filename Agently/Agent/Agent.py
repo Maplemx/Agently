@@ -240,8 +240,7 @@ class Agent(object):
                     reply = loop.run_until_complete(self.start_async(request_type))
                     reply_queue.put_nowait(reply)
                 except Exception as e:
-                    if is_debug:
-                        print(f"[Agent Request] Error: { str(e) }")
+                    raise Exception(f"[Agent Request] Error: { str(e) }")
                     reply = None
                 finally:
                     loop.close()
