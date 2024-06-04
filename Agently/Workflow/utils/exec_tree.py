@@ -16,7 +16,8 @@ def prepare_data(schema: Schema):
         'edges_target_map': edges_target_map
     }
 
-def resolve_runtime_data(schema: Schema):
+def generate_executed_schema(schema: Schema):
+    """根据定义描述，生成执行描述"""
     prepared_data = prepare_data(schema)
 
     def create_exec_chunk(chunk):

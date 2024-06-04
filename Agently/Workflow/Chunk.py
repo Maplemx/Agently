@@ -1,9 +1,17 @@
+import asyncio
 import uuid
 import copy
+import inspect
 from .utils.find import has_target_by_attr
-from .lib.constants import DEFAULT_INPUT_HANDLE, DEFAULT_OUTPUT_HANDLE, EXECUTOR_TYPE_NORMAL
+from .lib.constants import DEFAULT_INPUT_HANDLE, DEFAULT_OUTPUT_HANDLE, DEFAULT_INPUT_HANDLE_VALUE, EXECUTOR_TYPE_NORMAL, EXECUTOR_TYPE_START, EXECUTOR_TYPE_END, EXECUTOR_TYPE_LOOP
 
-SPECIAL_CHUNK_TYPES = ['Start']
+# 特殊的内置的 chunk 类型
+SPECIAL_CHUNK_TYPES = [
+    EXECUTOR_TYPE_START,
+    EXECUTOR_TYPE_END,
+    EXECUTOR_TYPE_LOOP
+]
+
 class SchemaChunk:
     """
     Workflow Schema 中的单个 chunk 结构，用于辅助提供操作的 API，实际运行时，提供 chunk 描述参数交给 MainExecutor 执行
@@ -49,7 +57,7 @@ class SchemaChunk:
         elif len(outputs) > 0:
             self.default_output_handle = outputs[0]['handle']
     
-    def handle(self, name: str):
+    def handle(self, name: str) -> 'SchemaChunk':
         """
         Chunk 的连接点
         """
@@ -62,7 +70,7 @@ class SchemaChunk:
         shadow_chunk.set_active_handle(name)
         return shadow_chunk
     
-    def if_condition(self, condition: callable = None):
+    def if_condition(self, condition: callable = None) -> 'SchemaChunk':
         """
         按条件连接
         """
@@ -73,14 +81,14 @@ class SchemaChunk:
         shadow_chunk.set_connect_condition(condition)
         return shadow_chunk
 
-    def else_condition(self):
+    def else_condition(self) -> 'SchemaChunk':
         """
         按当前条件的反条件连接
         """
         current_condition = self.chunk.get('connect_condition')
         if not current_condition:
-            current_condition = lambda values: True
-        else_condition_func = lambda values: not current_condition(values)
+            current_condition = lambda values, store: True
+        else_condition_func = lambda values, store: not current_condition(values, store)
         shadow_chunk = SchemaChunk(
             workflow_schema=self.workflow_schema,
             **self.get_raw_schema()
@@ -89,7 +97,7 @@ class SchemaChunk:
         shadow_chunk.set_connect_condition(else_condition_func)
         return shadow_chunk
 
-    def connect_to(self, chunk):
+    def connect_to(self, chunk: 'SchemaChunk') -> 'SchemaChunk':
         """
         连接到指定个 Chunk 节点，支持传入 create_chunk 创建好的实例，也支持传入 chunk dict
         """
@@ -119,7 +127,41 @@ class SchemaChunk:
             expect_target_handle,
             self.chunk.get('connect_condition') or None
         )
-        return self
+        return chunk
+
+    def through_loop(self, sub_workflow)-> 'SchemaChunk':
+        """遍历逐项处理，支持传入子 workflow/处理方法 作为处理逻辑"""
+        async def loop_executor(inputs, store):
+            input_val = inputs.get(DEFAULT_INPUT_HANDLE_VALUE)
+            all_result = []
+            if isinstance(input_val, list):
+                for val in input_val:
+                    all_result.append(await loop_unit_core(unit_val=val))
+            elif isinstance(input_val, dict):
+                for key, value in input_val.items():
+                    all_result.append(await loop_unit_core(unit_val={
+                        "key": key,
+                        "value": value
+                    }))
+            elif isinstance(input_val, int):
+                for i in range(input_val):
+                    all_result.append(await loop_unit_core(unit_val=i))
+            return all_result
+
+        async def loop_unit_core(unit_val):
+            if inspect.iscoroutinefunction(sub_workflow):
+                return await sub_workflow(unit_val)
+            elif inspect.isfunction(sub_workflow):
+                return sub_workflow(unit_val)
+            else:
+                return await sub_workflow.start_async(unit_val)
+
+        # 这里是新的 chunk，需要走 Schema 的 create 方法挂载
+        loop_chunk = self.workflow_schema.create_chunk(
+            type=EXECUTOR_TYPE_LOOP,
+            executor=loop_executor
+        )
+        return self.connect_to(loop_chunk)
     
     def get_raw_schema(self):
         return copy.deepcopy(self.chunk)

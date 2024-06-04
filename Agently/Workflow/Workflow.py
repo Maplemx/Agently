@@ -1,5 +1,6 @@
+import asyncio
 from .MainExecutor import MainExecutor
-from .utils.exec_tree import resolve_runtime_data
+from .utils.exec_tree import generate_executed_schema
 from .Schema import Schema
 from ..utils import RuntimeCtx
 from .._global import global_settings
@@ -61,14 +62,24 @@ class Workflow:
             return start_yaml_from_path(self, path, draw=draw)
         else:
             raise Exception("[Workflow] At least one parameter in `yaml_str` and `path` is required when using workflow.load_yaml().")
-    
-    def start(self):
-        runtime_data = resolve_runtime_data(self.schema)
-        self.executor.start(runtime_data)
-    
+
+    async def start_async(self, start_data=None):
+        executed_schema = generate_executed_schema(self.schema)
+        res = await self.executor.start(executed_schema, start_data)
+        return res
+
+    def start(self, start_data = None):
+        res = asyncio.run(self.start_async(start_data))
+        return res
+
+    def reset_runtime_status(self):
+        """重置运行数据"""
+        self.executor.reset_all_runtime_status()
+        return self
+
     def reset(self, schema_data: dict):
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
-    
+
     def draw(self, type='mermaid'):
         """绘制出图形，默认使用 mermaid，可点击 https://mermaid-js.github.io/mermaid-live-editor/edit 粘贴查看效果"""
         return draw_with_mermaid(self.schema)
