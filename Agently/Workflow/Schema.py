@@ -95,7 +95,7 @@ class Schema:
 
         # 判断节点是否存在
         if source_chunk is None or target_chunk is None:
-            raise ValueError('Cannot find corresponding start or end node')
+            raise ValueError('Cannot find target start or end node')
 
         # 判断句柄是否存在
         source_output_handles = source_chunk.get(
@@ -151,3 +151,9 @@ class Schema:
         # 有变更时赋值
         if len(edges) != len(self.edges):
             self.edges = edges
+
+    def clone(self):
+        return Schema(schema_data={
+            "chunks": self.chunks,
+            "edges": self.edges
+        })

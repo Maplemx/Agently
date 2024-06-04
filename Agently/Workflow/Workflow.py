@@ -71,6 +71,11 @@ class Workflow:
         res = asyncio.run(self.start_async(start_data))
         return res
 
+    def reset_runtime_status(self):
+        """重置运行数据"""
+        self.executor.reset_all_runtime_status()
+        return self
+
     def reset(self, schema_data: dict):
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
 

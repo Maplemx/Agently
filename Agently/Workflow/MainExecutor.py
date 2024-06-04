@@ -32,7 +32,7 @@ class MainExecutor:
         self.chunks_map = {}
 
     async def start(self, executed_schema: dict, start_data: any = None):
-        self._reset_all_runtime_status()
+        self.reset_all_runtime_status()
         # 尝试灌入初始数据
         self.store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
         self.chunks_map = executed_schema.get('chunk_map') or {}
@@ -55,6 +55,19 @@ class MainExecutor:
             del self.registed_executors[name]
 
         return self
+
+    def reset_all_runtime_status(self):
+        """重置状态配置"""
+        self.running_status = 'idle'
+        # 中断器
+        self.breaking_hub = BreakingHub(
+            breaking_handler=self._handle_breaking,
+            max_execution_limit=self.max_execution_limit
+        )
+        # 运行时数据存储
+        self.store = Store()
+        # 执行节点字典
+        self.chunks_map = {}
     
     async def _execute_main(self, entries: list):
         """执行入口"""
@@ -239,8 +252,7 @@ class MainExecutor:
                 next_chunk_target_dep = find_by_attr(
                     next_chunk['deps'], 'handle', target_handle)
                 if next_chunk_target_dep:
-                    next_chunk_dep_slots = next_chunk_target_dep['data_slots'] or [
-                    ]
+                    next_chunk_dep_slots = next_chunk_target_dep['data_slots'] or []
                     # 1、首先清空掉之前由当前节点设置，但票据已失效的值
                     next_chunk_target_dep['data_slots'] = next_chunk_dep_slots = [
                         slot for slot in next_chunk_dep_slots if not ((slot['updator'] == chunk['id']) and slot['execution_ticket'] == '')
@@ -354,19 +366,6 @@ class MainExecutor:
         根据类型名称获取执行器
         """
         return self.registed_executors.get(name)
-
-    def _reset_all_runtime_status(self):
-        """重置状态配置"""
-        self.running_status = 'idle'
-        # 中断器
-        self.breaking_hub = BreakingHub(
-            breaking_handler=self._handle_breaking,
-            max_execution_limit=self.max_execution_limit
-        )
-        # 运行时数据存储
-        self.store = Store()
-        # 执行节点字典
-        self.chunks_map = {}
 
     def _chunks_clean_walker(self, root_chunk):
         """尝试对某个节点以下的分支做一轮清理工作"""

@@ -2,6 +2,8 @@
 EXECUTOR_TYPE_START = 'Start'
 # 结束类型
 EXECUTOR_TYPE_END = 'End'
+# 循环类型
+EXECUTOR_TYPE_LOOP = 'Loop'
 # 常规类型
 EXECUTOR_TYPE_NORMAL = 'Normal'
 
