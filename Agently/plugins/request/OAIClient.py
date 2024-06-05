@@ -185,7 +185,18 @@ class OAIClient(RequestABC):
             client_params.update({ "base_url": base_url })
         proxy = self.request.settings.get_trace_back("proxy")
         if proxy:
-            client_params.update({ "http_client": httpx.AsyncClient( proxies = proxy ) })
+            client_params.update({
+                "http_client": httpx.AsyncClient(
+                    proxies = proxy,
+                    headers = [("Connection", "close")],
+                )
+            })
+        else:
+            client_params.update({
+                "http_client": httpx.AsyncClient(
+                    headers = [("Connection", "close")],
+                )
+            })
         api_key = self.model_settings.get_trace_back("auth.api_key")
         if api_key:
             client_params.update({ "api_key": api_key })
@@ -227,7 +238,7 @@ class OAIClient(RequestABC):
                     yield({ "event": "response:delta", "data": delta["text"] or "" })
                 else:
                     if self.request.settings.get_trace_back("is_debug"):
-                    print(f"[Request] OpenAI Error: { str(dict(part)) }")
+                        print(f"[Request] OpenAI Error: { str(dict(part)) }")
                 yield({ "event": "response:delta_origin", "data": part })
             yield({ "event": "response:done_origin", "data": response_message })
             yield({ "event": "response:done", "data": response_message["text"] })

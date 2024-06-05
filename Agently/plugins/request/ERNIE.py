@@ -94,11 +94,12 @@ class Ernie(RequestABC):
         if self.request_type == "chat":
             if "model" not in options:
                 options["model"] = "ernie-4.0"
-            if "aistudio" not in access_token:
+            if "aistudio" not in access_token and "qianfan" not in access_token:
                 raise Exception(
-                    f"[Request] ERNIE require 'access-token-for-aistudio' when request type is '{self.request_type}'. Use .set_model_auth({{ 'aistudio': <YOUR-ACCESS-TOKEN-FOR-AISTUDIO> }}) to set.")
-            erniebot.api_type = "aistudio"
-            erniebot.access_token = access_token["aistudio"]
+                    f"[Request] ERNIE require 'access-token-for-aistudio or access-token-for-qianfan' when request type is '{self.request_type}'. Use .set_model_auth({{ 'aistudio': <YOUR-ACCESS-TOKEN-FOR-AISTUDIO> }} or {{ 'qianfan': <YOUR-ACCESS-TOKEN-FOR-QIANFAN> }}) to set.")
+            api_type = next(iter(access_token))
+            erniebot.api_type = api_type
+            erniebot.access_token = access_token[api_type]
             messages = self.construct_request_messages()
             request_messages = []
             system_prompt = ""

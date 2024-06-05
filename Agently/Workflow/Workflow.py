@@ -30,6 +30,7 @@ class Workflow:
         self.chunks = {}
         # Executor Manager
         self.executor_manager = ChunkExecutorManager()
+        self.chunk("start", type = "Start")(lambda:None)
 
     def chunk(self, chunk_id: str, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         if "title" not in chunk_desc or chunk_desc["title"] == "":

@@ -166,6 +166,7 @@ class Request(object):
 
     def get_result(self, request_type: str=None):
         reply_queue = queue.Queue()
+        is_debug = self.settings.get_trace_back("is_debug")
         def start_in_theard():
             asyncio.set_event_loop(asyncio.new_event_loop())
             loop = asyncio.get_event_loop()
@@ -176,6 +177,9 @@ class Request(object):
                 try:
                     reply = loop.run_until_complete(self.get_result_async(request_type))
                     reply_queue.put_nowait(reply)
+                except Exception as e:
+                    raise Exception(f"[Request] Error: { str(e) }")
+                    reply = None
                 finally:
                     loop.close()
         theard = threading.Thread(target=start_in_theard)
