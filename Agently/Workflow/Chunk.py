@@ -35,11 +35,16 @@ class SchemaChunk:
             'handles': self._fix_handles(chunk_desc.get('handles')),
             # 连接条件（默认无条件连通）
             'connect_condition': chunk_desc.get('connect_condition') or None,
+            # 连接条件的描述（if/elif，condition_id 信息等）
+            'connect_condition_detail': chunk_desc.get('connect_condition_detail') or None,
             # 当前激活的待连接的 handle 名
             'active_handle': chunk_desc.get('active_handle') or None
         }
 
         self.workflow_schema = workflow_schema
+
+        # 链式调用路径
+        self.chain_path = chunk_desc.get('chain_path') or []
 
         # 解析出默认的输入连接点(有 input 直接用 input 做默认，否则取第一个手柄为默认连接点)
         inputs = self.chunk.get('handles').get('inputs', [])
@@ -63,10 +68,7 @@ class SchemaChunk:
         """
         if not self.has_handle(name) and not self.has_handle(name, False):
             raise ValueError(f"The handle '{name}' for chunk '{self.chunk.get('title', self.chunk['id'])}' does not exist.")
-        shadow_chunk = SchemaChunk(
-            workflow_schema=self.workflow_schema,
-            **self.get_raw_schema()
-        )
+        shadow_chunk = self.create_shadow_chunk()
         shadow_chunk.set_active_handle(name)
         return shadow_chunk
     
@@ -74,27 +76,49 @@ class SchemaChunk:
         """
         按条件连接
         """
-        shadow_chunk = SchemaChunk(
-            workflow_schema=self.workflow_schema,
-            **self.get_raw_schema()
+        shadow_chunk = self.create_shadow_chunk()
+        shadow_chunk.set_connect_condition(
+            condition = condition,
+            condition_detail = {
+                # condition id
+                "id": f"cid-{str(uuid.uuid4())}",
+                "type": "if"
+            }
         )
-        shadow_chunk.set_connect_condition(condition)
         return shadow_chunk
 
     def else_condition(self) -> 'SchemaChunk':
         """
-        按当前条件的反条件连接
+        按当前条件的反条件连接（特别注意，else_condition 作用的 chunk 为往前追溯的最近一个 if_condition 作用的 chunk，两是同一个，两是成套存在的）
         """
+        current_condition_id = (self.chunk.get('connect_condition_detail') or {}).get('id') or f"cid-{str(uuid.uuid4())}"
+        # 生成 else_fn
         current_condition = self.chunk.get('connect_condition')
         if not current_condition:
             current_condition = lambda values, store: True
         else_condition_func = lambda values, store: not current_condition(values, store)
-        shadow_chunk = SchemaChunk(
-            workflow_schema=self.workflow_schema,
-            **self.get_raw_schema()
-        )
+        # 从当前 chunk 的 chain_path 从后往前找，找到最近一个 if_condition的 chunk
+        chain_path = self.chain_path.copy()
+        cursor_chunk_id = chain_path.pop()
+        target_chunk_params = None
+        while cursor_chunk_id:
+            cursor_chunk_params = self.workflow_schema.get_chunk(cursor_chunk_id)
+            if not cursor_chunk_params:
+                raise ValueError(f"Chunk with id '{cursor_chunk_id}' not found.")
+            if cursor_chunk_params.get('condition') and (cursor_chunk_params.get('condition_detail') or {}).get('type') == 'if':
+                target_chunk_params = cursor_chunk_params
+                break
+            cursor_chunk_id = chain_path.pop()
 
-        shadow_chunk.set_connect_condition(else_condition_func)
+        # 在 shadow_chunk 上操作
+        shadow_chunk = self.create_shadow_chunk()
+        shadow_chunk.set_connect_condition(
+            condition = else_condition_func,
+            condition_detail = {
+                "id": current_condition_id,
+                "type": "elif"
+            }
+        )
         return shadow_chunk
 
     def connect_to(self, chunk: 'SchemaChunk') -> 'SchemaChunk':
@@ -125,34 +149,36 @@ class SchemaChunk:
             target_chunk.chunk['id'],
             expect_source_handle,
             expect_target_handle,
-            self.chunk.get('connect_condition') or None
+            self.chunk.get('connect_condition') or None,
+            self.chunk.get('connect_condition_detail') or None,
         )
+        # 给新 
         return chunk
 
-    def through_loop(self, sub_workflow)-> 'SchemaChunk':
+    def loop_with(self, sub_workflow)-> 'SchemaChunk':
         """遍历逐项处理，支持传入子 workflow/处理方法 作为处理逻辑"""
         async def loop_executor(inputs, store):
             input_val = inputs.get(DEFAULT_INPUT_HANDLE_VALUE)
             all_result = []
             if isinstance(input_val, list):
                 for val in input_val:
-                    all_result.append(await loop_unit_core(unit_val=val))
+                    all_result.append(await loop_unit_core(unit_val=val, store=store))
             elif isinstance(input_val, dict):
                 for key, value in input_val.items():
                     all_result.append(await loop_unit_core(unit_val={
                         "key": key,
                         "value": value
-                    }))
+                    }, store=store))
             elif isinstance(input_val, int):
                 for i in range(input_val):
-                    all_result.append(await loop_unit_core(unit_val=i))
+                    all_result.append(await loop_unit_core(unit_val=i, store=store))
             return all_result
 
-        async def loop_unit_core(unit_val):
+        async def loop_unit_core(unit_val, store):
             if inspect.iscoroutinefunction(sub_workflow):
-                return await sub_workflow(unit_val)
+                return await sub_workflow(unit_val, store)
             elif inspect.isfunction(sub_workflow):
-                return sub_workflow(unit_val)
+                return sub_workflow(unit_val, store)
             else:
                 return await sub_workflow.start_async(unit_val)
 
@@ -176,11 +202,12 @@ class SchemaChunk:
                     f"The handle '{name}' for chunk '{self.chunk.get('title', self.chunk['id'])}' does not exist.")
         self.chunk['active_handle'] = name
     
-    def set_connect_condition(self, condition: callable = None):
+    def set_connect_condition(self, condition: callable = None, condition_detail: dict = None):
         """
         设置连接的条件
         """
         self.chunk['connect_condition'] = condition
+        self.chunk['connect_condition_detail'] = condition_detail
     
     def has_handle(self, name: str, from_inputs = True) -> bool:
         """
@@ -188,6 +215,16 @@ class SchemaChunk:
         """
         search_range = self.chunk.get('handles').get('inputs' if from_inputs else 'outputs', [])
         return has_target_by_attr(search_range, 'handle', name)
+    
+    def create_shadow_chunk(self, persist_chain=True):
+        # 获取到当前 chunk 的拷贝份
+        shadow_chunk = SchemaChunk(
+            workflow_schema=self.workflow_schema,
+            **self.get_raw_schema()
+        )
+        if persist_chain:
+            shadow_chunk.chain_path = self.chain_path.copy()
+        return shadow_chunk
 
     def _fix_handles(self, custom_handles):
         """修正用户传入的 handles 配置"""
@@ -213,3 +250,8 @@ class SchemaChunk:
         fix_handle_core(handles['inputs'])
         fix_handle_core(handles['outputs'])
         return handles
+    
+    def _append_chain_path(self, parent_rel_id: str):
+        """增加关系链"""
+        self.chain_path.append(parent_rel_id)
+        return self

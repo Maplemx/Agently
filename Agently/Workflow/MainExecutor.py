@@ -15,7 +15,8 @@ class MainExecutor:
         self.workflow_id = workflow_id
         self.settings = settings
         self.max_execution_limit = (settings or {}).get('max_execution_limit') or 10
-        workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
+        # workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
+        workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG)
         self.logger = settings.get('logger', workflow_default_logger)
         # == Step 2. 初始化状态配置 ==
         self.running_status = 'idle'
@@ -107,6 +108,7 @@ class MainExecutor:
             executing_ids=executing_ids,
             visited_record=visited_record
         )
+        print(has_been_executed, 4444)
         # 如果根本未执行过（如无执行票据），直接返回
         if not has_been_executed:
             return
@@ -135,6 +137,7 @@ class MainExecutor:
                 continue
             to_be_executed_child_tasks.append(execute_child_chunk(next_chunk))
 
+        print(len(to_be_executed_child_tasks))
         # 2.3 等待集中执行完（以便在保持状态正确的前提下，继续后续流程）
         await asyncio.gather(*to_be_executed_child_tasks)
 
@@ -190,6 +193,7 @@ class MainExecutor:
 
         # 获取执行chunk的依赖数据（每个手柄可能有多份就绪的数据）
         single_dep_map = self._extract_execution_single_dep_data(chunk)
+        print('dep', single_dep_map)
         while (single_dep_map['is_ready'] and single_dep_map['has_ticket']):
             has_been_executed = True
             # 基于依赖数据快照，执行分组
