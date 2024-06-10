@@ -133,6 +133,7 @@ class MainExecutor:
             next_chunk = self.chunks_map.get(next_info['id'])
             if not next_chunk:
                 continue
+
             # 在保持状态正确的前提下执行
             await execute_child_chunk(next_chunk)
 
