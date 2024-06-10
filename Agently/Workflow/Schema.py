@@ -156,6 +156,10 @@ class Schema:
         # 有变更时赋值
         if len(edges) != len(self.edges):
             self.edges = edges
+    
+    def remove_all_connection(self):
+        self.edges = []
+        return self
 
     def clone(self):
         return Schema(schema_data={
