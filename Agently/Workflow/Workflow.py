@@ -32,11 +32,15 @@ class Workflow:
         # Executor Manager
         self.executor_manager = ChunkExecutorManager()
         self.chunk("start", type = "Start")(lambda:None)
+        self.chunk("end", type = "End")(lambda:None)
 
-    def chunk(self, chunk_id: str, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
-        if "title" not in chunk_desc or chunk_desc["title"] == "":
-            chunk_desc.update({ "title": chunk_id })
+    def chunk(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         def create_chunk_decorator(func: callable):
+            nonlocal chunk_id, type, chunk_desc
+            if not chunk_id or not isinstance(chunk_id, str):
+                chunk_id = func.__name__
+            if "title" not in chunk_desc or chunk_desc["title"] == "":
+                chunk_desc.update({ "title": chunk_id })
             return self.chunks.update({
                 chunk_id: self.schema.create_chunk(
                         executor = func,
