@@ -77,8 +77,17 @@ class Workflow:
         self.executor.reset_all_runtime_status()
         return self
 
-    def reset(self, schema_data: dict):
+    def reset(self, schema_data: dict = None):
+        """彻底重置（包含注册的chunk和连接关系）"""
+        self.executor.reset_all_runtime_status()
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
+        return self
+    
+    def reset_connection(self):
+        """重置链接关系(保留 chunk 注册)"""
+        self.executor.reset_all_runtime_status()
+        self.schema.remove_all_connection()
+        return self
 
     def draw(self, type='mermaid'):
         """绘制出图形，默认使用 mermaid，可点击 https://mermaid-js.github.io/mermaid-live-editor/edit 粘贴查看效果"""

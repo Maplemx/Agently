@@ -2,6 +2,7 @@ import logging
 import uuid
 import asyncio
 import inspect
+from ..utils import RuntimeCtx
 from .utils.exec_tree import disable_chunk_dep_ticket, create_new_chunk_slot_with_val
 from .utils.logger import get_default_logger
 from .utils.find import find_by_attr
@@ -10,13 +11,13 @@ from .lib.Store import Store
 from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME
 
 class MainExecutor:
-    def __init__(self, workflow_id, settings={}):
+    def __init__(self, workflow_id, settings: RuntimeCtx):
         # == Step 1. 初始化设定配置 ==
         self.workflow_id = workflow_id
         self.settings = settings
-        self.max_execution_limit = (settings or {}).get('max_execution_limit') or 10
+        self.max_execution_limit = self.settings.get('max_execution_limit') or 10
         workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
-        self.logger = settings.get('logger', workflow_default_logger)
+        self.logger = self.settings.get('logger', workflow_default_logger)
         # == Step 2. 初始化状态配置 ==
         self.running_status = 'idle'
         # 中断器
@@ -116,7 +117,7 @@ class MainExecutor:
         # 2.1 声明执行处理逻辑
         async def execute_child_chunk(next_chunk):
             self.logger.debug(
-                f"From chunk '{self._get_chunk_title(chunk)}' call next chunk '{self._get_chunk_title(next_chunk)}'")
+                f"Try to call next chunk '{self._get_chunk_title(next_chunk)}' from chunk '{self._get_chunk_title(chunk)}'")
             child_executed = await self._execute_single_chunk(
                 chunk=next_chunk,
                 slow_tasks=slow_tasks,
@@ -127,16 +128,14 @@ class MainExecutor:
             if child_executed:
                 executed_child_chunks.append(next_chunk['id'])
 
-        # 2.2 收集执行任务
-        to_be_executed_child_tasks = []
+        # 2.2 执行直接子任务
         for next_info in chunk['next_chunks']:
             next_chunk = self.chunks_map.get(next_info['id'])
             if not next_chunk:
                 continue
-            to_be_executed_child_tasks.append(execute_child_chunk(next_chunk))
 
-        # 2.3 等待集中执行完（以便在保持状态正确的前提下，继续后续流程）
-        await asyncio.gather(*to_be_executed_child_tasks)
+            # 在保持状态正确的前提下执行
+            await execute_child_chunk(next_chunk)
 
         # 3、递归处理已执行了的下游直接子节点的下级节点
         # 3.1 收集直接子节点的待执行的下游任务
@@ -219,8 +218,6 @@ class MainExecutor:
         # 1、执行当前 chunk
         execute_id = uuid.uuid4()
         executing_ids.append(execute_id)
-        self.logger.info(
-            f"Execute '{self._get_chunk_title(chunk)}'")
         # self.logger.debug("With dependent data: ", single_dep_map)
         exec_value = await self._exec_chunk_with_dep_core(chunk, single_dep_map)
         self.breaking_hub.recoder(chunk)  # 更新中断器信息
@@ -243,7 +240,10 @@ class MainExecutor:
                 condition_call = next_rel_handle.get('condition')
                 if condition_call:
                     judge_res = condition_call(source_value, self.store)
-                    if judge_res != True:
+                    connection_status = judge_res == True
+                    self.logger.debug(
+                        f"The connection status of '{self._get_chunk_title(chunk)}({source_handle})' to '{self._get_chunk_title(next_chunk)}({target_handle})': {connection_status}")
+                    if not connection_status:
                         continue
 
                 # 在下一个 chunk 的依赖定义中，找到与当前 chunk 的当前 handle 定义的部分，尝试更新其插槽值依赖
@@ -270,6 +270,7 @@ class MainExecutor:
         if len(slow_tasks) == 0:
             return
 
+        self.logger.debug(f'Try to execute the slow tasks queue(length: {len(slow_tasks)})')
         for chunk in slow_tasks:
             # 先清空下游所有节点数据
             self._chunks_clean_walker(chunk)
@@ -298,6 +299,7 @@ class MainExecutor:
             # 主动中断执行
             raise Exception(err_msg)
         try:
+            self.logger.info(f"Executing chunk '{self._get_chunk_title(chunk)}'")
             # 如果执行器是异步的，采用 await调用
             if inspect.iscoroutinefunction(chunk_executor):
                 exec_res = await chunk_executor(deps_dict, self.store)

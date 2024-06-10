@@ -1,5 +1,5 @@
 from .utils.verify import validate_dict
-from .utils.find import has_target_by_attr, find_by_attr
+from .utils.find import has_target_by_attr, find_by_attr, find
 from .Chunk import SchemaChunk
 from .lib.constants import DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE, DEFAULT_INPUT_HANDLE, EXECUTOR_TYPE_NORMAL
 
@@ -77,8 +77,11 @@ class Schema:
     
     def get_chunk(self, chunk_id):
         return find_by_attr(self.chunks, 'id', chunk_id)
+    
+    def get_chunk_by(self, filter: callable):
+        return find(self.chunks, filter)
 
-    def connect_chunk(self, source_chunk_id, target_chunk_id, source_handle=DEFAULT_OUTPUT_HANDLE_VALUE, target_handle=DEFAULT_INPUT_HANDLE_VALUE, condition: callable = None):
+    def connect_chunk(self, source_chunk_id, target_chunk_id, source_handle=DEFAULT_OUTPUT_HANDLE_VALUE, target_handle=DEFAULT_INPUT_HANDLE_VALUE, condition: callable = None, condition_detail: dict = None):
         """
         连接两个节点，分别输入：源节点id、目标节点id、源节点输出句柄（可选，默认为源节点的输出点）、目标节点的输入句柄（可选，默认为目标节点的输入点）
         """
@@ -115,7 +118,8 @@ class Schema:
             'target': target_chunk_id,
             'source_handle': source_handle or DEFAULT_OUTPUT_HANDLE_VALUE,
             'target_handle': target_handle or DEFAULT_INPUT_HANDLE_VALUE,
-            'condition': condition # 连通的开关条件，默认直连
+            'condition': condition, # 连通的开关条件，默认直连
+            'condition_detail': condition_detail # 连通的开关条件的类型
         })
     
     def get_edge(self, edge_id):
@@ -131,7 +135,8 @@ class Schema:
                 edge.get('target'),
                 edge.get('source_handle', DEFAULT_OUTPUT_HANDLE_VALUE),
                 edge.get('target_handle', DEFAULT_INPUT_HANDLE_VALUE),
-                edge.get('condition') or None
+                edge.get('condition') or None,
+                edge.get('condition_detail') or None
             )
         return self
 
@@ -151,6 +156,10 @@ class Schema:
         # 有变更时赋值
         if len(edges) != len(self.edges):
             self.edges = edges
+    
+    def remove_all_connection(self):
+        self.edges = []
+        return self
 
     def clone(self):
         return Schema(schema_data={
