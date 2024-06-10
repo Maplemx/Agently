@@ -43,8 +43,8 @@ class SchemaChunk:
 
         self.workflow_schema = workflow_schema
 
-        # 链式调用路径
-        self.chain_path = chunk_desc.get('chain_path') or []
+        # 调用链上，分支路径
+        self.branch_chunk_stack = chunk_desc.get('branch_chunk_stack') or []
 
         # 解析出默认的输入连接点(有 input 直接用 input 做默认，否则取第一个手柄为默认连接点)
         inputs = self.chunk.get('handles').get('inputs', [])
@@ -68,7 +68,8 @@ class SchemaChunk:
         """
         if not self.has_handle(name) and not self.has_handle(name, False):
             raise ValueError(f"The handle '{name}' for chunk '{self.chunk.get('title', self.chunk['id'])}' does not exist.")
-        shadow_chunk = self.create_shadow_chunk()
+        # 创建影子 chunk，逻辑分支继续延续
+        shadow_chunk = self.create_shadow_chunk(persist_branch_chain=True)
         shadow_chunk.set_active_handle(name)
         return shadow_chunk
     
@@ -76,7 +77,11 @@ class SchemaChunk:
         """
         按条件连接
         """
-        shadow_chunk = self.create_shadow_chunk()
+        # 创建影子 chunk
+        shadow_chunk = self.create_shadow_chunk(persist_branch_chain=True)
+        # 逻辑分支在原有基础上，追加当前 chunk
+        shadow_chunk.branch_chunk_stack.append(shadow_chunk)
+        # 设置条件参数和辅助信息
         shadow_chunk.set_connect_condition(
             condition = condition,
             condition_detail = {
@@ -91,35 +96,47 @@ class SchemaChunk:
         """
         按当前条件的反条件连接（特别注意，else_condition 作用的 chunk 为往前追溯的最近一个 if_condition 作用的 chunk，两是同一个，两是成套存在的）
         """
-        current_condition_id = (self.chunk.get('connect_condition_detail') or {}).get('id') or f"cid-{str(uuid.uuid4())}"
-        # 生成 else_fn
-        current_condition = self.chunk.get('connect_condition')
-        if not current_condition:
-            current_condition = lambda values, store: True
-        else_condition_func = lambda values, store: not current_condition(values, store)
-        # 从当前 chunk 的 chain_path 从后往前找，找到最近一个 if_condition的 chunk
-        chain_path = self.chain_path.copy()
-        cursor_chunk_id = chain_path.pop()
-        target_chunk_params = None
-        while cursor_chunk_id:
-            cursor_chunk_params = self.workflow_schema.get_chunk(cursor_chunk_id)
-            if not cursor_chunk_params:
-                raise ValueError(f"Chunk with id '{cursor_chunk_id}' not found.")
-            if cursor_chunk_params.get('condition') and (cursor_chunk_params.get('condition_detail') or {}).get('type') == 'if':
-                target_chunk_params = cursor_chunk_params
+        
+        # Step1. 从当前 chunk 的 branch_chunk_stack 从后往前找，找到最近一个 if_condition 的 'root' chunk
+        branch_chunk_stack = self.branch_chunk_stack.copy()
+        cursor_chunk = branch_chunk_stack.pop() if len(branch_chunk_stack) else None
+        # 本次 else 条件的root chunk（即 if 的那个 chunk）
+        condition_root_chunk: 'SchemaChunk' = None
+        while cursor_chunk:
+            cursor_chunk_params = cursor_chunk.chunk
+            if cursor_chunk_params.get('connect_condition') and (cursor_chunk_params.get('connect_condition_detail') or {}).get('type') == 'if':
+                condition_root_chunk = cursor_chunk
                 break
-            cursor_chunk_id = chain_path.pop()
+            cursor_chunk = branch_chunk_stack.pop() if len(branch_chunk_stack) else None
+        
+        if not condition_root_chunk:
+            raise ValueError(
+                f"The `else_condition` method must be called after the `if_condition` method.")
 
-        # 在 shadow_chunk 上操作
-        shadow_chunk = self.create_shadow_chunk()
-        shadow_chunk.set_connect_condition(
+        # Step2. 基于 condition_root_chunk 做进一步的连接和更新操作
+        # 2.1 生成 else_fn
+        current_condition = condition_root_chunk.chunk.get('connect_condition')
+        if not current_condition:
+            def current_condition(values, store):
+                return True
+        def else_condition_func(values, store):
+            res = not current_condition(values, store)
+            # print('else res', res)
+            return res
+
+        # 2.2 进行条件连接
+        # 在 shadow_root_chunk 上操作，重构 branch_chain 剩下的即剔除了主 if 的路径继续保留
+        shadow_root_chunk = condition_root_chunk.create_shadow_chunk(persist_branch_chain=False)
+        shadow_root_chunk.branch_chunk_stack = branch_chunk_stack.copy()
+        # 设置条件链接信息
+        shadow_root_chunk.set_connect_condition(
             condition = else_condition_func,
             condition_detail = {
-                "id": current_condition_id,
+                "id": (condition_root_chunk.chunk.get('connect_condition_detail') or {}).get('id') or f"cid-{str(uuid.uuid4())}",
                 "type": "elif"
             }
         )
-        return shadow_chunk
+        return shadow_root_chunk
 
     def connect_to(self, chunk: 'SchemaChunk') -> 'SchemaChunk':
         """
@@ -152,8 +169,10 @@ class SchemaChunk:
             self.chunk.get('connect_condition') or None,
             self.chunk.get('connect_condition_detail') or None,
         )
-        # 给新 
-        return chunk
+        # chain 往前递进
+        target_chunk_shadow = target_chunk.create_shadow_chunk(persist_branch_chain=False)
+        target_chunk_shadow.branch_chunk_stack = self.branch_chunk_stack.copy()
+        return target_chunk_shadow
 
     def loop_with(self, sub_workflow)-> 'SchemaChunk':
         """遍历逐项处理，支持传入子 workflow/处理方法 作为处理逻辑"""
@@ -216,14 +235,14 @@ class SchemaChunk:
         search_range = self.chunk.get('handles').get('inputs' if from_inputs else 'outputs', [])
         return has_target_by_attr(search_range, 'handle', name)
     
-    def create_shadow_chunk(self, persist_chain=True):
-        # 获取到当前 chunk 的拷贝份
+    def create_shadow_chunk(self, persist_branch_chain=False):
+        """获取到当前 chunk 的拷贝份（不干扰 chunk 自身运算逻辑），persist_branch_chain 为是否保留逻辑分支链"""
         shadow_chunk = SchemaChunk(
             workflow_schema=self.workflow_schema,
             **self.get_raw_schema()
         )
-        if persist_chain:
-            shadow_chunk.chain_path = self.chain_path.copy()
+        if persist_branch_chain:
+            shadow_chunk.branch_chunk_stack = self.branch_chunk_stack.copy()
         return shadow_chunk
 
     def _fix_handles(self, custom_handles):
@@ -250,8 +269,3 @@ class SchemaChunk:
         fix_handle_core(handles['inputs'])
         fix_handle_core(handles['outputs'])
         return handles
-    
-    def _append_chain_path(self, parent_rel_id: str):
-        """增加关系链"""
-        self.chain_path.append(parent_rel_id)
-        return self

@@ -108,7 +108,6 @@ class MainExecutor:
             executing_ids=executing_ids,
             visited_record=visited_record
         )
-        print(has_been_executed, 4444)
         # 如果根本未执行过（如无执行票据），直接返回
         if not has_been_executed:
             return
@@ -137,7 +136,6 @@ class MainExecutor:
                 continue
             to_be_executed_child_tasks.append(execute_child_chunk(next_chunk))
 
-        print(len(to_be_executed_child_tasks))
         # 2.3 等待集中执行完（以便在保持状态正确的前提下，继续后续流程）
         await asyncio.gather(*to_be_executed_child_tasks)
 
@@ -193,7 +191,6 @@ class MainExecutor:
 
         # 获取执行chunk的依赖数据（每个手柄可能有多份就绪的数据）
         single_dep_map = self._extract_execution_single_dep_data(chunk)
-        print('dep', single_dep_map)
         while (single_dep_map['is_ready'] and single_dep_map['has_ticket']):
             has_been_executed = True
             # 基于依赖数据快照，执行分组
@@ -210,6 +207,7 @@ class MainExecutor:
             )
             # 再次更新获取依赖（如没有了，则停止了）
             single_dep_map = self._extract_execution_single_dep_data(chunk)
+        print(has_been_executed, self._get_chunk_title(chunk), single_dep_map)
         return has_been_executed
 
     async def _execute_single_chunk_core(
@@ -223,8 +221,6 @@ class MainExecutor:
         # 1、执行当前 chunk
         execute_id = uuid.uuid4()
         executing_ids.append(execute_id)
-        self.logger.info(
-            f"Execute '{self._get_chunk_title(chunk)}'")
         # self.logger.debug("With dependent data: ", single_dep_map)
         exec_value = await self._exec_chunk_with_dep_core(chunk, single_dep_map)
         self.breaking_hub.recoder(chunk)  # 更新中断器信息
@@ -247,7 +243,10 @@ class MainExecutor:
                 condition_call = next_rel_handle.get('condition')
                 if condition_call:
                     judge_res = condition_call(source_value, self.store)
-                    if judge_res != True:
+                    connection_status = judge_res == True
+                    self.logger.debug(
+                        f"The connection status of '{self._get_chunk_title(chunk)}({source_handle})' to '{self._get_chunk_title(next_chunk)}({target_handle})': {connection_status}")
+                    if not connection_status:
                         continue
 
                 # 在下一个 chunk 的依赖定义中，找到与当前 chunk 的当前 handle 定义的部分，尝试更新其插槽值依赖
@@ -274,6 +273,7 @@ class MainExecutor:
         if len(slow_tasks) == 0:
             return
 
+        self.logger.debug(f'Try to execute the slow tasks queue(length: {len(slow_tasks)})')
         for chunk in slow_tasks:
             # 先清空下游所有节点数据
             self._chunks_clean_walker(chunk)
@@ -302,6 +302,7 @@ class MainExecutor:
             # 主动中断执行
             raise Exception(err_msg)
         try:
+            self.logger.info(f"Execute '{self._get_chunk_title(chunk)}'")
             # 如果执行器是异步的，采用 await调用
             if inspect.iscoroutinefunction(chunk_executor):
                 exec_res = await chunk_executor(deps_dict, self.store)
