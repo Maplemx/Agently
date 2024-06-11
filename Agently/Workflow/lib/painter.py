@@ -1,7 +1,7 @@
-def draw_with_mermaid(schema):
+def draw_with_mermaid(schema_compiled_data):
     """使用 mermaid 绘制出图形，可点击 https://mermaid-js.github.io/mermaid-live-editor/edit 粘贴查看效果"""
-    edges = schema.edges
-    chunks = schema.chunks
+    edges = schema_compiled_data['edges']
+    chunks = schema_compiled_data['chunks']
     chunk_map = {}
     for chunk in chunks:
         chunk_map[chunk['id']] = chunk

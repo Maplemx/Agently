@@ -8,7 +8,7 @@ from .utils.logger import get_default_logger
 from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
-from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME
+from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE
 
 class MainExecutor:
     def __init__(self, workflow_id, settings: RuntimeCtx):
@@ -26,7 +26,7 @@ class MainExecutor:
             max_execution_limit=self.max_execution_limit
         )
         # 运行时数据存储
-        self.store = Store()
+        self.store = self.settings.get('store') or Store()
         # 已注册的执行器
         self.registed_executors = {}
         # 执行节点字典
@@ -216,7 +216,7 @@ class MainExecutor:
     ):
         """根据某一份指定的的依赖数据，执行当前 chunk 自身（不包含下游 chunk 的执行调用）"""
         # 1、执行当前 chunk
-        execute_id = uuid.uuid4()
+        execute_id = str(uuid.uuid4())
         executing_ids.append(execute_id)
         # self.logger.debug("With dependent data: ", single_dep_map)
         exec_value = await self._exec_chunk_with_dep_core(chunk, single_dep_map)
@@ -233,8 +233,12 @@ class MainExecutor:
             for next_rel_handle in next_info['handles']:
                 source_handle = next_rel_handle['source_handle']
                 target_handle = next_rel_handle['handle']
-                source_value = exec_value.get(source_handle) if isinstance(
-                    exec_value, dict) else exec_value
+                source_value = None
+                # 以下情况直接将完整值注入下游对应的插槽位置（此处的 target_handle）：执行结果为非 dict 类型，或者未定义上游 chunk 的输出句柄(此处的 source_handle)，或其输出句柄为默认全量输出句柄时
+                if (not isinstance(exec_value, dict)) or (not source_handle) or (source_handle == DEFAULT_OUTPUT_HANDLE_VALUE):
+                    source_value = exec_value
+                else:
+                    source_value = exec_value.get(source_handle)
 
                 # 有条件的情况下，仅在条件满足时，才更新下游节点的数据
                 condition_call = next_rel_handle.get('condition')
@@ -288,6 +292,15 @@ class MainExecutor:
         deps_dict = {}
         for dep_handle in specified_deps:
             deps_dict[dep_handle] = specified_deps[dep_handle]['value']
+        
+        input_value = deps_dict
+
+        # 智能模式下的特殊处理
+        if self.settings.get('mode') == 'geek':
+            # 如果只有一个数据挂载，且为 default，则直接取出来作为默认值
+            all_keys = list(deps_dict.keys())
+            if len(all_keys) == 1 and all_keys[0] == DEFAULT_INPUT_HANDLE_VALUE:
+                input_value = deps_dict['default']
 
         # 交给执行器执行
         executor_type = chunk['data']['type']
@@ -302,9 +315,9 @@ class MainExecutor:
             self.logger.info(f"Executing chunk '{self._get_chunk_title(chunk)}'")
             # 如果执行器是异步的，采用 await调用
             if inspect.iscoroutinefunction(chunk_executor):
-                exec_res = await chunk_executor(deps_dict, self.store)
+                exec_res = await chunk_executor(input_value, self.store)
             else:
-                exec_res = chunk_executor(deps_dict, self.store)
+                exec_res = chunk_executor(input_value, self.store)
         except Exception as e:
             self.logger.error(f"Node Execution Exception-'{self._get_chunk_title(chunk)}'({chunk['id']}):\n {e}")
             # 主动中断执行
