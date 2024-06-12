@@ -2,8 +2,14 @@
 EXECUTOR_TYPE_START = 'Start'
 # 结束类型
 EXECUTOR_TYPE_END = 'End'
+# 内置声明好的执行器
+BUILT_IN_EXECUTOR_TYPES = [
+  EXECUTOR_TYPE_START,
+  EXECUTOR_TYPE_END
+]
 # 循环类型
 EXECUTOR_TYPE_LOOP = 'Loop'
+
 # 常规类型
 EXECUTOR_TYPE_NORMAL = 'Normal'
 

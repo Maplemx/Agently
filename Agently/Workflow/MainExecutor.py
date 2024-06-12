@@ -8,7 +8,7 @@ from .utils.logger import get_default_logger
 from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
-from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE
+from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, BUILT_IN_EXECUTOR_TYPES
 
 class MainExecutor:
     def __init__(self, workflow_id, settings: RuntimeCtx):
@@ -27,6 +27,11 @@ class MainExecutor:
         )
         # 运行时数据存储
         self.store = self.settings.get('store') or Store()
+        # 运行时系统存储（如存储整个 workflow 的输入输出数据）
+        self.sys_store  = self.settings.get('sys_store') or Store()
+        # 是否保留执行状态
+        self.persist_state = self.settings.get('persist_state') == True
+        self.persist_sys_state = self.settings.get('persist_sys_state') == True
         # 已注册的执行器
         self.registed_executors = {}
         # 执行节点字典
@@ -35,12 +40,12 @@ class MainExecutor:
     async def start(self, executed_schema: dict, start_data: any = None):
         self.reset_all_runtime_status()
         # 尝试灌入初始数据
-        self.store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
+        self.sys_store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
         self.chunks_map = executed_schema.get('chunk_map') or {}
         self.running_status = 'start'
         await self._execute_main(executed_schema.get('entries') or [])
         self.running_status = 'end'
-        return self.store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
+        return self.sys_store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
 
     def regist_executor(self, name: str, executor):
         """
@@ -66,7 +71,10 @@ class MainExecutor:
             max_execution_limit=self.max_execution_limit
         )
         # 运行时数据存储
-        self.store = Store()
+        if not self.persist_state:
+            self.store.remove_all()
+        if not self.persist_sys_state:
+            self.sys_store.remove_all()
         # 执行节点字典
         self.chunks_map = {}
     
@@ -295,8 +303,8 @@ class MainExecutor:
         
         input_value = deps_dict
 
-        # 智能模式下的特殊处理
-        if self.settings.get('mode') == 'geek':
+        # 激进模式下的特殊处理
+        if self.settings.get('mode') == 'aggressive':
             # 如果只有一个数据挂载，且为 default，则直接取出来作为默认值
             all_keys = list(deps_dict.keys())
             if len(all_keys) == 1 and all_keys[0] == DEFAULT_INPUT_HANDLE_VALUE:
@@ -305,6 +313,8 @@ class MainExecutor:
         # 交给执行器执行
         executor_type = chunk['data']['type']
         chunk_executor = self._get_chunk_executor(executor_type) or chunk.get('executor')
+        # 是否内置的执行器（会追加系统信息）
+        is_built_in_type = executor_type in BUILT_IN_EXECUTOR_TYPES
         exec_res = None
         if not chunk_executor:
             err_msg = f"Node Error-'{self._get_chunk_title(chunk)}'({chunk['id']}): The 'executor' is required but get 'NoneType'"
@@ -315,9 +325,15 @@ class MainExecutor:
             self.logger.info(f"Executing chunk '{self._get_chunk_title(chunk)}'")
             # 如果执行器是异步的，采用 await调用
             if inspect.iscoroutinefunction(chunk_executor):
-                exec_res = await chunk_executor(input_value, self.store)
+                if is_built_in_type:
+                    exec_res = await chunk_executor(input_value, self.store, sys_store = self.sys_store)
+                else:
+                    exec_res = await chunk_executor(input_value, self.store)
             else:
-                exec_res = chunk_executor(input_value, self.store)
+                if is_built_in_type:
+                    exec_res = chunk_executor(input_value, self.store, sys_store = self.sys_store)
+                else:
+                    exec_res = chunk_executor(input_value, self.store)
         except Exception as e:
             self.logger.error(f"Node Execution Exception-'{self._get_chunk_title(chunk)}'({chunk['id']}):\n {e}")
             # 主动中断执行
