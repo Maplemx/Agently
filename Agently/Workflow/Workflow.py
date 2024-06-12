@@ -1,7 +1,7 @@
 import asyncio
 from .MainExecutor import MainExecutor
-from .utils.exec_tree import generate_executed_schema
 from .Schema import Schema
+from .utils.exec_tree import generate_executed_schema
 from ..utils import RuntimeCtx
 from .._global import global_settings
 from .executors.install import mount_built_in_executors
@@ -68,7 +68,7 @@ class Workflow:
             raise Exception("[Workflow] At least one parameter in `yaml_str` and `path` is required when using workflow.load_yaml().")
 
     async def start_async(self, start_data=None):
-        executed_schema = generate_executed_schema(self.schema)
+        executed_schema = generate_executed_schema(self.schema.compile())
         res = await self.executor.start(executed_schema, start_data)
         return res
 
@@ -92,7 +92,10 @@ class Workflow:
         self.executor.reset_all_runtime_status()
         self.schema.remove_all_connection()
         return self
+    
+    def get_runtime_store(self):
+        return self.executor.store
 
     def draw(self, type='mermaid'):
         """绘制出图形，默认使用 mermaid，可点击 https://mermaid-js.github.io/mermaid-live-editor/edit 粘贴查看效果"""
-        return draw_with_mermaid(self.schema)
+        return draw_with_mermaid(self.schema.compile())
