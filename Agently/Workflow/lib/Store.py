@@ -14,6 +14,10 @@ class Store:
     if name in self.store:
       del self.store[name]
     return self
+  
+  def remove_all(self):
+    self.store = {}
+    return self
 
   def get(self, name: str, default = None):
     return self.store.get(name) or default

@@ -1,6 +1,7 @@
+import asyncio
 from .MainExecutor import MainExecutor
-from .utils.exec_tree import resolve_runtime_data
 from .Schema import Schema
+from .utils.exec_tree import generate_executed_schema
 from ..utils import RuntimeCtx
 from .._global import global_settings
 from .executors.install import mount_built_in_executors
@@ -31,11 +32,15 @@ class Workflow:
         # Executor Manager
         self.executor_manager = ChunkExecutorManager()
         self.chunk("start", type = "Start")(lambda:None)
+        self.chunk("end", type = "End")(lambda:None)
 
-    def chunk(self, chunk_id: str, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
-        if "title" not in chunk_desc or chunk_desc["title"] == "":
-            chunk_desc.update({ "title": chunk_id })
+    def chunk(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         def create_chunk_decorator(func: callable):
+            nonlocal chunk_id, type, chunk_desc
+            if not chunk_id or not isinstance(chunk_id, str):
+                chunk_id = func.__name__
+            if "title" not in chunk_desc or chunk_desc["title"] == "":
+                chunk_desc.update({ "title": chunk_id })
             return self.chunks.update({
                 chunk_id: self.schema.create_chunk(
                         executor = func,
@@ -61,14 +66,36 @@ class Workflow:
             return start_yaml_from_path(self, path, draw=draw)
         else:
             raise Exception("[Workflow] At least one parameter in `yaml_str` and `path` is required when using workflow.load_yaml().")
-    
-    def start(self):
-        runtime_data = resolve_runtime_data(self.schema)
-        self.executor.start(runtime_data)
-    
-    def reset(self, schema_data: dict):
+
+    async def start_async(self, start_data=None):
+        executed_schema = generate_executed_schema(self.schema.compile())
+        res = await self.executor.start(executed_schema, start_data)
+        return res
+
+    def start(self, start_data = None):
+        res = asyncio.run(self.start_async(start_data))
+        return res
+
+    def reset_runtime_status(self):
+        """重置运行数据"""
+        self.executor.reset_all_runtime_status()
+        return self
+
+    def reset(self, schema_data: dict = None):
+        """彻底重置（包含注册的chunk和连接关系）"""
+        self.executor.reset_all_runtime_status()
         self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
+        return self
     
+    def reset_connection(self):
+        """重置链接关系(保留 chunk 注册)"""
+        self.executor.reset_all_runtime_status()
+        self.schema.remove_all_connection()
+        return self
+    
+    def get_runtime_store(self):
+        return self.executor.store
+
     def draw(self, type='mermaid'):
         """绘制出图形，默认使用 mermaid，可点击 https://mermaid-js.github.io/mermaid-live-editor/edit 粘贴查看效果"""
-        return draw_with_mermaid(self.schema)
+        return draw_with_mermaid(self.schema.compile())

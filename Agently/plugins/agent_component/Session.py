@@ -29,7 +29,7 @@ class Session(ComponentABC):
         return self.agent
 
     
-    def active(self, session_id: str=None):
+    def activate(self, session_id: str=None):
         if self.current_session_id != None:
             self.stop()
         if session_id == None or session_id == "":
@@ -168,7 +168,8 @@ class Session(ComponentABC):
             "prefix": self._prefix,
             "suffix": self._suffix,
             "alias": {
-                "active_session": { "func": self.active, "return_value": True },
+                "active_session": { "func": self.activate, "return_value": True },
+                "activate_session": { "func": self.activate, "return_value": True },
                 "save_session": { "func": self.save },
                 "stop_session": { "func": self.stop },
                 "toggle_session_auto_save": { "func": self.toggle_auto_save },
