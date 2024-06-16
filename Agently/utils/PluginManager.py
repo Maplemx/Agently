@@ -13,7 +13,7 @@ class PluginManager(object):
         return self
     
     def set_settings(self, keys_with_dots: str, value: any):
-        self.plugins_runtime_ctx.set(f"$.settings.{keys_with_dots  }", value)
+        self.plugins_runtime_ctx.set(f"$.settings.{ keys_with_dots }", value)
         return self
 
     def update_settings(self, settings: dict):

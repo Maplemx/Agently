@@ -17,6 +17,9 @@ lib = facility
 
 set_settings = global_settings.set
 
-def register_plugin(model_name:str, plugin_name: str, plugin: callable):
-    global_plugin_manager.register(model_name, plugin_name, plugin)
+def register_plugin(module_name:str, plugin_name: str, plugin: callable):
+    global_plugin_manager.register(module_name, plugin_name, plugin)
     facility.refresh_plugins()
+
+def set_plugin_settings(module_name: str, plugin_name: str, key: str, value: any):
+    global_plugin_manager.set_settings(f"plugin_settings.{ module_name }.{ plugin_name }", key, value)
