@@ -192,8 +192,8 @@ class OpenAI(RequestABC):
 
     async def request_gpt(self, request_data: dict):
         client = self._create_client()
-        if self.request.request_runtime_ctx.get("response:type") == "JSON":
-            request_data.update({ "response_format": { "type": "json_object" } })
+        #if self.request.request_runtime_ctx.get("response:type") == "JSON":
+            #request_data.update({ "response_format": { "type": "json_object" } })
         stream = await client.chat.completions.create(
             **request_data
         )
