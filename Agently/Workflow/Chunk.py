@@ -76,7 +76,6 @@ class SchemaChunk:
         """
         按当前条件的反条件连接（特别注意，else_condition 作用的 chunk 为往前追溯的最近一个 if_condition 作用的 chunk，两是同一个，两是成套存在的）
         """
-        
         # Step1. 从当前 chunk 的 branch_chunk_stack 从后往前找，找到最近一个 if_condition 的 'root' chunk
         branch_chunk_stack = self.branch_chunk_stack.copy()
         cursor_chunk = branch_chunk_stack.pop() if len(branch_chunk_stack) else None
@@ -101,7 +100,6 @@ class SchemaChunk:
                 return True
         def else_condition_func(values, store):
             res = not current_condition(values, store)
-            # print('else res', res)
             return res
 
         # 2.2 进行条件连接
@@ -119,6 +117,24 @@ class SchemaChunk:
         return shadow_root_chunk
 
     def connect_to(self, chunk: 'SchemaChunk') -> 'SchemaChunk':
+        if isinstance(chunk, str):
+            chunks = self.workflow_schema.workflow.chunks
+            chunk_info_list = chunk.split(".")
+            if len(chunk_info_list) < 2:
+                chunk_id = chunk_info_list[0]
+                if chunk_id not in chunks:
+                    raise Exception(f"Can not find '{ chunk_id }' in workflow.chunks.")
+                return self._connect_to(chunks[chunk_id])
+            else:
+                chunk_id = chunk_info_list[0]
+                handle_name = chunk_info_list[1]
+                if chunk_id not in chunks:
+                    raise Exception(f"Can not find '{ chunk_id }' in workflow.chunks.")
+                return self._connect_to(chunks[chunk_id].handle(handle_name))
+        else:
+            return self._connect_to(chunk)
+
+    def _connect_to(self, chunk: 'SchemaChunk') -> 'SchemaChunk':
         """
         连接到指定个 Chunk 节点，支持传入 create_chunk 创建好的实例，也支持传入 chunk dict
         """
@@ -143,6 +159,7 @@ class SchemaChunk:
         # chain 往前递进
         target_chunk_shadow = target_chunk.create_shadow_chunk(persist_branch_chain=False)
         target_chunk_shadow.branch_chunk_stack = self.branch_chunk_stack.copy()
+        target_chunk_shadow.set_active_handle()
         return target_chunk_shadow
 
     def loop_with(self, sub_workflow)-> 'SchemaChunk':
