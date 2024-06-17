@@ -22,7 +22,7 @@ class Workflow:
         if settings:
             self.settings.update_by_dict(settings)
         # 初始 schema
-        self.schema = Schema(schema_data or {'chunks': [], 'edges': []})
+        self.schema = Schema(schema_data or {'chunks': [], 'edges': []}, self)
         # 初始化执行器
         self.executor = MainExecutor(self.workflow_id, self.settings)
         # 装载内置类型
@@ -31,8 +31,10 @@ class Workflow:
         self.chunks = {}
         # Executor Manager
         self.executor_manager = ChunkExecutorManager()
+        # Short Cut
         self.chunk("start", type = "Start")(lambda:None)
         self.chunk("end", type = "End")(lambda:None)
+        self.connect_to = self.chunks["start"].connect_to
 
     def chunk(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         def create_chunk_decorator(func: callable):

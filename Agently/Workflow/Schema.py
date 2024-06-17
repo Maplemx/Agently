@@ -9,7 +9,7 @@ class Schema:
     Workflow 的描述
     """
 
-    def __init__(self, schema_data = { 'chunks': [], 'edges': [] }):
+    def __init__(self, schema_data = { 'chunks': [], 'edges': [] }, workflow = None):
         self._chunks = []
         self._edges = []
         # 依次调用添加方法添加
@@ -18,6 +18,7 @@ class Schema:
                 .append_raw_chunk_list(schema_data.get('chunks', []))
                 .connect_with_edges(schema_data.get('edges', []))
         )
+        self.workflow = workflow
     
     def compile(self):
         """编译处理，得到可用数据"""
