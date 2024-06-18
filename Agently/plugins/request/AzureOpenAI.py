@@ -33,16 +33,10 @@ class AzureOpenAI(RequestABC):
                 )
             })
 
-        api_key = self.model_settings.get_trace_back("auth.api_key")
-        api_version = self.model_settings.get_trace_back("auth.api_version")
-        azure_endpoint = self.model_settings.get_trace_back("auth.azure_endpoint")
-        if not (api_key and api_version and azure_endpoint):
+        auth = self.model_settings.get_trace_back("auth", {})
+        if "api_key" not in auth or "api_version" not in auth and "azure_endpoint" not in auth:
             raise Exception("[Request: AzureOpenAI] Missing required auth items: [`api_key`, `api_version`, `azure_endpoint`]. Use .set_settings('model.AzureOpenAI.auth', { 'api_key': 'xxxxxx', 'api_version': 'xxxxxx', 'azure_endpoint': 'xxxxxx' }) to state.")
-        client_params.update({
-            "api_key": api_key,
-            "api_version": api_version,
-            "azure_endpoint": azure_endpoint,
-        })
+        client_params.update(auth)
 
         client = AsyncAzureOpenAI(**client_params)
         return client
