@@ -9,6 +9,7 @@ from .lib.painter import draw_with_mermaid
 from .yamlflow.yamlflow import start_yaml_from_str, start_yaml_from_path
 from .utils.exec_tree import generate_executed_schema
 from .utils.logger import get_default_logger
+from .utils.runner import run_async
 from ..utils import RuntimeCtx
 from .._global import global_settings
 from Agently.utils import IdGenerator
@@ -88,8 +89,7 @@ class Workflow:
         return res
 
     def start(self, start_data = None):
-        res = asyncio.run(self.start_async(start_data))
-        return res
+        return run_async(self.start_async(start_data))
 
     def reset_runtime_status(self):
         """重置运行数据"""
