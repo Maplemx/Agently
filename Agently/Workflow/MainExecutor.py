@@ -1,23 +1,20 @@
-import logging
 import uuid
 import asyncio
 import inspect
 from ..utils import RuntimeCtx
 from .utils.exec_tree import disable_chunk_dep_ticket, create_new_chunk_slot_with_val
-from .utils.logger import get_default_logger
 from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
 from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, BUILT_IN_EXECUTOR_TYPES
 
 class MainExecutor:
-    def __init__(self, workflow_id, settings: RuntimeCtx):
+    def __init__(self, workflow_id, settings: RuntimeCtx, logger):
         # == Step 1. 初始化设定配置 ==
         self.workflow_id = workflow_id
         self.settings = settings
         self.max_execution_limit = self.settings.get('max_execution_limit') or 10
-        workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
-        self.logger = self.settings.get('logger', workflow_default_logger)
+        self.logger = logger
         # == Step 2. 初始化状态配置 ==
         self.running_status = 'idle'
         # 中断器
