@@ -51,18 +51,38 @@ class Workflow:
         self.connect_to = self.chunks["start"].connect_to
 
     def chunk(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
+        is_class = chunk_desc.get("is_class", False)
+        if not is_class:
+            def create_chunk_decorator(func: callable):
+                nonlocal chunk_id, type, chunk_desc
+                if not chunk_id or not isinstance(chunk_id, str):
+                    chunk_id = func.__name__
+                if "title" not in chunk_desc or chunk_desc["title"] == "":
+                    chunk_desc.update({ "title": chunk_id })
+                return self.chunks.update({
+                    chunk_id: self.schema.create_chunk(
+                            executor = func,
+                            type = type,
+                            **chunk_desc
+                        )
+                })
+            return create_chunk_decorator
+        else:
+            return self.chunk_class(chunk_id, type, **chunk_desc)
+
+    def chunk_class(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         def create_chunk_decorator(func: callable):
             nonlocal chunk_id, type, chunk_desc
             if not chunk_id or not isinstance(chunk_id, str):
-                chunk_id = func.__name__
+                chunk_id = f"@{ func.__name__ }"
             if "title" not in chunk_desc or chunk_desc["title"] == "":
                 chunk_desc.update({ "title": chunk_id })
             return self.chunks.update({
-                chunk_id: self.schema.create_chunk(
-                        executor = func,
-                        type = type,
-                        **chunk_desc
-                    )
+                chunk_id: {
+                    "executor": func,
+                    "type": type,
+                    **chunk_desc
+                }
             })
         return create_chunk_decorator
 
