@@ -238,7 +238,7 @@ class OAIClient(RequestABC):
                     yield({ "event": "response:delta", "data": delta["text"] or "" })
                 else:
                     if self.request.settings.get_trace_back("is_debug"):
-                        print(f"[Request] OpenAI Error: { str(dict(part)) }")
+                        print(f"[Request] Server Response Message: { str(dict(part)) }")
                 yield({ "event": "response:delta_origin", "data": part })
             yield({ "event": "response:done_origin", "data": response_message })
             yield({ "event": "response:done", "data": response_message["text"] })

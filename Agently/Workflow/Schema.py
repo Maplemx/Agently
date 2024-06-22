@@ -1,15 +1,16 @@
 import copy
+import logging
 from .utils.verify import validate_dict
 from .utils.find import has_target_by_attr, find_by_attr, find
+from .utils.chunk_helper import create_connection_symbol
 from .Chunk import SchemaChunk
 from .lib.constants import DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE, DEFAULT_INPUT_HANDLE, EXECUTOR_TYPE_NORMAL
 
 class Schema:
-    """
-    Workflow 的描述
-    """
+    """Workflow 的描述"""
 
-    def __init__(self, schema_data = { 'chunks': [], 'edges': [] }, workflow = None):
+    def __init__(self, schema_data = { 'chunks': [], 'edges': [] }, workflow = None, logger: logging.Logger = None):
+        self.logger = logger
         self._chunks = []
         self._edges = []
         # 依次调用添加方法添加
@@ -150,16 +151,58 @@ class Schema:
         target_input_handles: list = target_chunk['handles']['inputs']
         if has_target_by_attr(target_input_handles, 'handle', target_handle) == False:
             target_input_handles.append({'handle': target_handle})
-
-        self._edges.append({
+        
+        new_edge = {
             'source': source_chunk_id,
             'target': target_chunk_id,
             'source_handle': source_handle or DEFAULT_OUTPUT_HANDLE_VALUE,
             'target_handle': target_handle or DEFAULT_INPUT_HANDLE_VALUE,
-            'condition': condition, # 连通的开关条件，默认直连
-            'condition_detail': condition_detail # 连通的开关条件的类型
-        })
+            'condition': condition,  # 连通的开关条件，默认直连
+            'condition_detail': condition_detail  # 连通的开关条件的类型
+        }
+        verified_res = self.verify_connection(new_edge)
+        if verified_res['status'] == 'error':
+            raise ValueError(verified_res['message'])
+        elif verified_res['status'] == 'warning':
+            self.logger.warn(verified_res["message"])
+
+        self._edges.append(new_edge)
         return self
+    
+    def verify_connection(self, new_edge: dict):
+        """检测连接线的合法性"""
+        status_res = { "status": "success", "message": "" }
+        is_condition_connection = new_edge.get('condition') is not None
+        for edge in self._edges:
+            flag = True
+            for attr in ['source', 'target', 'source_handle', 'target_handle']:
+                if edge.get(attr) != new_edge.get(attr):
+                    flag = False
+                    break
+            # 有相似项，判断是走告警还是走中断，如果是告警，则继续找，看是否有更严重的处理
+            if flag:
+                source_chunk = self.get_chunk(edge['source'])
+                target_chunk = self.get_chunk(edge['target'])
+                source_view_name = create_connection_symbol(
+                    source_chunk, edge['source_handle'])
+                target_view_name = create_connection_symbol(
+                    target_chunk, edge['target_handle'])
+                # 如果是非条件的情况，直接出报错，然后跳出查找
+                if not edge.get('condition') and not is_condition_connection:
+                    status_res['status'] = 'error'
+                    status_res['message'] = f'An identical connection relationship [ {source_view_name} → {target_view_name} ] already exists.'
+                    break
+                # 自身为条件连接的情况，直接出 warning，然后跳出查找
+                elif is_condition_connection:
+                    status_res['status'] = 'warning'
+                    status_res['message'] = f'An identical connection relationship [ {source_view_name} → {target_view_name} ] already exists.'
+                    break
+                # 先写入告警，但继续尝试看是否有报错的情况
+                else:
+                    status_res['status'] = 'warning'
+                    status_res['message'] = f'An identical connection relationship [ {source_view_name} → {target_view_name} ] already exists.'
+        return status_res
+
     
     def get_edge(self, edge_id):
         return find_by_attr(self._edges, 'id', edge_id)

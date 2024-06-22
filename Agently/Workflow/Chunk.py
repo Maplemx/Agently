@@ -139,7 +139,7 @@ class SchemaChunk:
         连接到指定个 Chunk 节点，支持传入 create_chunk 创建好的实例，也支持传入 chunk dict
         """
         # 如果传入的是一个 dict 类型，自动进行实例化再连接
-        target_chunk = self.workflow_schema.create_chunk(chunk) if isinstance(chunk, dict) else chunk
+        target_chunk = self.workflow_schema.create_chunk(**chunk) if isinstance(chunk, dict) else chunk
         if not isinstance(target_chunk, SchemaChunk):
             raise ValueError(f"The 'chunk' parameter to 'connect_to' is invalid.")
 

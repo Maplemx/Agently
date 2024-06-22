@@ -58,6 +58,7 @@ class Decorator(ComponentABC):
             # get func
             tool_info_kwrags.update({ "func": func })
             self.agent.register_tool(**tool_info_kwrags)
+            return func
         return decorator
 
         

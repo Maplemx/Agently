@@ -1,14 +1,17 @@
 import asyncio
+import logging
 from .MainExecutor import MainExecutor
 from .Schema import Schema
-from .utils.exec_tree import generate_executed_schema
-from ..utils import RuntimeCtx
-from .._global import global_settings
 from .executors.install import mount_built_in_executors
+from .lib.ChunkExecutorManager import ChunkExecutorManager
 from .lib.constants import EXECUTOR_TYPE_NORMAL
 from .lib.painter import draw_with_mermaid
 from .yamlflow.yamlflow import start_yaml_from_str, start_yaml_from_path
-from .lib.ChunkExecutorManager import ChunkExecutorManager
+from .utils.exec_tree import generate_executed_schema
+from .utils.logger import get_default_logger
+from .utils.runner import run_async
+from ..utils import RuntimeCtx
+from .._global import global_settings
 from Agently.utils import IdGenerator
 
 class Workflow:
@@ -21,10 +24,21 @@ class Workflow:
         self.settings = RuntimeCtx(parent = global_settings)
         if settings:
             self.settings.update_by_dict(settings)
+        # logger
+        workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
+        self.logger = self.settings.get('logger', workflow_default_logger)
         # 初始 schema
-        self.schema = Schema(schema_data or {'chunks': [], 'edges': []}, self)
+        self.schema = Schema(
+            schema_data=schema_data or {'chunks': [], 'edges': []},
+            workflow=self,
+            logger=self.logger
+        )
         # 初始化执行器
-        self.executor = MainExecutor(self.workflow_id, self.settings)
+        self.executor = MainExecutor(
+            workflow_id=self.workflow_id,
+            settings=self.settings,
+            logger=self.logger
+        )
         # 装载内置类型
         mount_built_in_executors(self.executor)
         # Chunk Storage
@@ -37,18 +51,38 @@ class Workflow:
         self.connect_to = self.chunks["start"].connect_to
 
     def chunk(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
+        is_class = chunk_desc.get("is_class", False)
+        if not is_class:
+            def create_chunk_decorator(func: callable):
+                nonlocal chunk_id, type, chunk_desc
+                if not chunk_id or not isinstance(chunk_id, str):
+                    chunk_id = func.__name__
+                if "title" not in chunk_desc or chunk_desc["title"] == "":
+                    chunk_desc.update({ "title": chunk_id })
+                return self.chunks.update({
+                    chunk_id: self.schema.create_chunk(
+                            executor = func,
+                            type = type,
+                            **chunk_desc
+                        )
+                })
+            return create_chunk_decorator
+        else:
+            return self.chunk_class(chunk_id, type, **chunk_desc)
+
+    def chunk_class(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         def create_chunk_decorator(func: callable):
             nonlocal chunk_id, type, chunk_desc
             if not chunk_id or not isinstance(chunk_id, str):
-                chunk_id = func.__name__
+                chunk_id = f"@{ func.__name__ }"
             if "title" not in chunk_desc or chunk_desc["title"] == "":
                 chunk_desc.update({ "title": chunk_id })
             return self.chunks.update({
-                chunk_id: self.schema.create_chunk(
-                        executor = func,
-                        type = type,
-                        **chunk_desc
-                    )
+                chunk_id: {
+                    "executor": func,
+                    "type": type,
+                    **chunk_desc
+                }
             })
         return create_chunk_decorator
 
@@ -75,8 +109,7 @@ class Workflow:
         return res
 
     def start(self, start_data = None):
-        res = asyncio.run(self.start_async(start_data))
-        return res
+        return run_async(self.start_async(start_data))
 
     def reset_runtime_status(self):
         """重置运行数据"""
