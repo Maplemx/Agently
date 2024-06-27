@@ -19,7 +19,7 @@ class SchemaChunk:
 
     def __init__(self, workflow_schema = None, type = EXECUTOR_TYPE_NORMAL, executor: callable = None, **chunk_desc):
         """
-        可选参数 handles(连接点，{'inputs': [], 'outputs': []}) 字段，如没有 handles 字段，则会自动追加上默认设置、interactions、title，必选参数 executor，或 type 为 'Start'
+        必选参数 executor，或 type 为 'Start'
         """
         # 校验必填字段(要么 type 为特殊类型，否则必须包含 executor)
         if not type or (type not in SPECIAL_CHUNK_TYPES):
@@ -29,7 +29,6 @@ class SchemaChunk:
         self.chunk = {
             'id': chunk_desc.get('id', str(uuid.uuid4())),
             'title': chunk_desc.get('title'),
-            'interactions': chunk_desc.get('interactions') or {}, # 交互配置
             'type': type or EXECUTOR_TYPE_NORMAL,
             'executor': executor,
             'handles': self._fix_handles(chunk_desc.get('handles')),
@@ -38,7 +37,9 @@ class SchemaChunk:
             # 连接条件的描述（if/elif，condition_id 信息等）
             'connect_condition_detail': chunk_desc.get('connect_condition_detail') or None,
             # 当前激活的待连接的 handle 名
-            'active_handle': chunk_desc.get('active_handle') or None
+            'active_handle': chunk_desc.get('active_handle') or None,
+            # 扩展信息
+            'extra_info': chunk_desc.get('extra_info') or {}
         }
 
         self.workflow_schema = workflow_schema
@@ -189,10 +190,18 @@ class SchemaChunk:
             else:
                 return await sub_workflow.start_async(unit_val)
 
+        is_function = inspect.isfunction(sub_workflow) or inspect.iscoroutinefunction(sub_workflow)
         # 这里是新的 chunk，需要走 Schema 的 create 方法挂载
         loop_chunk = self.workflow_schema.create_chunk(
             type=EXECUTOR_TYPE_LOOP,
-            executor=loop_executor
+            executor=loop_executor,
+            extra_info={
+                # loop 的相关信息
+                "loop_info": {
+                    "type": 'function' if is_function else 'workflow',
+                    "detail": sub_workflow.__name__ if is_function else sub_workflow.schema.compile()
+                }
+            }
         )
         return self.connect_to(loop_chunk)
     
