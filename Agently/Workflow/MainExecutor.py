@@ -34,8 +34,13 @@ class MainExecutor:
         # 执行节点字典
         self.chunks_map = {}
 
-    async def start(self, executed_schema: dict, start_data: any = None):
+    async def start(self, executed_schema: dict, start_data: any = None, *, storage: dict = None):
         self.reset_all_runtime_status()
+        # Set Initial Storage
+        if storage and not isinstance(storage, dict):
+            raise Exception(f"Initial storage can only be a dictionary.\nstorage = { storage }")
+        if storage and isinstance(storage, dict):
+            self.store.update_by_dict(storage)
         # 尝试灌入初始数据
         self.sys_store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
         self.chunks_map = executed_schema.get('chunk_map') or {}
