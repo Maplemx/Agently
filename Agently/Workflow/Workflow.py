@@ -39,6 +39,8 @@ class Workflow:
             settings=self.settings,
             logger=self.logger
         )
+        # Get Storage From Executor
+        self.storage = self.executor.store
         # 装载内置类型
         mount_built_in_executors(self.executor)
         # Chunk Storage
