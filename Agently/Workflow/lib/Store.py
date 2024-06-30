@@ -1,3 +1,4 @@
+"""
 import copy
 
 class Store:
@@ -24,3 +25,14 @@ class Store:
   
   def get_all(self):
     return copy.deepcopy(self.store)
+"""
+
+import Agently.utils.DataOps as DataOps
+
+class Store(DataOps):
+  def __init__(self, init_schema = None):
+    super().__init__(target_data = init_schema)
+    self.store = self.target_data
+    self.remove_all = self.empty
+    self.set_with_dict = self.update_by_dict
+    self.get_all = lambda: self.get()
