@@ -167,12 +167,18 @@ class DataOps(object):
             if self.no_copy:
                 return pointer
             else:
-                return copy.deepcopy(pointer)
+                if hasattr(pointer, '__class__') and hasattr(pointer, '__module__') and pointer.__module__ != 'builtins':
+                    return pointer
+                else:
+                    return copy.deepcopy(pointer)
         else:
             if self.no_copy:
                 return self.target_data
             else:
-                return copy.deepcopy(self.target_data)
+                if hasattr(self.target_data, '__class__') and hasattr(self.target_data, '__module__') and self.target_data.__module__ != 'builtins':
+                    return self.target_data
+                else:
+                    return copy.deepcopy(self.target_data)
 
     def remove(self, keys_with_dots: str):
         pointer, key = self.__locate_pointer(keys_with_dots)

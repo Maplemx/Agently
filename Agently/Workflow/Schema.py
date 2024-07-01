@@ -128,15 +128,17 @@ class Schema:
         """
         连接两个节点，分别输入：源节点id、目标节点id、源节点输出句柄（可选，默认为源节点的输出点）、目标节点的输入句柄（可选，默认为目标节点的输入点）
         """
+        """
         if source_chunk_id == target_chunk_id:
             raise ValueError(
                 f"The starting point and the endpoint have the same value: '{target_chunk_id}'")
+        """
         source_chunk = None
         target_chunk = None
         for chunk in self._chunks:
             if chunk['id'] == source_chunk_id:
                 source_chunk = chunk
-            elif chunk['id'] == target_chunk_id:
+            if chunk['id'] == target_chunk_id:
                 target_chunk = chunk
 
         # 判断节点是否存在

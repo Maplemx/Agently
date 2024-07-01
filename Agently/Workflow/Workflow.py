@@ -39,6 +39,8 @@ class Workflow:
             settings=self.settings,
             logger=self.logger
         )
+        # Get Storage From Executor
+        self.storage = self.executor.store
         # 装载内置类型
         mount_built_in_executors(self.executor)
         # Chunk Storage
@@ -103,13 +105,13 @@ class Workflow:
         else:
             raise Exception("[Workflow] At least one parameter in `yaml_str` and `path` is required when using workflow.load_yaml().")
 
-    async def start_async(self, start_data=None):
+    async def start_async(self, start_data=None, *, storage=None):
         executed_schema = generate_executed_schema(self.schema.compile())
-        res = await self.executor.start(executed_schema, start_data)
+        res = await self.executor.start(executed_schema, start_data, storage=storage)
         return res
 
-    def start(self, start_data = None):
-        return run_async(self.start_async(start_data))
+    def start(self, start_data = None, *, storage=None):
+        return run_async(self.start_async(start_data, storage=storage))
 
     def reset_runtime_status(self):
         """重置运行数据"""
