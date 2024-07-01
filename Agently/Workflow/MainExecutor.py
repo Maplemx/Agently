@@ -410,10 +410,12 @@ class MainExecutor:
                 if not next_chunk:
                     continue
 
-                if (next_chunk['id'] in visited_record) or (next_chunk['id'] == root_chunk['id']):
+                # 同一个发起方的清理，只执行一次，避免死循环
+                visited_symbol = f"{chunk['id']}-2-{next_chunk['id']}"
+                if (visited_symbol in visited_record) or (next_chunk['id'] == root_chunk['id']):
                     continue
 
-                visited_record.append(next_chunk['id'])
+                visited_record.append(visited_symbol)
                 effect_handles = [handle_desc['handle'] for handle_desc in next_info['handles']]
                 for dep in next_chunk['deps']:
                     data_slots = dep['data_slots']
