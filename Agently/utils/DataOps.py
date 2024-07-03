@@ -62,8 +62,8 @@ class NamespaceOps(object):
             self.data_ops.update(f"{ self.namespace_name }.{ keys_with_dots }", value)
         return self.return_to
         
-    def get(self, keys_with_dots: (str, None) = None, default = None):
-        return self.data_ops.get(f"{ self.namespace_name }.{ keys_with_dots }" if keys_with_dots else self.namespace_name, default)
+    def get(self, keys_with_dots: (str, None) = None, default = None, *, no_copy: bool = False):
+        return self.data_ops.get(f"{ self.namespace_name }.{ keys_with_dots }" if keys_with_dots else self.namespace_name, default, no_copy = no_copy)
 
     def remove(self, keys_with_dots: str):
         return self.data_ops.remove(f"{ self.namespace_name }.{ keys_with_dots }")
@@ -155,7 +155,34 @@ class DataOps(object):
             self.update(key, value)
         return self
 
-    def get(self, keys_with_dots: (str, None) = None, default: str=None):
+    def _deep_get(self, data):
+        result = None
+        if isinstance(data, dict):
+            result = {}
+            for key, value in data.items():
+                result.update({ key, self._deep_get(data[key]) })
+            return result
+        elif isinstance(data, list):
+            result = []
+            for item in data:
+                result.append(self._deep_get(item))
+            return result
+        elif isinstance(data, set):
+            result = set()
+            for item in list(data):
+                result.add(self._deep_get(item))
+            return result
+        elif isinstance(data, tuple):
+            result = []
+            for item in list(data):
+                result.append(self._deep_get(item))
+            return tuple(result)
+        elif hasattr(data, '__class__') and hasattr(data, '__module__') and data.__module__ != 'builtins':
+            return data
+        else:
+            return copy.deepcopy(data)
+
+    def get(self, keys_with_dots: (str, None) = None, default: str=None, *, no_copy: bool = False):
         if keys_with_dots:
             keys = keys_with_dots.split('.')
             pointer = self.target_data
@@ -164,21 +191,27 @@ class DataOps(object):
                     return default
                 else:
                     pointer = pointer[key]
-            if self.no_copy:
+            if self.no_copy or no_copy:
                 return pointer
             else:
                 if hasattr(pointer, '__class__') and hasattr(pointer, '__module__') and pointer.__module__ != 'builtins':
                     return pointer
                 else:
-                    return copy.deepcopy(pointer)
+                    try:
+                        return copy.deepcopy(pointer)
+                    except TypeError:
+                        return self._deep_get(pointer)
         else:
-            if self.no_copy:
+            if self.no_copy or no_copy:
                 return self.target_data
             else:
                 if hasattr(self.target_data, '__class__') and hasattr(self.target_data, '__module__') and self.target_data.__module__ != 'builtins':
                     return self.target_data
                 else:
-                    return copy.deepcopy(self.target_data)
+                    try:
+                        return copy.deepcopy(self.target_data)
+                    except TypeError:
+                        return self.target_data
 
     def remove(self, keys_with_dots: str):
         pointer, key = self.__locate_pointer(keys_with_dots)

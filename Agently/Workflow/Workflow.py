@@ -6,6 +6,7 @@ from .executors.install import mount_built_in_executors
 from .lib.ChunkExecutorManager import ChunkExecutorManager
 from .lib.constants import EXECUTOR_TYPE_NORMAL
 from .lib.painter import draw_with_mermaid
+from .lib.Store import Store
 from .yamlflow.yamlflow import start_yaml_from_str, start_yaml_from_path
 from .utils.exec_tree import generate_executed_schema
 from .utils.logger import get_default_logger
@@ -51,6 +52,8 @@ class Workflow:
         self.chunk("start", type = "Start")(lambda:None)
         self.chunk("end", type = "End")(lambda:None)
         self.connect_to = self.chunks["start"].connect_to
+
+    public_storage = Store()
 
     def chunk(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         is_class = chunk_desc.get("is_class", False)
