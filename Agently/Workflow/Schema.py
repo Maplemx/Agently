@@ -76,7 +76,7 @@ class Schema:
 
     def append_raw_chunk(self, chunk: dict):
         """
-        添加节点，必须包含 id, type, handles(连接点，{'inputs': [], 'outputs': []}) 字段，如没有 handles 字段，则会自动追加上默认设置
+        添加节点，必须包含 id, type字段，如没有 handles 字段，则会自动追加上默认设置
         """
         # 校验必填字段
         verified_res = validate_dict(chunk, ['id', 'type'])

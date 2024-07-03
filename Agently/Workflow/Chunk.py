@@ -2,14 +2,8 @@ import uuid
 import copy
 import inspect
 from .utils.find import has_target_by_attr
-from .lib.constants import DEFAULT_OUTPUT_HANDLE_VALUE, DEFAULT_INPUT_HANDLE_VALUE, EXECUTOR_TYPE_NORMAL, EXECUTOR_TYPE_START, EXECUTOR_TYPE_END, EXECUTOR_TYPE_LOOP
-
-# 特殊的内置的 chunk 类型
-SPECIAL_CHUNK_TYPES = [
-    EXECUTOR_TYPE_START,
-    EXECUTOR_TYPE_END,
-    EXECUTOR_TYPE_LOOP
-]
+from .executors.generater.loop import use_loop_executor
+from .lib.constants import DEFAULT_OUTPUT_HANDLE_VALUE, DEFAULT_INPUT_HANDLE_VALUE, EXECUTOR_TYPE_NORMAL, EXECUTOR_TYPE_START, EXECUTOR_TYPE_END, EXECUTOR_TYPE_LOOP, EXECUTOR_TYPE_CONDITION, BUILT_IN_EXECUTOR_TYPES
 
 class SchemaChunk:
     """
@@ -22,10 +16,11 @@ class SchemaChunk:
         必选参数 executor，或 type 为 'Start'
         """
         # 校验必填字段(要么 type 为特殊类型，否则必须包含 executor)
-        if not type or (type not in SPECIAL_CHUNK_TYPES):
+        if not type or (type not in BUILT_IN_EXECUTOR_TYPES):
             if not executor:
                 raise ValueError("Missing required key: 'executor'")
 
+        """ chunk 运行时参数 """
         self.chunk = {
             'id': chunk_desc.get('id', str(uuid.uuid4())),
             'title': chunk_desc.get('title'),
@@ -42,76 +37,81 @@ class SchemaChunk:
             'extra_info': chunk_desc.get('extra_info') or {}
         }
 
-        self.workflow_schema = workflow_schema
+        """ api 支撑性参数（主要用于支撑 API 表达，与具体运行时无关），创建拷贝份时需要注意处理"""
+        self.interface_supports = {
+            # 所属的条件 chunk
+            "condition_root_chunk": None
+        }
 
-        # 调用链上，分支路径
-        self.branch_chunk_stack = chunk_desc.get('branch_chunk_stack') or []
+        self.workflow_schema = workflow_schema
     
     def handle(self, name: str) -> 'SchemaChunk':
         """Chunk 的连接点，注意 handle 可能在此时还未注册，在其进行连接操作时，会自动帮其注册"""
         # 创建影子 chunk，逻辑分支继续延续
-        shadow_chunk = self.create_shadow_chunk(persist_branch_chain=True)
+        shadow_chunk = self.create_shadow_chunk()
         shadow_chunk.set_active_handle(name)
         return shadow_chunk
     
     def if_condition(self, condition: callable = None) -> 'SchemaChunk':
-        """
-        按条件连接
-        """
-        # 创建影子 chunk
-        shadow_chunk = self.create_shadow_chunk(persist_branch_chain=True)
-        # 逻辑分支在原有基础上，追加当前 chunk
-        shadow_chunk.branch_chunk_stack.append(shadow_chunk)
+        """条件判断"""
+        condition_result_id = str(uuid.uuid4())
+        # 创建新的 condition chunk，需要走 Schema 的 create 方法挂载
+        condition_chunk = self.workflow_schema.create_chunk(
+            type=EXECUTOR_TYPE_CONDITION,
+            title="Condition",
+            extra_info={
+                # condition 的相关信息
+                "condition_info": {
+                    # 常规条件
+                    "conditions": [{
+                        # 命中时的结果符号
+                        "result_id": condition_result_id,
+                        "condition": condition
+                    }],
+                    "else_condition": {
+                        # 命中时的结果符号
+                        "result_id": str(uuid.uuid4())
+                    }
+                }
+            }
+        )
+        connected_handle = self.connect_to(condition_chunk)
+        # 标识所属的条件 chunk
+        connected_handle.interface_supports['condition_root_chunk'] = connected_handle
         # 设置条件参数和辅助信息
-        shadow_chunk.set_connect_condition(
-            condition = condition,
-            condition_detail = {
+        connected_handle.set_connect_condition(
+            condition=lambda condition_signal, storage: condition_signal == condition_result_id,
+            condition_detail={
                 # condition id
                 "id": f"cid-{str(uuid.uuid4())}",
                 "type": "if"
             }
         )
-        return shadow_chunk
-
+        return connected_handle
+    
     def else_condition(self) -> 'SchemaChunk':
         """
         按当前条件的反条件连接（特别注意，else_condition 作用的 chunk 为往前追溯的最近一个 if_condition 作用的 chunk，两是同一个，两是成套存在的）
         """
-        # Step1. 从当前 chunk 的 branch_chunk_stack 从后往前找，找到最近一个 if_condition 的 'root' chunk
-        branch_chunk_stack = self.branch_chunk_stack.copy()
-        cursor_chunk = branch_chunk_stack.pop() if len(branch_chunk_stack) else None
-        # 本次 else 条件的root chunk（即 if 的那个 chunk）
-        condition_root_chunk: 'SchemaChunk' = None
-        while cursor_chunk:
-            cursor_chunk_params = cursor_chunk.chunk
-            if cursor_chunk_params.get('connect_condition') and (cursor_chunk_params.get('connect_condition_detail') or {}).get('type') == 'if':
-                condition_root_chunk = cursor_chunk
-                break
-            cursor_chunk = branch_chunk_stack.pop() if len(branch_chunk_stack) else None
-        
-        if not condition_root_chunk:
+        # Step1. 从当前 chunk 中，读取所属的条件 chunk id 信息
+        condition_chunk: 'SchemaChunk' = self.interface_supports['condition_root_chunk']
+        if not condition_chunk:
             raise ValueError(
                 f"The `else_condition` method must be called after the `if_condition` method.")
 
-        # Step2. 基于 condition_root_chunk 做进一步的连接和更新操作
+        # Step2. 基于 condition_chunk 做进一步的连接和更新操作
         # 2.1 生成 else_fn
-        current_condition = condition_root_chunk.chunk.get('connect_condition')
-        if not current_condition:
-            def current_condition(values, store):
-                return True
-        def else_condition_func(values, store):
-            res = not current_condition(values, store)
-            return res
+        condition_info = (condition_chunk.chunk.get('extra_info') or {}).get('condition_info') or {}
+        else_result_id = (condition_info.get('else_condition') or {}).get('result_id') or str(uuid.uuid4())
 
         # 2.2 进行条件连接
         # 在 shadow_root_chunk 上操作，重构 branch_chain 剩下的即剔除了主 if 的路径继续保留
-        shadow_root_chunk = condition_root_chunk.create_shadow_chunk(persist_branch_chain=False)
-        shadow_root_chunk.branch_chunk_stack = branch_chunk_stack.copy()
+        shadow_root_chunk = condition_chunk.create_shadow_chunk(persist_supports_data=False)
         # 设置条件链接信息
         shadow_root_chunk.set_connect_condition(
-            condition = else_condition_func,
-            condition_detail = {
-                "id": (condition_root_chunk.chunk.get('connect_condition_detail') or {}).get('id') or f"cid-{str(uuid.uuid4())}",
+            condition=lambda condition_signal, storage: condition_signal == else_result_id,
+            condition_detail={
+                "id": (condition_chunk.chunk.get('connect_condition_detail') or {}).get('id') or f"cid-{str(uuid.uuid4())}",
                 "type": "elif"
             }
         )
@@ -158,43 +158,20 @@ class SchemaChunk:
             self.chunk.get('connect_condition_detail') or None,
         )
         # chain 往前递进
-        target_chunk_shadow = target_chunk.create_shadow_chunk(persist_branch_chain=False)
-        target_chunk_shadow.branch_chunk_stack = self.branch_chunk_stack.copy()
+        target_chunk_shadow = target_chunk.create_shadow_chunk()
+        # 支撑参数继续传递
+        target_chunk_shadow.interface_supports = self.interface_supports.copy()
         target_chunk_shadow.set_active_handle()
         return target_chunk_shadow
 
     def loop_with(self, sub_workflow)-> 'SchemaChunk':
         """遍历逐项处理，支持传入子 workflow/处理方法 作为处理逻辑"""
-        async def loop_executor(inputs, store):
-            input_val = inputs.get(DEFAULT_INPUT_HANDLE_VALUE)
-            all_result = []
-            if isinstance(input_val, list):
-                for val in input_val:
-                    all_result.append(await loop_unit_core(unit_val=val, store=store))
-            elif isinstance(input_val, dict):
-                for key, value in input_val.items():
-                    all_result.append(await loop_unit_core(unit_val={
-                        "key": key,
-                        "value": value
-                    }, store=store))
-            elif isinstance(input_val, int):
-                for i in range(input_val):
-                    all_result.append(await loop_unit_core(unit_val=i, store=store))
-            return all_result
-
-        async def loop_unit_core(unit_val, store):
-            if inspect.iscoroutinefunction(sub_workflow):
-                return await sub_workflow(unit_val, store)
-            elif inspect.isfunction(sub_workflow):
-                return sub_workflow(unit_val, store)
-            else:
-                return await sub_workflow.start_async(unit_val)
-
         is_function = inspect.isfunction(sub_workflow) or inspect.iscoroutinefunction(sub_workflow)
         # 这里是新的 chunk，需要走 Schema 的 create 方法挂载
         loop_chunk = self.workflow_schema.create_chunk(
             type=EXECUTOR_TYPE_LOOP,
-            executor=loop_executor,
+            title="Loop",
+            executor=use_loop_executor(sub_workflow),
             extra_info={
                 # loop 的相关信息
                 "loop_info": {
@@ -222,14 +199,14 @@ class SchemaChunk:
         search_range = self.chunk.get('handles').get('inputs' if from_inputs else 'outputs', [])
         return has_target_by_attr(search_range, 'handle', name)
     
-    def create_shadow_chunk(self, persist_branch_chain=False):
-        """获取到当前 chunk 的拷贝份（不干扰 chunk 自身运算逻辑），persist_branch_chain 为是否保留逻辑分支链"""
+    def create_shadow_chunk(self, persist_supports_data=True):
+        """获取到当前 chunk 的拷贝份（不干扰 chunk 自身运算逻辑），persist_supports_data 为是否保留支撑参数"""
         shadow_chunk = SchemaChunk(
             workflow_schema=self.workflow_schema,
             **self.get_raw_schema()
         )
-        if persist_branch_chain:
-            shadow_chunk.branch_chunk_stack = self.branch_chunk_stack.copy()
+        if persist_supports_data:
+            shadow_chunk.interface_supports = self.interface_supports.copy()
         return shadow_chunk
 
     def _fix_handles(self, custom_handles):
