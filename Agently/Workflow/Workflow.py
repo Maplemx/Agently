@@ -1,8 +1,9 @@
-import asyncio
+from typing import Dict
 import logging
 from .MainExecutor import MainExecutor
 from .Schema import Schema
-from .executors.install import mount_built_in_executors
+from .Chunk import SchemaChunk
+from .executors.builtin.install import mount_built_in_executors
 from .lib.ChunkExecutorManager import ChunkExecutorManager
 from .lib.constants import EXECUTOR_TYPE_NORMAL
 from .lib.painter import draw_with_mermaid
@@ -45,7 +46,7 @@ class Workflow:
         # 装载内置类型
         mount_built_in_executors(self.executor)
         # Chunk Storage
-        self.chunks = {}
+        self.chunks: Dict[str, SchemaChunk] = {}
         # Executor Manager
         self.executor_manager = ChunkExecutorManager()
         # Short Cut

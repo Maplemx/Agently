@@ -6,7 +6,7 @@ from .utils.exec_tree import disable_chunk_dep_ticket, create_new_chunk_slot_wit
 from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
-from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, BUILT_IN_EXECUTOR_TYPES
+from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, BUILT_IN_EXECUTOR_TYPES, EXECUTOR_TYPE_CONDITION
 
 class MainExecutor:
     def __init__(self, workflow_id, settings: RuntimeCtx, logger):
@@ -229,7 +229,10 @@ class MainExecutor:
         execute_id = str(uuid.uuid4())
         executing_ids.append(execute_id)
         # self.logger.debug("With dependent data: ", single_dep_map)
-        exec_value = await self._exec_chunk_with_dep_core(chunk, single_dep_map)
+        exec_res = await self._exec_chunk_with_dep_core(chunk, single_dep_map)
+        exec_value = exec_res['value']
+        condition_signal = exec_res['signal']
+
         self.breaking_hub.recoder(chunk)  # 更新中断器信息
         visited_record.append(chunk['id'])  # 更新执行记录
 
@@ -253,7 +256,7 @@ class MainExecutor:
                 # 有条件的情况下，仅在条件满足时，才更新下游节点的数据
                 condition_call = next_rel_handle.get('condition')
                 if condition_call:
-                    judge_res = condition_call(source_value, self.store)
+                    judge_res = condition_call(condition_signal, self.store)
                     connection_status = judge_res == True
                     self.logger.debug(
                         f"The connection status of '{self._get_chunk_title(chunk)}({source_handle})' to '{self._get_chunk_title(next_chunk)}({target_handle})': {connection_status}")
@@ -319,7 +322,7 @@ class MainExecutor:
         is_built_in_type = executor_type in BUILT_IN_EXECUTOR_TYPES
         exec_res = None
         if not chunk_executor:
-            err_msg = f"Node Error-'{self._get_chunk_title(chunk)}'({chunk['id']}): The 'executor' is required but get 'NoneType'"
+            err_msg = f"Node {executor_type} Error-'{self._get_chunk_title(chunk)}'({chunk['id']}): The 'executor' is required but get 'NoneType'"
             self.logger.error(err_msg)
             # 主动中断执行
             raise Exception(err_msg)
@@ -328,12 +331,12 @@ class MainExecutor:
             # 如果执行器是异步的，采用 await调用
             if inspect.iscoroutinefunction(chunk_executor):
                 if is_built_in_type:
-                    exec_res = await chunk_executor(input_value, self.store, sys_store = self.sys_store)
+                    exec_res = await chunk_executor(input_value, self.store, sys_store=self.sys_store, chunk=chunk)
                 else:
                     exec_res = await chunk_executor(input_value, self.store)
             else:
                 if is_built_in_type:
-                    exec_res = chunk_executor(input_value, self.store, sys_store = self.sys_store)
+                    exec_res = chunk_executor(input_value, self.store, sys_store=self.sys_store, chunk=chunk)
                 else:
                     exec_res = chunk_executor(input_value, self.store)
         except Exception as e:
@@ -341,7 +344,16 @@ class MainExecutor:
             # 主动中断执行
             raise Exception(e)
 
-        return exec_res
+        exec_value = exec_res
+        condition_signal = None
+        # 条件节点，拆分为条件信号和执行结果两部分
+        if chunk['type'] == EXECUTOR_TYPE_CONDITION:
+            exec_value = exec_res.get('values')
+            condition_signal = exec_res.get('condition_signal')
+        return {
+            "value": exec_value,
+            "signal": condition_signal
+        }
     
     def _extract_execution_single_dep_data(self, chunk):
         """实时获取某个 chunk 的一组全量可执行数据（如没有，则返回 None）"""
