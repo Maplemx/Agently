@@ -52,6 +52,9 @@ class SchemaChunk:
         shadow_chunk.set_active_handle(name)
         return shadow_chunk
     
+    def elif_condition(self, condition: callable = None) -> 'SchemaChunk':
+        return self.else_condition().if_condition(condition)
+
     def if_condition(self, condition: callable = None) -> 'SchemaChunk':
         """条件判断"""
         condition_result_id = str(uuid.uuid4())
