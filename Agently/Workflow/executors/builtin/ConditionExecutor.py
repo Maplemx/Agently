@@ -11,12 +11,12 @@ def condition_executor(inputs, store: Store, **sys_info):
             condition = condition_desc.get('condition')
             if condition and condition(inputs['default'], store):
                 return {
-                    "condition_signal": condition_desc.get('result_id'),
+                    "condition_signal": condition_desc.get('condition_signal'),
                     "values": inputs['default']
                 }
     # 否则返回 else 的结果 id
     else_condition = condition_info.get('else_condition')
     return {
-        "condition_signal": else_condition.get('result_id'),
+        "condition_signal": else_condition.get('condition_signal'),
         "values": inputs['default']
     }

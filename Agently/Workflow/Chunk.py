@@ -38,10 +38,7 @@ class SchemaChunk:
         }
 
         """ api 支撑性参数（主要用于支撑 API 表达，与具体运行时无关），创建拷贝份时需要注意处理"""
-        self.interface_supports = {
-            # 所属的条件 chunk
-            "condition_root_chunk": None
-        }
+        self.condition_chunk_path = chunk_desc.get('condition_chunk_path', [])
 
         self.workflow_schema = workflow_schema
     
@@ -54,9 +51,9 @@ class SchemaChunk:
     
     def if_condition(self, condition: callable = None) -> 'SchemaChunk':
         """条件判断"""
-        condition_result_id = str(uuid.uuid4())
+        condition_signal_id = str(uuid.uuid4())
         # 创建新的 condition chunk，需要走 Schema 的 create 方法挂载
-        condition_chunk = self.workflow_schema.create_chunk(
+        condition_chunk = self._create_rel_chunk(
             type=EXECUTOR_TYPE_CONDITION,
             title="Condition",
             extra_info={
@@ -65,22 +62,29 @@ class SchemaChunk:
                     # 常规条件
                     "conditions": [{
                         # 命中时的结果符号
-                        "result_id": condition_result_id,
+                        "condition_signal": condition_signal_id,
                         "condition": condition
                     }],
                     "else_condition": {
                         # 命中时的结果符号
-                        "result_id": str(uuid.uuid4())
+                        "condition_signal": str(uuid.uuid4())
                     }
                 }
             }
         )
+        new_path_item = {
+            'root': self,
+            'condition': condition_chunk
+        }
+        # 以 condition_chunk 为起点，追加上条件路径信息（下游条件逻辑都可基于此判断处理）
+        condition_chunk.condition_chunk_path.append(new_path_item)
+        # 把上游chunk连接到主判断节点（仅 if 时操作一次即可，后续皆为连接到condition chunk）
         connected_handle = self.connect_to(condition_chunk)
-        # 标识所属的条件 chunk
-        connected_handle.interface_supports['condition_root_chunk'] = connected_handle
+        # 新连接的第一个 chunk，也需要补充本次的条件路径
+        connected_handle.condition_chunk_path.append(new_path_item)
         # 设置条件参数和辅助信息
         connected_handle.set_connect_condition(
-            condition=lambda condition_signal, storage: condition_signal == condition_result_id,
+            condition=lambda runtime_signal, storage: runtime_signal == condition_signal_id,
             condition_detail={
                 # condition id
                 "id": f"cid-{str(uuid.uuid4())}",
@@ -89,33 +93,79 @@ class SchemaChunk:
         )
         return connected_handle
     
-    def else_condition(self) -> 'SchemaChunk':
-        """
-        按当前条件的反条件连接（特别注意，else_condition 作用的 chunk 为往前追溯的最近一个 if_condition 作用的 chunk，两是同一个，两是成套存在的）
-        """
+    def elif_condition(self, condition: callable = None) -> 'SchemaChunk':
+        """elif 条件判断"""
         # Step1. 从当前 chunk 中，读取所属的条件 chunk id 信息
-        condition_chunk: 'SchemaChunk' = self.interface_supports['condition_root_chunk']
-        if not condition_chunk:
+        condition_path = self.condition_chunk_path
+        condition_path_item = condition_path[-1] if condition_path else None
+        if not condition_path_item:
             raise ValueError(
-                f"The `else_condition` method must be called after the `if_condition` method.")
+                f"The `elif_condition` method must be called after the `if_condition` method.")
 
+        condition_chunk: 'SchemaChunk' = condition_path_item.get('condition')
         # Step2. 基于 condition_chunk 做进一步的连接和更新操作
-        # 2.1 生成 else_fn
+        # 2.1 生成 elif_fn
+        condition_signal_id = str(uuid.uuid4())
         condition_info = (condition_chunk.chunk.get('extra_info') or {}).get('condition_info') or {}
-        else_result_id = (condition_info.get('else_condition') or {}).get('result_id') or str(uuid.uuid4())
+        # 追加条件信号
+        condition_info.get('conditions', []).append({
+            # 命中时的结果符号
+            "condition_signal": condition_signal_id,
+            "condition": condition
+        })
 
         # 2.2 进行条件连接
-        # 在 shadow_root_chunk 上操作，重构 branch_chain 剩下的即剔除了主 if 的路径继续保留
-        shadow_root_chunk = condition_chunk.create_shadow_chunk(persist_supports_data=False)
         # 设置条件链接信息
-        shadow_root_chunk.set_connect_condition(
-            condition=lambda condition_signal, storage: condition_signal == else_result_id,
+        condition_chunk.set_connect_condition(
+            condition=lambda runtime_signal, storage: runtime_signal == condition_signal_id,
             condition_detail={
                 "id": (condition_chunk.chunk.get('connect_condition_detail') or {}).get('id') or f"cid-{str(uuid.uuid4())}",
                 "type": "elif"
             }
         )
+        shadow_root_chunk = condition_chunk.create_shadow_chunk()
         return shadow_root_chunk
+    
+    def else_condition(self) -> 'SchemaChunk':
+        """
+        按当前条件的反条件连接（特别注意，else_condition 作用的 chunk 为往前追溯的最近一个 if_condition 作用的 chunk，两是同一个，两是成套存在的）
+        """
+        # Step1. 从当前 chunk 中，读取所属的条件 chunk id 信息
+        condition_path = self.condition_chunk_path
+        condition_path_item = condition_path[-1] if condition_path else None
+        if not condition_path_item:
+            raise ValueError(
+                f"The `else_condition` method must be called after the `if_condition` method.")
+
+        condition_chunk: 'SchemaChunk' = condition_path_item.get('condition')
+        # Step2. 基于 condition_chunk 做进一步的连接和更新操作
+        # 2.1 生成 else_fn
+        condition_info = (condition_chunk.chunk.get('extra_info') or {}).get('condition_info') or {}
+        else_signal = (condition_info.get('else_condition') or {}).get('condition_signal') or str(uuid.uuid4())
+
+        # 2.2 进行条件连接
+        # 在 shadow_root_chunk 上操作，支撑参数剔除当前所在条件 chunk 后继续保留
+        shadow_root_chunk = condition_chunk.create_shadow_chunk()
+        # 设置条件链接信息
+        shadow_root_chunk.set_connect_condition(
+            condition=lambda runtime_signal, storage: runtime_signal == else_signal,
+            condition_detail={
+                "id": (condition_chunk.chunk.get('connect_condition_detail') or {}).get('id') or f"cid-{str(uuid.uuid4())}",
+                "type": "else"
+            }
+        )
+        return shadow_root_chunk
+    
+    def endif_condition(self) -> 'SchemaChunk':
+        """终止当前所在的if，回退到当次 if 前的 chunk"""
+        # Step1. 从当前 chunk 中，读取所属的条件 chunk id 信息
+        condition_path = self.condition_chunk_path
+        condition_path_item = condition_path[-1] if condition_path else None
+        if not condition_path_item:
+            raise ValueError(
+                f"The `endif` method must be called after the `if_condition` method.")
+        # Step2. 回退到本次条件的 root chunk
+        return condition_path_item.get('root').create_shadow_chunk()
 
     def connect_to(self, chunk: 'SchemaChunk') -> 'SchemaChunk':
         if isinstance(chunk, str):
@@ -158,9 +208,9 @@ class SchemaChunk:
             self.chunk.get('connect_condition_detail') or None,
         )
         # chain 往前递进
-        target_chunk_shadow = target_chunk.create_shadow_chunk()
-        # 支撑参数继续传递
-        target_chunk_shadow.interface_supports = self.interface_supports.copy()
+        target_chunk_shadow = target_chunk.create_shadow_chunk(persist_supports_data=False)
+        # 将目标 chunk 的 condtion 路径与上游 chunk 同频
+        target_chunk_shadow.condition_chunk_path = self.condition_chunk_path.copy()
         target_chunk_shadow.set_active_handle()
         return target_chunk_shadow
 
@@ -168,7 +218,7 @@ class SchemaChunk:
         """遍历逐项处理，支持传入子 workflow/处理方法 作为处理逻辑"""
         is_function = inspect.isfunction(sub_workflow) or inspect.iscoroutinefunction(sub_workflow)
         # 这里是新的 chunk，需要走 Schema 的 create 方法挂载
-        loop_chunk = self.workflow_schema.create_chunk(
+        loop_chunk = self._create_rel_chunk(
             type=EXECUTOR_TYPE_LOOP,
             title="Loop",
             executor=use_loop_executor(sub_workflow),
@@ -182,8 +232,9 @@ class SchemaChunk:
         )
         return self.connect_to(loop_chunk)
     
-    def get_raw_schema(self):
-        return copy.deepcopy(self.chunk)
+    def get_raw_schema(self, use_origin=False):
+        """获取原始的配置"""
+        return self.chunk if use_origin else copy.deepcopy(self.chunk)
     
     def set_active_handle(self, name: str = None):
         """设置激活的连接点，连接时会默认连接到该点上"""
@@ -193,6 +244,7 @@ class SchemaChunk:
         """设置连接的条件"""
         self.chunk['connect_condition'] = condition
         self.chunk['connect_condition_detail'] = condition_detail
+        return self
     
     def has_handle(self, name: str, from_inputs = True) -> bool:
         """判断连接手柄是否存在"""
@@ -206,8 +258,18 @@ class SchemaChunk:
             **self.get_raw_schema()
         )
         if persist_supports_data:
-            shadow_chunk.interface_supports = self.interface_supports.copy()
+            shadow_chunk.condition_chunk_path = self.condition_chunk_path.copy()
         return shadow_chunk
+
+    def _create_rel_chunk(self, persist_supports_data=True, **params) -> 'SchemaChunk':
+        """在当前 schema 上创建一个新的 chunk """
+        if persist_supports_data:
+            return self.workflow_schema.create_chunk(
+                **params,
+                # 运行时支撑参数
+                condition_chunk_path=self.condition_chunk_path.copy()
+            )
+        return self.workflow_schema.create_chunk(**params)
 
     def _fix_handles(self, custom_handles):
         """修正用户传入的 handles 配置格式"""
