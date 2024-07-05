@@ -160,7 +160,7 @@ class DataOps(object):
         if isinstance(data, dict):
             result = {}
             for key, value in data.items():
-                result.update({ key, self._deep_get(data[key]) })
+                result.update({ key: self._deep_get(data[key]) })
             return result
         elif isinstance(data, list):
             result = []
