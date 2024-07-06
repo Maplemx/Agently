@@ -48,9 +48,6 @@ class SchemaChunk:
         shadow_chunk = self.create_shadow_chunk()
         shadow_chunk.set_active_handle(name)
         return shadow_chunk
-    
-    def elif_condition(self, condition: callable = None) -> 'SchemaChunk':
-        return self.else_condition().if_condition(condition)
 
     def if_condition(self, condition: callable = None) -> 'SchemaChunk':
         """条件判断"""
@@ -185,6 +182,12 @@ class SchemaChunk:
                 if chunk_id not in chunks:
                     raise Exception(f"Can not find '{ chunk_id }' in workflow.chunks.")
                 return self._connect_to(chunks[chunk_id].handle(handle_name))
+        elif callable(chunk):
+            temp_chunk = self.workflow_schema.create_chunk(
+                executor=chunk,
+                type=EXECUTOR_TYPE_NORMAL,
+            )
+            return self._connect_to(temp_chunk)
         else:
             return self._connect_to(chunk)
 
