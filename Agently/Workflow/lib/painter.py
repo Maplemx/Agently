@@ -1,10 +1,11 @@
-from .constants import EXECUTOR_TYPE_LOOP
+from .constants import EXECUTOR_TYPE_LOOP, EXECUTOR_TYPE_CONDITION
 
 def draw_with_mermaid(schema_compiled_data):
     """使用 mermaid 绘制出图形，可点击 https://mermaid-js.github.io/mermaid-live-editor/edit 粘贴查看效果"""
 
     LOOP_CLASS_NAME = 'loop_style'
     CHUNK_CLASS_NAME = 'chunk_style'
+    CONDITION_CLASS_NAME = 'condition_chunk_style'
     # 修复文本展示，避免特殊字符
     def fix_display_text(label: str):
         if not label:
@@ -14,6 +15,9 @@ def draw_with_mermaid(schema_compiled_data):
 
     def to_node_symbol(chunk, title=None):
         chunk_name = title or fix_display_text(chunk["title"] or f'chunk-{chunk["id"]}' or 'Unknow chunk')
+        # 条件节点，渲染成菱形
+        if chunk.get('type') == EXECUTOR_TYPE_CONDITION:
+            return f"{chunk['id']}" + "{{" + f"{chunk_name}" + "}}:::" + f"{CONDITION_CLASS_NAME}"
         return f"{chunk['id']}({chunk_name}):::{CHUNK_CLASS_NAME}"
     
     helper = { "loop_count": 0 }
@@ -95,6 +99,7 @@ def draw_with_mermaid(schema_compiled_data):
 
     class_str = '\n'.join([
         f"classDef {CHUNK_CLASS_NAME} fill:#fbfcdb,stroke:#666,stroke-width:1px,color:#333;",
+        f"classDef {CONDITION_CLASS_NAME} fill:#ECECFF,stroke:#9370DB,stroke-width:1px,color:#333;",
         f"classDef {LOOP_CLASS_NAME} fill:#f5f7fa,stroke:#666,stroke-width:1px,color:#333,stroke-dasharray: 5 5",
     ])
     return (
