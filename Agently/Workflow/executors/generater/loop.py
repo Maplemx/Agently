@@ -5,6 +5,7 @@ from ...lib.constants import DEFAULT_INPUT_HANDLE_VALUE
 
 def use_loop_executor(sub_workflow):
     async def loop_executor(inputs, store: Store, **sys_info):
+        # Run Loop
         input_val = inputs.get(DEFAULT_INPUT_HANDLE_VALUE)
         all_result = []
         if isinstance(input_val, list):
@@ -19,7 +20,20 @@ def use_loop_executor(sub_workflow):
         elif isinstance(input_val, int):
             for i in range(input_val):
                 all_result.append(await loop_unit_core(unit_val=i, store=store))
-        return all_result
+        #return all_result
+        # Regroup
+        final_result = {}
+        for item in all_result:
+            if item:
+                for key, value in item.items():
+                    if key not in final_result:
+                        final_result.update({ key: [] })
+                    final_result[key].append(value)
+        return (
+            final_result["default"]
+            if len(final_result.keys()) == 1 and "default" in final_result
+            else final_result
+        )
 
     async def loop_unit_core(unit_val, store):
         if inspect.iscoroutinefunction(sub_workflow):
