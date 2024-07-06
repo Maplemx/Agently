@@ -65,13 +65,14 @@ class Workflow:
                     chunk_id = func.__name__
                 if "title" not in chunk_desc or chunk_desc["title"] == "":
                     chunk_desc.update({ "title": chunk_id })
-                return self.chunks.update({
+                self.chunks.update({
                     chunk_id: self.schema.create_chunk(
                             executor = func,
                             type = type,
                             **chunk_desc
                         )
                 })
+                return func
             return create_chunk_decorator
         else:
             return self.chunk_class(chunk_id, type, **chunk_desc)
@@ -83,13 +84,14 @@ class Workflow:
                 chunk_id = f"@{ func.__name__ }"
             if "title" not in chunk_desc or chunk_desc["title"] == "":
                 chunk_desc.update({ "title": chunk_id })
-            return self.chunks.update({
+            self.chunks.update({
                 chunk_id: {
                     "executor": func,
                     "type": type,
                     **chunk_desc
                 }
             })
+            return func
         return create_chunk_decorator
 
     def register_executor_func(self, executor_id: str, executor_func: callable):
