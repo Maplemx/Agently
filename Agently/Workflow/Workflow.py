@@ -53,6 +53,8 @@ class Workflow:
         self.chunk("start", type = "Start")(lambda:None)
         self.chunk("end", type = "End")(lambda:None)
         self.connect_to = self.chunks["start"].connect_to
+        self.if_condition = self.chunks["start"].if_condition
+        self.loop_with = self.chunks["start"].loop_with
 
     public_storage = Store()
 
@@ -114,7 +116,12 @@ class Workflow:
     async def start_async(self, start_data=None, *, storage=None):
         executed_schema = generate_executed_schema(self.schema.compile())
         res = await self.executor.start(executed_schema, start_data, storage=storage)
-        return res
+        #return res
+        return (
+            res["default"]
+            if isinstance(res, dict) and "default" in res and len(res.keys()) == 1
+            else res
+        )
 
     def start(self, start_data = None, *, storage=None):
         return run_async(self.start_async(start_data, storage=storage))
