@@ -12,7 +12,7 @@ from .yamlflow.yamlflow import start_yaml_from_str, start_yaml_from_path
 from .utils.exec_tree import generate_executed_schema
 from .utils.logger import get_default_logger
 from .utils.runner import run_async
-from ..utils import RuntimeCtx
+from ..utils import RuntimeCtx, RuntimeCtxNamespace
 from .._global import global_settings
 from Agently.utils import IdGenerator
 
@@ -23,7 +23,7 @@ class Workflow:
         """
         self.workflow_id = workflow_id or IdGenerator("workflow").create()
         # 处理设置
-        self.settings = RuntimeCtx(parent = global_settings)
+        self.settings = RuntimeCtxNamespace("workflow_settings", RuntimeCtx(parent = global_settings))
         if settings:
             self.settings.update_by_dict(settings)
         # logger
@@ -57,6 +57,12 @@ class Workflow:
         self.loop_with = self.chunks["start"].loop_with
 
     public_storage = Store()
+
+    def set_compatible(self, version: (str, int)):
+        if isinstance(version, str):
+            version = int(version.replace(".", ""))
+        self.settings.set("compatible_version", version)
+        return self
 
     def chunk(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         is_class = chunk_desc.get("is_class", False)
@@ -116,12 +122,7 @@ class Workflow:
     async def start_async(self, start_data=None, *, storage=None):
         executed_schema = generate_executed_schema(self.schema.compile())
         res = await self.executor.start(executed_schema, start_data, storage=storage)
-        #return res
-        return (
-            res["default"]
-            if isinstance(res, dict) and "default" in res and len(res.keys()) == 1
-            else res
-        )
+        return res
 
     def start(self, start_data = None, *, storage=None):
         return run_async(self.start_async(start_data, storage=storage))
