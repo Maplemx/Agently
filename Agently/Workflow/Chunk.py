@@ -183,9 +183,15 @@ class SchemaChunk:
                     raise Exception(f"Can not find '{ chunk_id }' in workflow.chunks.")
                 return self._connect_to(chunks[chunk_id].handle(handle_name))
         elif callable(chunk):
+
             temp_chunk = self.workflow_schema.create_chunk(
                 executor=chunk,
                 type=EXECUTOR_TYPE_NORMAL,
+                title = (
+                         f"@{ chunk.__name__ }"
+                         if not chunk.__name__ == "<lambda>"
+                         else f"lambda-{ str(uuid.uuid4()) }"
+                     ),
             )
             return self._connect_to(temp_chunk)
         else:
