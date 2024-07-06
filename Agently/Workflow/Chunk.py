@@ -156,14 +156,14 @@ class SchemaChunk:
         )
         return shadow_root_chunk
     
-    def endif_condition(self) -> 'SchemaChunk':
+    def end_condition(self) -> 'SchemaChunk':
         """终止当前所在的if，回退到当次 if 前的 chunk"""
         # Step1. 从当前 chunk 中，读取所属的条件 chunk id 信息
         condition_path = self.condition_chunk_path
         condition_path_item = condition_path[-1] if condition_path else None
         if not condition_path_item:
             raise ValueError(
-                f"The `endif` method must be called after the `if_condition` method.")
+                f"The `end_condition` method must be called after the `if_condition` method.")
         # Step2. 回退到本次条件的 root chunk
         return condition_path_item.get('root').create_shadow_chunk()
 
@@ -183,7 +183,6 @@ class SchemaChunk:
                     raise Exception(f"Can not find '{ chunk_id }' in workflow.chunks.")
                 return self._connect_to(chunks[chunk_id].handle(handle_name))
         elif callable(chunk):
-
             temp_chunk = self.workflow_schema.create_chunk(
                 executor=chunk,
                 type=EXECUTOR_TYPE_NORMAL,
