@@ -50,8 +50,10 @@ class Workflow:
         # Executor Manager
         self.executor_manager = ChunkExecutorManager()
         # Short Cut
-        self.chunk("start", type = "Start")(lambda:None)
-        self.chunk("end", type = "End")(lambda:None)
+        self.chunk("START", type = "Start")(lambda:None)
+        self.chunk("END", type = "End")(lambda:None)
+        self.chunks["start"] = self.chunks["START"]
+        self.chunks["end"] = self.chunks["END"]
         self.connect_to = self.chunks["start"].connect_to
         self.if_condition = self.chunks["start"].if_condition
         self.loop_with = self.chunks["start"].loop_with
