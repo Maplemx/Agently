@@ -21,7 +21,7 @@ def use_loop_executor(sub_workflow):
             for i in range(input_val):
                 all_result.append(await loop_unit_core(unit_val=i, store=store))
         # Old Version Compatible
-        if sub_workflow.settings.get("compatible_version") and sub_workflow.settings.get("compatible_version") <= 3315:
+        if sub_workflow.settings.get("compatible_version") and sub_workflow.settings.get("compatible_version") <= 3316:
             return all_result
         else:
             # Regroup
