@@ -25,7 +25,7 @@ class Workflow:
         # 处理设置
         self.settings = RuntimeCtxNamespace("workflow_settings", RuntimeCtx(parent = global_settings))
         if settings:
-            self.settings.update_by_dict(settings)
+            self.settings.update(settings)
         # logger
         workflow_default_logger = get_default_logger(self.workflow_id, level=logging.DEBUG if self.settings.get_trace_back("is_debug") else logging.WARN)
         self.logger = self.settings.get('logger', workflow_default_logger)
