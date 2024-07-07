@@ -71,7 +71,7 @@ class Schema:
             executor=executor,
             **chunk_desc
         )
-        self.append_raw_chunk(chunk_inst.get_raw_schema())
+        self.append_raw_chunk(chunk_inst.get_raw_schema(use_origin=True))
         return chunk_inst
 
     def append_raw_chunk(self, chunk: dict):

@@ -12,7 +12,7 @@ from .yamlflow.yamlflow import start_yaml_from_str, start_yaml_from_path
 from .utils.exec_tree import generate_executed_schema
 from .utils.logger import get_default_logger
 from .utils.runner import run_async
-from ..utils import RuntimeCtx
+from ..utils import RuntimeCtx, RuntimeCtxNamespace
 from .._global import global_settings
 from Agently.utils import IdGenerator
 
@@ -23,7 +23,7 @@ class Workflow:
         """
         self.workflow_id = workflow_id or IdGenerator("workflow").create()
         # 处理设置
-        self.settings = RuntimeCtx(parent = global_settings)
+        self.settings = RuntimeCtxNamespace("workflow_settings", RuntimeCtx(parent = global_settings))
         if settings:
             self.settings.update_by_dict(settings)
         # logger
@@ -53,8 +53,16 @@ class Workflow:
         self.chunk("start", type = "Start")(lambda:None)
         self.chunk("end", type = "End")(lambda:None)
         self.connect_to = self.chunks["start"].connect_to
+        self.if_condition = self.chunks["start"].if_condition
+        self.loop_with = self.chunks["start"].loop_with
 
     public_storage = Store()
+
+    def set_compatible(self, version: (str, int)):
+        if isinstance(version, str):
+            version = int(version.replace(".", ""))
+        self.settings.set("compatible_version", version)
+        return self
 
     def chunk(self, chunk_id: str=None, type=EXECUTOR_TYPE_NORMAL, **chunk_desc):
         is_class = chunk_desc.get("is_class", False)
@@ -65,13 +73,14 @@ class Workflow:
                     chunk_id = func.__name__
                 if "title" not in chunk_desc or chunk_desc["title"] == "":
                     chunk_desc.update({ "title": chunk_id })
-                return self.chunks.update({
+                self.chunks.update({
                     chunk_id: self.schema.create_chunk(
                             executor = func,
                             type = type,
                             **chunk_desc
                         )
                 })
+                return func
             return create_chunk_decorator
         else:
             return self.chunk_class(chunk_id, type, **chunk_desc)
@@ -83,13 +92,14 @@ class Workflow:
                 chunk_id = f"@{ func.__name__ }"
             if "title" not in chunk_desc or chunk_desc["title"] == "":
                 chunk_desc.update({ "title": chunk_id })
-            return self.chunks.update({
+            self.chunks.update({
                 chunk_id: {
                     "executor": func,
                     "type": type,
                     **chunk_desc
                 }
             })
+            return func
         return create_chunk_decorator
 
     def register_executor_func(self, executor_id: str, executor_func: callable):

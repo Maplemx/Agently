@@ -37,3 +37,6 @@ test
 
 # 忽略PyCharm
 .idea/
+
+# ignore framework auto-create dir
+.Agently
