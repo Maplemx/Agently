@@ -26,11 +26,26 @@ def use_loop_executor(sub_workflow):
         else:
             # Regroup
             final_result = {}
+            i = 0
             for one_result in all_result:
-                for handle, result in one_result.items():
-                    if handle not in final_result:
-                        final_result.update({ handle: [] })
-                    final_result[handle].append(result)
+                if one_result:
+                    used_handle_pool = []
+                    for handle, result in one_result.items():
+                        if handle not in final_result:
+                            final_result.update({ handle: [None] * i })
+                        final_result[handle].append(result)
+                        used_handle_pool.append(handle)
+                    for final_result_handle in final_result.keys():
+                        if final_result_handle not in used_handle_pool:
+                            final_result[final_result_handle].append(None)
+                else:
+                    if "default" not in final_result:
+                        final_result.update({ "default": [None] * i })
+                    final_result["default"].append(None)
+                    for final_result_handle in final_result.keys():
+                        if final_result_handle != "default":
+                            final_result[final_result_handle].append(None)
+                i += 1
             return final_result
 
     async def loop_unit_core(unit_val, store):
