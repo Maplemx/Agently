@@ -127,7 +127,7 @@ class SchemaChunk(ConditionAbility, LoopAbility):
         """在当前 schema 上创建一个新的 chunk """
         rel_chunk = self.workflow_schema.create_chunk(**params)
         if persist_supports_data:
-            rel_chunk.shared_ns = deep_copy_simply(self.shared_ns)
+            # 新挂载的 chunk，仅保留调用链，其它 api 运行数据保留
             rel_chunk.shared_chain_ns = deep_copy_simply(self.shared_chain_ns)
         return rel_chunk
 
@@ -153,9 +153,8 @@ class SchemaChunk(ConditionAbility, LoopAbility):
         self.workflow_schema.connect_chunk(
             self.chunk['id'],
             target_chunk.chunk['id'],
-            self.chunk.get('active_handle') or DEFAULT_OUTPUT_HANDLE_VALUE,
-            target_chunk.chunk.get(
-                'active_handle') or DEFAULT_INPUT_HANDLE_VALUE,
+            self.shared_ns['connection_ns']['active_handle'] or DEFAULT_OUTPUT_HANDLE_VALUE,
+            target_chunk.shared_ns['connection_ns']['active_handle'] or DEFAULT_INPUT_HANDLE_VALUE,
             self.chunk.get('connect_condition') or None,
             self.chunk.get('connect_condition_detail') or None,
         )

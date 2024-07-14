@@ -1,7 +1,11 @@
 import inspect
+from typing import TYPE_CHECKING
 from ..executors.generater.loop import use_loop_executor
 from ..lib.constants import EXECUTOR_TYPE_LOOP
 from .helper import exposed_interface
+
+if TYPE_CHECKING:
+    from . import SchemaChunk
 
 class LoopAbility:
     """提供Loop API"""
@@ -11,7 +15,7 @@ class LoopAbility:
         super().__init__()
 
     @exposed_interface(type='connect_command')
-    def loop_with(self, sub_workflow) -> 'LoopAbility':
+    def loop_with(self, sub_workflow) -> 'SchemaChunk':
         """遍历逐项处理，支持传入子 workflow/处理方法 作为处理逻辑"""
         is_function = inspect.isfunction(sub_workflow) or inspect.iscoroutinefunction(sub_workflow)
         # 这里是新的 chunk，需要走 Schema 的 create 方法挂载
