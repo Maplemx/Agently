@@ -117,7 +117,6 @@ def draw_image_in_jupyter(schema_compiled_data):
         graphbytes = mm_code.encode("utf8")
         base64_bytes = base64.b64encode(graphbytes)
         base64_string = base64_bytes.decode("ascii")
-        print('draw')
         display(Image(url="https://mermaid.ink/img/" + base64_string))
     else:
         print('Please use within the Jupyter environment.')
