@@ -1,3 +1,5 @@
+import base64
+import sys
 from .constants import EXECUTOR_TYPE_LOOP, EXECUTOR_TYPE_CONDITION
 
 def draw_with_mermaid(schema_compiled_data):
@@ -107,3 +109,15 @@ def draw_with_mermaid(schema_compiled_data):
         "%% Rendered By Agently %%\nflowchart LR\n" + class_str + "\n" +
         '\n'.join(map(lambda part: indent_str + part, generate_body(schema_compiled_data)))
     )
+
+def draw_image_in_jupyter(schema_compiled_data):
+    if 'IPython' in sys.modules:
+        from IPython.display import Image, display
+        mm_code = draw_with_mermaid(schema_compiled_data)
+        graphbytes = mm_code.encode("utf8")
+        base64_bytes = base64.b64encode(graphbytes)
+        base64_string = base64_bytes.decode("ascii")
+        print('draw')
+        display(Image(url="https://mermaid.ink/img/" + base64_string))
+    else:
+        print('Please use within the Jupyter environment.')
