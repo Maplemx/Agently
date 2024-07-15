@@ -15,6 +15,9 @@ class Tool(ComponentABC):
         self.get_tool_func = self.tool_manager.get_tool_func
         self.call_tool_func = self.tool_manager.call_tool_func
         self.set_tool_proxy = self.tool_manager.set_tool_proxy
+        # Tool Events
+        self.event_handlers = {}
+        self.async_tasks = []
 
     def register_tool(self, tool_name: str, desc: any, args: dict, func: callable, *, categories: (str, list) = None, require_proxy: bool=False):
         self.tool_manager.register(tool_name, desc, args, func, categories=categories, require_proxy=require_proxy)
@@ -97,10 +100,14 @@ class Tool(ComponentABC):
                     .start_async()
             )
         except Exception as e:
+            await self.agent.call_event_listeners("tool:judgement", { "status": 400, "error": str(e) })
             return { "Tools using error": str(e) }
         if "tools_using" not in result or result["tools_using"] == []:
+            await self.agent.call_event_listeners("tool:judgement", { "status": 200, "data": [] })
             return None
+        await self.agent.call_event_listeners("tool:judgement", { "status": 200, "data": result["tools_using"] })
         tool_results = {}
+        event_response_results = []
         for step in result["tools_using"]:
             if "using_tool" in step and isinstance(step["using_tool"], dict) and "tool_name" in step["using_tool"]:
                 if self.is_debug():
@@ -129,18 +136,47 @@ class Tool(ComponentABC):
                         info_key = str(step["purpose"])
                         info_value = call_result["for_agent"] if isinstance(call_result, dict) and "for_agent" in call_result else call_result
                         tool_results[info_key] = info_value
+                        await self.agent.call_event_listeners(
+                            "tool:response",
+                            {
+                                "tool_info": tool_info,
+                                "call_args": tool_kwrags,
+                                "purpose": info_key,
+                                "result": info_value,
+                            }
+                        )
+                        event_response_results.append({
+                            "tool_info": tool_info,
+                            "call_args": tool_kwrags,
+                            "purpose": info_key,
+                            "result": info_value,
+                        })
                         if self.is_debug():
                             print("[Result]: ", info_key, info_value)
                 else:
                     if self.is_debug():
                         print(f"[Result]: Can not find tool '{ step['using_tool']['tool_name'] }'")
         if len(tool_results.keys()) > 0:
+            await self.agent.call_event_listeners("tool:all_responses", event_response_results)
             return tool_results
         else:
+            await self.agent.call_event_listeners("tool:all_responses", [])
             return None
 
     def customize_call_plan(self, call_plan_func: callable):
         self.call_plan_func = call_plan_func
+        return self.agent
+    
+    def on_tool_judgement(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
+        self.agent.add_event_listener("tool:judgement", listener, is_await=is_await, is_agent_event=is_agent_event)
+        return self.agent
+    
+    def on_tool_response(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
+        self.agent.add_event_listener("tool:response", listener, is_await=is_await, is_agent_event=is_agent_event)
+        return self.agent
+    
+    def on_tool_all_responses(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
+        self.agent.add_event_listener("tool:all_responses", listener, is_await=is_await, is_agent_event=is_agent_event)
         return self.agent
 
     async def _prefix(self):
@@ -191,6 +227,8 @@ class Tool(ComponentABC):
                 "use_all_public_tools": { "func": self.add_all_public_tools },
                 "must_call": { "func": self.must_call },
                 "customize_call_plan": { "func": self.customize_call_plan },
+                "on_tool_judgement": { "func": self.on_tool_judgement },
+                "on_tool_response": { "func": self.on_tool_response },
             }
         }
 

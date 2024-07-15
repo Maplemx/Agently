@@ -184,19 +184,21 @@ class OAIClient(RequestABC):
         if base_url:
             client_params.update({ "base_url": base_url })
         proxy = self.request.settings.get_trace_back("proxy")
+        verify = self.model_settings.get_trace_back("verify")
+        httpx_options = self.model_settings.get_trace_back("httpx.options", {})
+        httpx_params = httpx_options
+        httpx_params.update({
+            "headers": [("Connection", "close")],
+        })
+        # verify
+        if verify:
+            httpx_params.update({ "verify": verify })
+        # proxy
         if proxy:
-            client_params.update({
-                "http_client": httpx.AsyncClient(
-                    proxies = proxy,
-                    headers = [("Connection", "close")],
-                )
-            })
-        else:
-            client_params.update({
-                "http_client": httpx.AsyncClient(
-                    headers = [("Connection", "close")],
-                )
-            })
+            httpx_params.update({ "proxies": proxy })
+        client_params.update({
+            "http_client": httpx.AsyncClient(**httpx_params),
+        })
         api_key = self.model_settings.get_trace_back("auth.api_key")
         if api_key:
             client_params.update({ "api_key": api_key })

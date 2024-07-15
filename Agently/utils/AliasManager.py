@@ -1,5 +1,6 @@
 import json
 import inspect
+import asyncio
 
 class AliasManager(object):
     def __init__(self, target: object):
@@ -13,10 +14,16 @@ class AliasManager(object):
         if return_value:
             setattr(self.target, alias_name, alias_func)
         else:
-            def _alias_func(*args, **kwargs):
-                alias_func(*args, **kwargs)
-                return self.target
-            setattr(self.target, alias_name, _alias_func)
+            if asyncio.iscoroutinefunction(alias_func):
+                async def _alias_func(*args, **kwargs):
+                    await alias_func(*args, **kwargs)
+                    return self.target
+                setattr(self.target, alias_name, _alias_func)
+            else:
+                def _alias_func(*args, **kwargs):
+                    alias_func(*args, **kwargs)
+                    return self.target
+                setattr(self.target, alias_name, _alias_func)
         self.alias_name_list.append(alias_name)
         self.alias_details.update({ alias_name: { "func": alias_func, "return_value": return_value, "agent_component": agent_component_name } })
         return self

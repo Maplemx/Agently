@@ -1,3 +1,4 @@
+import functools
 
 def create_connection_symbol(chunk, handle_name):
   """生成 chunk 连接字符"""
@@ -16,3 +17,13 @@ def fix_display_text(label: str):
       return label
   escaped_string = label.replace('"', '&quot;')
   return f'"{escaped_string}"'
+
+
+def deep_copy_simply(obj):
+  """简单深拷贝，只处理 dict / list"""
+  if isinstance(obj, list):
+    return [deep_copy_simply(item) for item in obj]
+  elif isinstance(obj, dict):
+    return {key: deep_copy_simply(value) for key, value in obj.items()}
+  else:
+    return obj
