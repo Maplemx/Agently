@@ -29,7 +29,7 @@ class Decorator(ComponentABC):
         return wrapper
 
     def on_event(self, event: str, *, is_await:bool=False):
-        if not event.startswith("response:"):
+        if not event.startswith("response:") and not event.startswith("tool:"):
             event = "response:" + event
         def decorator(func: callable):
             self.agent.add_event_listener(event, func, is_await=is_await)
