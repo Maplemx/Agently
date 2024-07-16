@@ -3,8 +3,12 @@ import sqlite3
 from .utils import StorageABC
 
 class SQLite(StorageABC):
-    def __init__(self, db_name: str="default"):
-        self.db = f"{ db_name }.db"
+    def __init__(self, db_name: str="default", settings: object={}):
+        self.settings = settings
+        self.path = self.settings.get("storage.SQLite.path") or None
+        if self.path and not self.path.endswith("/"):
+            self.path = self.path + "/"
+        self.db = f"{self.path}{ db_name }.db" if self.path else f"{db_name}.db"
         self.conn = None
         self.cursor = None
 

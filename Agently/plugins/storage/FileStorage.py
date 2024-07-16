@@ -3,9 +3,10 @@ import json
 from .utils import StorageABC
 
 class FileStorage(StorageABC):
-    def __init__(self, db_name: str="default"):
+    def __init__(self, db_name: str="default", settings: object={}):
+        self.settings = settings
+        self.path = self.settings.get("storage.FileStorage.path") or "./.Agently"
         self.db_name = db_name
-        self.path = "./.Agently"
         if not os.path.exists(self.path):
             os.mkdir(self.path)
 

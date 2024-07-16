@@ -23,7 +23,7 @@ class StorageDelegate(object):
 
     def __get_storage_plugin(self):
         storage_type = self.settings.get_trace_back("storage_type")
-        return self.plugin_manager.get("storage", storage_type)(db_name = self.db_name)
+        return self.plugin_manager.get("storage", storage_type)(db_name = self.db_name, settings = self.settings)
 
     def set(self, table_name: str, key: str, value: any):
         self.__get_storage_plugin().set(table_name, key, value)
