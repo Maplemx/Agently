@@ -6,9 +6,12 @@ class SQLite(StorageABC):
     def __init__(self, db_name: str="default", settings: object={}):
         self.settings = settings
         self.path = self.settings.get("storage.SQLite.path") or None
+        self.file_name = self.settings.get("storage.SQLite.file_name") or "Agently.db"
         if self.path and not self.path.endswith("/"):
             self.path = self.path + "/"
-        self.db = f"{self.path}Agently.db" if self.path else f"Agently.db"
+        if not self.file_name.endswith(".db"):
+            self.file_name = self.file_name + ".db"
+        self.db = f"{ self.path }{ self.file_name }" if self.path else self.file_name
         self.space_name = db_name
         self.conn = None
         self.cursor = None
