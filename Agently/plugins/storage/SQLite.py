@@ -18,6 +18,10 @@ class SQLite(StorageABC):
         self.cursor = None
 
     def __connect(self):
+        self.conn = sqlite3.connect(self.db)
+        self.cursor = self.conn.cursor()
+
+    def __connect_if_exists(self):
         if os.path.exists(self.db):
             self.conn = sqlite3.connect(self.db)
             self.cursor = self.conn.cursor()
@@ -85,7 +89,7 @@ f"""INSERT INTO `{ self.space_name }_{ table_name }` (`key`, `value`)
         return self
 
     def get(self, table_name: str, key: str):
-        if self.__connect():
+        if self.__connect_if_exists():
             try:
                 self.cursor.execute(f"SELECT `value` FROM `{ self.space_name }_{ table_name }` WHERE `key` = ?", (key,))
                 result = self.cursor.fetchone()
@@ -100,7 +104,7 @@ f"""INSERT INTO `{ self.space_name }_{ table_name }` (`key`, `value`)
             return None
 
     def get_all(self, table_name: str, keys: (list, None)=None):
-        if self.__connect():
+        if self.__connect_if_exists():
             if keys:            
                 result = {}
                 for key in keys:
