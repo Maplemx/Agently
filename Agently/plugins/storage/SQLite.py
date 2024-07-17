@@ -1,3 +1,4 @@
+import os
 import json
 import sqlite3
 from .utils import StorageABC
@@ -6,7 +7,7 @@ class SQLite(StorageABC):
     def __init__(self, db_name: str="default", settings: object={}):
         self.settings = settings
         self.path = self.settings.get("storage.SQLite.path") or None
-        self.file_name = self.settings.get("storage.SQLite.file_name") or "Agently.db"
+        self.file_name = self.settings.get("storage.SQLite.file_name") or ".Agently.db"
         if self.path and not self.path.endswith("/"):
             self.path = self.path + "/"
         if not self.file_name.endswith(".db"):
@@ -17,8 +18,12 @@ class SQLite(StorageABC):
         self.cursor = None
 
     def __connect(self):
-        self.conn = sqlite3.connect(self.db)
-        self.cursor = self.conn.cursor()
+        if os.path.exists(self.db):
+            self.conn = sqlite3.connect(self.db)
+            self.cursor = self.conn.cursor()
+            return True
+        else:
+            return False
     
     def __close(self):
         if self.conn:
@@ -80,42 +85,46 @@ f"""INSERT INTO `{ self.space_name }_{ table_name }` (`key`, `value`)
         return self
 
     def get(self, table_name: str, key: str):
-        self.__connect()
-        try:
-            self.cursor.execute(f"SELECT `value` FROM `{ self.space_name }_{ table_name }` WHERE `key` = ?", (key,))
-            result = self.cursor.fetchone()
-        except sqlite3.OperationalError as e:
-            result = None
-        self.__close()
-        if result:
-            return json.loads(result[0])
+        if self.__connect():
+            try:
+                self.cursor.execute(f"SELECT `value` FROM `{ self.space_name }_{ table_name }` WHERE `key` = ?", (key,))
+                result = self.cursor.fetchone()
+            except sqlite3.OperationalError as e:
+                result = None
+            self.__close()
+            if result:
+                return json.loads(result[0])
+            else:
+                return None
         else:
             return None
 
     def get_all(self, table_name: str, keys: (list, None)=None):
-        self.__connect()
-        if keys:            
-            result = {}
-            for key in keys:
-                value = self.get(table_name, key)
-                if value:
-                    result.update({ key: value })
-                else:
-                    result.update({ key: None })
-            self.__close()
-            return result
+        if self.__connect():
+            if keys:            
+                result = {}
+                for key in keys:
+                    value = self.get(table_name, key)
+                    if value:
+                        result.update({ key: value })
+                    else:
+                        result.update({ key: None })
+                self.__close()
+                return result
+            else:
+                table_data = {}
+                try:
+                    self.cursor.execute(f"SELECT `key`, `value` FROM `{ self.space_name }_{ table_name }`")
+                    results = self.cursor.fetchall()
+                except sqlite3.OperationalError as e:
+                    results = []
+                for row in results:
+                    key, value = row[0], json.loads(row[1])
+                    table_data.update({ key: value })
+                self.__close()
+                return table_data
         else:
-            table_data = {}
-            try:
-                self.cursor.execute(f"SELECT `key`, `value` FROM `{ self.space_name }_{ table_name }`")
-                results = self.cursor.fetchall()
-            except sqlite3.OperationalError as e:
-                results = []
-            for row in results:
-                key, value = row[0], json.loads(row[1])
-                table_data.update({ key: value })
-            self.__close()
-            return table_data
+            return {}
 
 def export():
     return ("SQLite", SQLite)
