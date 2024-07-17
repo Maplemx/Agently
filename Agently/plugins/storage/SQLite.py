@@ -77,9 +77,11 @@ f"""INSERT INTO `{ table_name }` (`key`, `value`)
 
     def get(self, table_name: str, key: str):
         self.__connect()
-        self.__create_table_if_not_exists(table_name)
-        self.cursor.execute(f"SELECT `value` FROM `{ table_name }` WHERE `key` = ?", (key,))
-        result = self.cursor.fetchone()
+        try:
+            self.cursor.execute(f"SELECT `value` FROM `{ table_name }` WHERE `key` = ?", (key,))
+            result = self.cursor.fetchone()
+        except sqlite3.OperationalError as e:
+            result = None
         self.__close()
         if result:
             return json.loads(result[0])
@@ -88,7 +90,6 @@ f"""INSERT INTO `{ table_name }` (`key`, `value`)
 
     def get_all(self, table_name: str, keys: (list, None)=None):
         self.__connect()
-        self.__create_table_if_not_exists(table_name)
         if keys:            
             result = {}
             for key in keys:
@@ -101,7 +102,11 @@ f"""INSERT INTO `{ table_name }` (`key`, `value`)
             return result
         else:
             table_data = {}
-            results = self.cursor.execute(f"SELECT `key`, `value` FROM `{ table_name }`")
+            try:
+                self.cursor.execute(f"SELECT `key`, `value` FROM `{ table_name }`")
+                results = self.cursor.fetchall()
+            except sqlite3.OperationalError as e:
+                results = []
             for row in results:
                 key, value = row[0], json.loads(row[1])
                 table_data.update({ key: value })
