@@ -8,7 +8,8 @@ class SQLite(StorageABC):
         self.path = self.settings.get("storage.SQLite.path") or None
         if self.path and not self.path.endswith("/"):
             self.path = self.path + "/"
-        self.db = f"{self.path}{ db_name }.db" if self.path else f"{db_name}.db"
+        self.db = f"{self.path}Agently.db" if self.path else f"Agently.db"
+        self.space_name = db_name
         self.conn = None
         self.cursor = None
 
@@ -32,16 +33,16 @@ class SQLite(StorageABC):
             self.cursor = None
 
     def __create_table_if_not_exists(self, table_name: str):
-        self.cursor.execute(f"CREATE TABLE IF NOT EXISTS `{ table_name }` (key TEXT PRIMARY KEY, value TEXT)")
+        self.cursor.execute(f"CREATE TABLE IF NOT EXISTS `{ self.space_name }_{ table_name }` (key TEXT PRIMARY KEY, value TEXT)")
     
     def __drop_table_if_exists(self, table_name: str):
-        self.cursor.execute(f"DROP TABLE IF EXISTS `{ table_name }`")
+        self.cursor.execute(f"DROP TABLE IF EXISTS `{ self.space_name }_{ table_name }`")
     
     def set(self, table_name: str, key: str, value: any):
         self.__connect()
         self.__create_table_if_not_exists(table_name)
         self.cursor.execute(
-f"""INSERT INTO `{ table_name }` (`key`, `value`)
+f"""INSERT INTO `{ self.space_name }_{ table_name }` (`key`, `value`)
     VALUES (?, ?)
     ON CONFLICT(`key`)
     DO UPDATE SET `key`=excluded.key, `value`=excluded.value
@@ -63,7 +64,7 @@ f"""INSERT INTO `{ table_name }` (`key`, `value`)
     def remove(self, table_name: str, key: str):
         self.__connect()
         self.__create_table_if_not_exists(table_name)
-        self.cursor.execute(f"DELETE FROM `{ table_name }` WHERE `key` = ?", (key,))
+        self.cursor.execute(f"DELETE FROM `{ self.space_name }_{ table_name }` WHERE `key` = ?", (key,))
         self.__commit_and_close()
         return self
 
@@ -78,7 +79,7 @@ f"""INSERT INTO `{ table_name }` (`key`, `value`)
     def get(self, table_name: str, key: str):
         self.__connect()
         try:
-            self.cursor.execute(f"SELECT `value` FROM `{ table_name }` WHERE `key` = ?", (key,))
+            self.cursor.execute(f"SELECT `value` FROM `{ self.space_name }_{ table_name }` WHERE `key` = ?", (key,))
             result = self.cursor.fetchone()
         except sqlite3.OperationalError as e:
             result = None
@@ -103,7 +104,7 @@ f"""INSERT INTO `{ table_name }` (`key`, `value`)
         else:
             table_data = {}
             try:
-                self.cursor.execute(f"SELECT `key`, `value` FROM `{ table_name }`")
+                self.cursor.execute(f"SELECT `key`, `value` FROM `{ self.space_name }_{ table_name }`")
                 results = self.cursor.fetchall()
             except sqlite3.OperationalError as e:
                 results = []
