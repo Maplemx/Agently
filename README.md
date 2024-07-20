@@ -1,6 +1,10 @@
 ## **_<font color = "red">Agent</font><font color = "blue">ly</font>_ 3.0 Guidebook**
 
-**`[new]`** [Showcase Repo]Agently Daily News Collector: [English](https://github.com/AgentEra/Agently-Daily-News-Collector) | [新闻汇总报告生成器开源项目](https://github.com/AgentEra/Agently-Daily-News-Collector/blob/main/README_CN.md)
+**`[Important]`** Agently AI开发框架中文首页改版已经完成，模型切换、AgenticRequest、Workflow全新教程文档全面更新，请访问:[Agently.cn](https://agently.cn)查看
+
+**`[Important]`** We'll rewrite repo homepage soon to tell you more about our recently work, please wait for it.
+
+[Showcase Repo]Agently Daily News Collector: [English](https://github.com/AgentEra/Agently-Daily-News-Collector) | [新闻汇总报告生成器开源项目](https://github.com/AgentEra/Agently-Daily-News-Collector/blob/main/README_CN.md)
 
 **`[hot]`** 中文版由浅入深开发文档：[点此访问，一步一步解锁复杂LLMs应用开发技能点](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/Agently_step_by_step_guide.ipynb)
 
