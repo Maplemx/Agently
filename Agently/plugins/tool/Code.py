@@ -1,6 +1,4 @@
 from .utils import ToolABC
-from Agently.utils import RuntimeCtx
-import math, numpy, scipy, sympy
 
 class Code(ToolABC):
     def __init__(self, tool_manager: object):
@@ -36,7 +34,7 @@ class Code(ToolABC):
             "calculate": {
                 "desc": "execute Python code to storage result to variables",
                 "args": {
-                    "code": ("Python Code assigning values to variables", "[*Required]'math', 'numpy', 'scipy', 'sympy' libs can be used."),
+                    "code": ("Python Code assigning values to variables", "[*Required]"),
                     "result_vars": [{
                         "var_name": ("String", "[*Required]var name in {code}"),
                         "why": ("String", "[*Required]brief purpose to get result of {var_name}")
