@@ -2,7 +2,6 @@ from openai import AsyncOpenAI as OpenAIClient
 from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, find_json, format_request_messages
 from Agently.utils import RuntimeCtxNamespace
 import httpx
-import json
 
 class OAIClient(RequestABC):
     def __init__(self, request):
@@ -66,7 +65,7 @@ class OAIClient(RequestABC):
             if prompt_output_data:
                 if isinstance(prompt_output_data, (dict, list, set)):
                     prompt_dict["[OUTPUT REQUIREMENT]"] = {
-                        "TYPE": "JSON can be parsed in Python",
+                        "TYPE": "JSON String can be parsed",
                         "FORMAT": to_json_desc(prompt_output_data),
                     }
                     self.request.request_runtime_ctx.set("response:type", "JSON")
