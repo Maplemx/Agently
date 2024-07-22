@@ -9,6 +9,7 @@ tornado
 openai
 erniebot
 zhipuai
+tencentcloud-sdk-python
 # Format
 PyYAML
 json5
@@ -16,7 +17,3 @@ json5
 duckduckgo_search
 beautifulsoup4
 requests
-# Calulate
-numpy
-scipy
-sympy
