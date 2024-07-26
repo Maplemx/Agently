@@ -1,5 +1,3 @@
-from configparser import ConfigParser
-
 from ..utils import PluginManager, ToolManager, RuntimeCtx
 from .._global import global_plugin_manager, global_storage, global_settings, global_tool_manager, global_websocket_server
 from .Agent import Agent

@@ -1,7 +1,5 @@
-import re
-import json
 import json5
-from .transform import find_json, to_json_desc
+from .transform import find_json
 
 def check_structure(origin: any, compare_target: any, position: str=""):
     errors = []
