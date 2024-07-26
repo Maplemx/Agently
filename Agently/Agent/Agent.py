@@ -1,12 +1,9 @@
-import datetime
-import json
+import json5
 import asyncio
 import threading
 import queue
-import inspect
 from ..Request import Request
-from ..WebSocket import WebSocketServer
-from ..utils import RuntimeCtx, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, to_json_desc, find_json, check_version, load_json
+from ..utils import RuntimeCtx, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, DataGenerator,check_version, load_json
 
 class Agent(object):
     def __init__(
@@ -59,14 +56,18 @@ class Agent(object):
         # Set Agent Auto Save Setting
         self.agent_runtime_ctx.set("agent_auto_save", auto_save)
         # Version Check In Debug Model
+        """
         if self.settings.get_trace_back("is_debug"):
             check_version_record = self.global_storage.get("agently", "check_version_record")
             today = str(datetime.date.today())
             if check_version_record != today:
                 check_version(self.global_storage, today)
+        """
         # Agent Request Prefix & Suffix
         self.agent_request_prefix = {}
         self.agent_request_suffix = []
+        # Agent Response Generator
+        self.response_generator = DataGenerator()
         # Register Default Request Alias to Agent
         self.request._register_default_alias(self.alias_manager)
         # Install Agent Components
@@ -137,7 +138,7 @@ class Agent(object):
         self.agent_runtime_ctx.remove(f"prompt.{ key }")
         return self
 
-    async def start_async(self, request_type: str=None):
+    async def start_async(self, request_type: str=None, *, return_generator:bool=False):
         try:
             is_debug = self.settings.get_trace_back("is_debug")
             # Auto Save Agent runtime_ctx
@@ -187,14 +188,17 @@ class Agent(object):
                         suffix_func(response["event"], response["data"])
 
             async def handle_response(response):
-                if response["event"] == "response:delta" and is_debug:
-                    print(response["data"], end="")
+                if response["event"] == "response:delta":
+                    if is_debug:
+                        print(response["data"], end="")
+                    self.response_generator.add(response["data"])
                 if response["event"] == "response:done":
                     if self.request.response_cache["reply"] == None:
                         self.request.response_cache["reply"] = response["data"]
                     if is_debug:
                         print("\n--------------------------\n")
                         print("[Final Reply]\n", self.request.response_cache["reply"], "\n--------------------------\n")
+                    self.response_generator.end()
                 await call_request_suffix(response)
 
             await handle_response({ "event": "response:start", "data": {} })
@@ -204,35 +208,48 @@ class Agent(object):
             else:
                 for response in event_generator:
                     await handle_response(response)
-
+            
             # Load JSON and fix if Required
-            if self.request.response_cache["type"] == "JSON":
+            if (
+                isinstance(self.request.response_cache["prompt"]["output"], (dict, list, set))
+                or self.request.response_cache["type"] == "JSON"
+            ):
+                temp_request = (
+                    Request()
+                        .set_settings("current_model", self.request.settings.get_trace_back("current_model"))
+                        .set_settings("model", self.request.settings.get_trace_back("model"))
+                )
                 reply = await load_json(
                     self.request.response_cache["reply"],
                     self.request.response_cache["prompt"]["input"],
                     self.request.response_cache["prompt"]["output"],
-                    self.request,
+                    temp_request,
                     is_debug = is_debug,
                 )
                 if isinstance(reply, str) and reply.startswith("$$$JSON_ERROR:"):
                     raise Exception(reply[14:])
-                self.request.response_cache["reply"] = reply
+                self.request.response_cache["reply"] = json5.loads(reply) if isinstance(reply, str) else reply
 
             await handle_response({ "event": "response:finally", "data": self.request.response_cache })
 
-            self.request_runtime_ctx.empty()
-            return self.request.response_cache["reply"]
+            if return_generator:
+                self.request_runtime_ctx.empty()
+                return self.response_generator.generator()
+            else:
+                self.request_runtime_ctx.empty()
+                return self.request.response_cache["reply"]
         except Exception as e:
+            self.response_generator.end()
             self.request_runtime_ctx.empty()
             raise(e)
 
-    def start(self, request_type: str=None):
+    def start(self, request_type: str=None, *, return_generator:bool=False):
         reply_queue = queue.Queue()
         is_debug = self.settings.get_trace_back("is_debug")
         def start_in_theard():
             asyncio.set_event_loop(asyncio.new_event_loop())
             loop = asyncio.get_event_loop()
-            if self.settings.get_trace_back("is_debug"):
+            if is_debug:
                 reply = loop.run_until_complete(self.start_async(request_type))
                 reply_queue.put_nowait(reply)
             else:
@@ -246,12 +263,15 @@ class Agent(object):
                     loop.close()
         theard = threading.Thread(target=start_in_theard)
         theard.start()
-        theard.join()
-        try:        
-            reply = reply_queue.get_nowait()
-        except:
-            reply = None
-        return reply
+        if return_generator:
+            return self.response_generator.generator()
+        else:
+            theard.join()
+            try:        
+                reply = reply_queue.get_nowait()
+            except:
+                reply = None
+            return reply
 
     def start_websocket_server(self, port:int=15365):
         is_debug = self.settings.get_trace_back("is_debug")

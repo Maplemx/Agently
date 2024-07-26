@@ -1,12 +1,10 @@
-import os
 import asyncio
 import threading
 import queue
 import json
-import copy
-from configparser import ConfigParser
+import json5
 
-from ..utils import RuntimeCtx, RuntimeCtxNamespace, PluginManager, AliasManager, to_json_desc, find_json, load_json
+from ..utils import RuntimeCtx, RuntimeCtxNamespace, PluginManager, AliasManager, load_json, DataGenerator
 from .._global import global_plugin_manager, global_settings
 
 class Request(object):
@@ -24,6 +22,7 @@ class Request(object):
             "type": None,
             "reply": None,
         }
+        self.response_generator = DataGenerator()
         # Plugin Manager
         self.plugin_manager = PluginManager(parent = parent_plugin_manager)
         # Namespace
@@ -111,6 +110,8 @@ class Request(object):
         # Cache simple prompt
         self.response_cache["prompt"]["input"] = self.prompt_input.get()
         self.response_cache["prompt"]["output"] = self.prompt_output.get()
+        if isinstance(self.response_cache["prompt"]["output"], (dict, list, set)):
+            self.response_cache.update({"type": "JSON"})
         # Request and get response generator
         if asyncio.iscoroutinefunction(request_plugin_export["request_model"]):
             response_generator = await request_plugin_export["request_model"](request_data)
@@ -126,20 +127,23 @@ class Request(object):
         self.request_runtime_ctx.empty()
         return broadcast_event_generator
 
-    async def get_result_async(self, request_type: str=None):
+    async def get_result_async(self, request_type: str=None, *, return_generator:bool=False):
         try:
             is_debug = self.settings.get_trace_back("is_debug")
             event_generator = await self.get_event_generator(request_type)
             if is_debug:
                 print("[Realtime Response]\n")
             def handle_response(response):
-                if response["event"] == "response:delta" and is_debug:
-                    print(response["data"], end="")
+                if response["event"] == "response:delta":
+                    self.response_generator.add(response["data"])
+                    if is_debug:
+                        print(response["data"], end="")
                 if response["event"] == "response:done":
                     if is_debug:
                         print("\n--------------------------\n")
                         print("[Final Response]\n", response["data"], "\n--------------------------\n")
                     self.response_cache["reply"] = response["data"]
+                    self.response_generator.end()
 
             if "__aiter__" in dir(event_generator):
                 async for response in event_generator:
@@ -147,30 +151,45 @@ class Request(object):
             else:
                 for response in event_generator:
                     handle_response(response)
+            
+            if return_generator:
+                self.request_runtime_ctx.empty()
+                return self.response_generator.generator()
+            else:
+                if (
+                    isinstance(self.response_cache["prompt"]["output"], (dict, list, set))
+                    or self.response_cache["type"] == "JSON"
+                ):
+                    temp_request = (
+                        Request()
+                            .set_settings("current_model", self.settings.get_trace_back("current_model"))
+                            .set_settings("model", self.settings.get_trace_back("model"))
+                    )
+                    reply = await load_json(
+                        self.response_cache["reply"],
+                        self.response_cache["prompt"]["input"],
+                        self.response_cache["prompt"]["output"],
+                        temp_request,
+                        is_debug = is_debug,
+                    )
+                    if isinstance(reply, str) and reply.startswith("$$$JSON_ERROR:"):
+                        raise Exception(reply[14:])
+                    self.response_cache["reply"] = json5.loads(reply) if isinstance(reply, str) else reply
                 
-            if self.response_cache["type"] == "JSON":
-                reply = await load_json(
-                    self.response_cache["reply"],
-                    self.response_cache["prompt"]["input"],
-                    self.response_cache["prompt"]["output"],
-                    self,
-                    is_debug = is_debug,
-                )
-                if isinstance(reply, str) and reply.startswith("$$$JSON_ERROR:"):
-                    raise Exception(reply[14:])
-                self.response_cache["reply"] = reply
-            return self.response_cache["reply"]
+                self.request_runtime_ctx.empty()
+                return self.response_cache["reply"]
         except Exception as e:
+            self.response_generator.end()
             self.request_runtime_ctx.empty()
             raise(e)
 
-    def get_result(self, request_type: str=None):
+    def get_result(self, request_type: str=None, *, return_generator:bool=False):
         reply_queue = queue.Queue()
         is_debug = self.settings.get_trace_back("is_debug")
         def start_in_theard():
             asyncio.set_event_loop(asyncio.new_event_loop())
             loop = asyncio.get_event_loop()
-            if self.settings.get_trace_back("is_debug"):
+            if is_debug:
                 reply = loop.run_until_complete(self.get_result_async(request_type))
                 reply_queue.put_nowait(reply)
             else:
@@ -178,18 +197,21 @@ class Request(object):
                     reply = loop.run_until_complete(self.get_result_async(request_type))
                     reply_queue.put_nowait(reply)
                 except Exception as e:
-                    raise Exception(f"[Request] Error: { str(e) }")
                     reply = None
+                    raise Exception(f"[Request] Error: { str(e) }")
                 finally:
                     loop.close()
         theard = threading.Thread(target=start_in_theard)
         theard.start()
-        theard.join()        
-        reply = reply_queue.get_nowait()
-        return reply
+        if return_generator:
+            return self.response_generator.generator()
+        else:
+            theard.join()        
+            reply = reply_queue.get_nowait()
+            return reply
 
-    def start(self, request_type: str=None):
-        return self.get_result(request_type)
+    def start(self, request_type: str=None, *, return_generator=False):
+        return self.get_result(request_type, return_generator=return_generator)
 
     def start_async(self, request_type: str=None):
         return self.get_result_async(request_type)
