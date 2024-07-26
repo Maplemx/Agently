@@ -19,6 +19,7 @@ async def check_version_async():
                     latest_version = result["data"]["latest"] if "latest" in result["data"] else None
                     tips_type = result["data"]["type"]
                     tips_content = result["data"]["tips"]
+                    """
                     print("[Agently Version Check]")
                     print("This check only works 1 time each day in debug model.")
                     print(f"Current Installed Version: { current_version }")
@@ -26,6 +27,7 @@ async def check_version_async():
                         print(f"Stable Version: { stable_version }")
                     if latest_version:
                         print(f"Latest Version: { latest_version }")
+                    """
                     if tips_type != "" and tips_content != "":
                         print(f"[{ tips_type.upper() }]{ tips_content }")
             except Exception as e:
