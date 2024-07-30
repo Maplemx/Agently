@@ -234,7 +234,7 @@ class Agent(object):
 
             if return_generator:
                 self.request_runtime_ctx.empty()
-                return self.response_generator.generator()
+                return self.response_generator.get_generator()
             else:
                 self.request_runtime_ctx.empty()
                 return self.request.response_cache["reply"]
@@ -264,7 +264,7 @@ class Agent(object):
         theard = threading.Thread(target=start_in_theard)
         theard.start()
         if return_generator:
-            return self.response_generator.generator()
+            return self.response_generator.get_generator()
         else:
             theard.join()
             try:        

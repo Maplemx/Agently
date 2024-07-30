@@ -4,7 +4,7 @@ class DataGenerator:
     def __init__(self):
         self.queue = queue.Queue()
     
-    def generator(self):
+    def get_generator(self):
         while True:
             data = self.queue.get()
             if data == "$END$":
