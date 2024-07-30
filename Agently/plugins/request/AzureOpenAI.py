@@ -17,22 +17,27 @@ class AzureOpenAI(RequestABC):
 
     def _create_client(self):
         client_params = {}
-
-        proxy = self.request.settings.get_trace_back("proxy")
-        if proxy:
-            client_params.update({
-                "http_client": httpx.AsyncClient(
-                    proxies = proxy,
-                    headers = [("Connection", "close")],
-                )
-            })
+        httpx_client = self.model_settings.get_trace_back("httpx_client")
+        if httpx_client:
+            httpx_client.headers.update({ "Connection": "close" })
+            client_params.update({ "http_client": httpx_client })
         else:
-            client_params.update({
-                "http_client": httpx.AsyncClient(
-                    headers = [("Connection", "close")],
-                )
+            proxy = self.request.settings.get_trace_back("proxy")
+            verify = self.model_settings.get_trace_back("verify")
+            httpx_options = self.model_settings.get_trace_back("httpx.options", {})
+            httpx_params = httpx_options
+            httpx_params.update({
+                "headers": [("Connection", "close")],
             })
-
+            # verify
+            if verify:
+                httpx_params.update({ "verify": verify })
+            # proxy
+            if proxy:
+                httpx_params.update({ "proxies": proxy })
+            client_params.update({
+                "http_client": httpx.AsyncClient(**httpx_params),
+            })
         auth = self.model_settings.get_trace_back("auth", {})
         if "api_key" not in auth or "api_version" not in auth and "azure_endpoint" not in auth:
             raise Exception("[Request: AzureOpenAI] Missing required auth items: [`api_key`, `api_version`, `azure_endpoint`]. Use .set_settings('model.AzureOpenAI.auth', { 'api_key': 'xxxxxx', 'api_version': 'xxxxxx', 'azure_endpoint': 'xxxxxx' }) to state.")
