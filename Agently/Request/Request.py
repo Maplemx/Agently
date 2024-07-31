@@ -154,7 +154,7 @@ class Request(object):
             
             if return_generator:
                 self.request_runtime_ctx.empty()
-                return self.response_generator.get_generator()
+                return self.response_generator.start()
             else:
                 if (
                     isinstance(self.response_cache["prompt"]["output"], (dict, list, set))
@@ -204,7 +204,7 @@ class Request(object):
         theard = threading.Thread(target=start_in_theard)
         theard.start()
         if return_generator:
-            return self.response_generator.get_generator()
+            return self.response_generator.start()
         else:
             theard.join()        
             reply = reply_queue.get_nowait()

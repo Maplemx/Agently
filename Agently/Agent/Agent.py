@@ -234,7 +234,7 @@ class Agent(object):
 
             if return_generator:
                 self.request_runtime_ctx.empty()
-                return self.response_generator.get_generator()
+                return self.response_generator.start()
             else:
                 self.request_runtime_ctx.empty()
                 return self.request.response_cache["reply"]
@@ -257,14 +257,14 @@ class Agent(object):
                     reply = loop.run_until_complete(self.start_async(request_type))
                     reply_queue.put_nowait(reply)
                 except Exception as e:
-                    raise Exception(f"[Agent Request] Error: { str(e) }")
                     reply = None
+                    raise Exception(f"[Agent Request] Error: { str(e) }")                    
                 finally:
                     loop.close()
         theard = threading.Thread(target=start_in_theard)
         theard.start()
         if return_generator:
-            return self.response_generator.get_generator()
+            return self.response_generator.start()
         else:
             theard.join()
             try:        
