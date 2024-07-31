@@ -4,6 +4,7 @@ from .Agent import AgentFactory
 from .Facility import FacilityManager
 from .WebSocket import WebSocketServer, WebSocketClient
 from .Workflow import Workflow, Schema as WorkflowSchema
+from .AppConnector import AppConnector
 from ._global import global_plugin_manager, global_settings, global_storage, global_tool_manager, global_websocket_server
 from .utils import *
 

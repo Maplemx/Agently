@@ -20,19 +20,26 @@ class OpenAI(RequestABC):
         base_url = self.model_settings.get_trace_back("url")
         if base_url:
             client_params.update({ "base_url": base_url })
-        proxy = self.request.settings.get_trace_back("proxy")
-        if proxy:
-            client_params.update({
-                "http_client": httpx.AsyncClient(
-                    proxies = proxy,
-                    headers = [("Connection", "close")],
-                )
-            })
+        httpx_client = self.model_settings.get_trace_back("httpx_client")
+        if httpx_client:
+            httpx_client.headers.update({ "Connection": "close" })
+            client_params.update({ "http_client": httpx_client })
         else:
+            proxy = self.request.settings.get_trace_back("proxy")
+            verify = self.model_settings.get_trace_back("verify")
+            httpx_options = self.model_settings.get_trace_back("httpx.options", {})
+            httpx_params = httpx_options
+            httpx_params.update({
+                "headers": [("Connection", "close")],
+            })
+            # verify
+            if verify:
+                httpx_params.update({ "verify": verify })
+            # proxy
+            if proxy:
+                httpx_params.update({ "proxies": proxy })
             client_params.update({
-                "http_client": httpx.AsyncClient(
-                    headers = [("Connection", "close")],
-                )
+                "http_client": httpx.AsyncClient(**httpx_params),
             })
         api_key = self.model_settings.get_trace_back("auth.api_key")
         if api_key:
