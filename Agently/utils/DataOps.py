@@ -72,10 +72,8 @@ class NamespaceOps(object):
         return self.data_ops.remove(self.namespace_name)
 
 class DataOps(object):
-    def __init__(self, *, target_data: (dict, None), no_copy: bool=False):
-        if target_data == None:
-            target_data = {}
-        self.target_data = target_data
+    def __init__(self, *, target_data:dict=None, no_copy: bool=False):
+        self.target_data = target_data or {}
         self.no_copy = no_copy
 
     def __locate_pointer(self, keys_with_dots: str):
