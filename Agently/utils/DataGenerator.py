@@ -32,7 +32,7 @@ class DataGeneratorEvent:
         return self
 
 class DataGenerator:
-    def __init__(self, *, timeout:int=10, allow_timeout:bool=False):
+    def __init__(self, *, timeout:int=None, allow_timeout:bool=False):
         self.queue = queue.Queue()
         self.timeout = timeout
         self.allow_timeout = allow_timeout
@@ -42,7 +42,10 @@ class DataGenerator:
         end_flag = False
         while True:
             try:
-                data = self.queue.get(timeout=self.timeout)
+                if self.timeout:
+                    data = self.queue.get(timeout=self.timeout)
+                else:
+                    data = self.queue.get()
                 if data == "$END$":
                     self.queue = queue.Queue()
                     break
