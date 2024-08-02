@@ -45,9 +45,10 @@ class AppConnector(object):
     
     def bind_agent(self, agent):
         self.binded_agent = agent
-        self.set_message_handler(
-            lambda message, chat_history: agent.chat_history(chat_history).input(message).start()
-        )
+        if self.message_handler == None:
+            self.set_message_handler(
+                lambda message, chat_history: agent.chat_history(chat_history).input(message).start()
+            )
         return self
     
     def refresh_binded_agent(self):
