@@ -1,6 +1,12 @@
 import time
 
 def gradio_app(app_connector, **kwargs):
+    """
+    Support Kwargs:
+        multi_round (bool=True): Turn on or turn off multi round chat.
+        interface (dict): Additional interface options dict.
+        launch (dict): Additional launch options dict.
+    """
     is_multi_round = kwargs.get("multi_round", True)
     is_fluency = kwargs.get("fluency", False)
     try:
@@ -41,5 +47,5 @@ def gradio_app(app_connector, **kwargs):
         title="Agently Gradio Chatbot",
         description="A Chatbot powered by Agently & Gradio",
         textbox=gr.Textbox(placeholder="Now let's talk..."),
-        **(kwargs.get("gradio_options", {}))
-    ).launch()
+        **(kwargs.get("interface", {}))
+    ).launch(**(kwargs.get("launch", {})))
