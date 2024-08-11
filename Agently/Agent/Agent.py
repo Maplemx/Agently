@@ -236,24 +236,22 @@ class Agent(object):
 
             if return_generator:
                 self.request_runtime_ctx.empty()
-                self.retry_count = 0
                 return self.response_generator.start()
             else:
                 self.request_runtime_ctx.empty()
-                self.retry_count = 0
                 return self.request.response_cache["reply"]
         except Exception as e:
             retry_time = self.settings.get_trace_back("request.retry_times", 2)
-            if self.retry_count >= retry_time:
+            retry_count = self.request_runtime_ctx.get_trace_back("retry_count", 0)
+            if retry_count >= retry_time:
                 self.response_generator.end()
                 self.request_runtime_ctx.empty()
-                self.retry_count = 0
                 raise(e)
             else:
                 self.response_generator.add({ "event": "error", "data": str(e) })
-                self.retry_count += 1
+                self.request_runtime_ctx.set("retry_count", retry_count + 1)
                 if is_debug:
-                    print(f"[Agent Request] Error: { str(e) }\nRetrying...({ self.retry_count }/{ retry_time })")
+                    print(f"[Agent Request] Error: { str(e) }\nRetrying...({ retry_count + 1 }/{ retry_time })")
                 return await self.start_async(request_type, return_generator=return_generator)
 
     def start(self, request_type: str=None, *, return_generator:bool=False):
