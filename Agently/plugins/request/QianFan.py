@@ -96,10 +96,10 @@ class Qianfan(RequestABC):
             completion_prompt += f"[主题及摘要]\n{ to_instruction(headline_data) }\n"
         # - main prompt
         chat_history_data = self.request.request_runtime_ctx.get_trace_back("prompt.chat_history")
-        prompt_input_data = replace_placeholder_keyword("input", "输入", self.request.request_runtime_ctx.get_trace_back("prompt.input"))
-        prompt_info_data = replace_placeholder_keyword("info", "补充信息", self.request.request_runtime_ctx.get_trace_back("prompt.info"))
-        prompt_instruct_data = replace_placeholder_keyword("instruct", "处理规则", self.request.request_runtime_ctx.get_trace_back("prompt.instruct"))
-        prompt_output_data = replace_placeholder_keyword("output", "输入", self.request.request_runtime_ctx.get_trace_back("prompt.output"))
+        prompt_input_data = self.request.request_runtime_ctx.get_trace_back("prompt.input")
+        prompt_info_data = self.request.request_runtime_ctx.get_trace_back("prompt.info")
+        prompt_instruct_data = self.request.request_runtime_ctx.get_trace_back("prompt.instruct")
+        prompt_output_data = self.request.request_runtime_ctx.get_trace_back("prompt.output")
         if not prompt_input_data and not prompt_info_data and not prompt_instruct_data and not prompt_output_data and not chat_history_data:
             raise Exception("[Request] Missing 'prompt.chat_history', 'prompt.input', 'prompt.info', 'prompt.instruct', 'prompt.output' in request_runtime_ctx. At least set value to one of them.")
         # --- only input
