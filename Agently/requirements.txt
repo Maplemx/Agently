@@ -10,6 +10,7 @@ openai
 erniebot
 zhipuai
 tencentcloud-sdk-python
+qianfan
 # Format
 PyYAML
 json5
