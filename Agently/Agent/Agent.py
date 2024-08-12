@@ -72,6 +72,8 @@ class Agent(object):
         self.request._register_default_alias(self.alias_manager)
         # Install Agent Components
         self.refresh_plugins()
+        # Retry Count
+        self.retry_count = 0
 
     def refresh_plugins(self):
         self.alias_manager.empty_alias()
@@ -239,9 +241,18 @@ class Agent(object):
                 self.request_runtime_ctx.empty()
                 return self.request.response_cache["reply"]
         except Exception as e:
-            self.response_generator.end()
-            self.request_runtime_ctx.empty()
-            raise(e)
+            retry_time = self.settings.get_trace_back("request.retry_times", 2)
+            retry_count = self.request_runtime_ctx.get_trace_back("retry_count", 0)
+            if retry_count >= retry_time:
+                self.response_generator.end()
+                self.request_runtime_ctx.empty()
+                raise(e)
+            else:
+                self.response_generator.add({ "event": "error", "data": str(e) })
+                self.request_runtime_ctx.set("retry_count", retry_count + 1)
+                if is_debug:
+                    print(f"[Agent Request] Error: { str(e) }\nRetrying...({ retry_count + 1 }/{ retry_time })")
+                return await self.start_async(request_type, return_generator=return_generator)
 
     def start(self, request_type: str=None, *, return_generator:bool=False):
         reply_queue = queue.Queue()

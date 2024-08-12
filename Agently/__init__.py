@@ -1,4 +1,5 @@
 #import nest_asyncio
+import readline
 from .Request import Request
 from .Agent import AgentFactory
 from .Facility import FacilityManager
