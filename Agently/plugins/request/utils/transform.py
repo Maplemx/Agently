@@ -134,3 +134,12 @@ def find_json(origin: str):
         return result[0]
     else:
         return None
+
+def replace_placeholder_keyword(keyword, target_keyword, source_text):
+    if isinstance(source_text, str):
+        pattern = re.compile(r'{' + keyword + '(\.[^}]+)?}', re.IGNORECASE)
+        return pattern.sub(lambda m: f'{{{ target_keyword }{m.group(1) or ""}}}', source_text)
+    elif source_text:
+        return source_text
+    else:
+        return None

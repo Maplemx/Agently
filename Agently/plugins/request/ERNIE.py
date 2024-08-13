@@ -1,4 +1,3 @@
-import os
 from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc
 from Agently.utils import RuntimeCtxNamespace
 import erniebot
@@ -113,7 +112,7 @@ class Ernie(RequestABC):
                 "stream": True,
                 **options,
             }
-            if system_prompt != "":
+            if system_prompt != "" and self.request.settings.get_trace_back("retry_count", 0) > 0:
                 request_data.update({ "system": system_prompt })
         # request type: embedding
         elif self.request_type == "embedding":
