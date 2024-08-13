@@ -42,7 +42,7 @@ class Workflow:
             logger=self.logger
         )
         # Get Storage From Executor
-        self.storage = self.executor.store
+        self.storage = self.executor.runtime_state.user_store
         # 装载内置类型
         mount_built_in_executors(self.executor)
         # Chunk Storage
@@ -147,10 +147,14 @@ class Workflow:
         return self
     
     def get_runtime_store(self):
-        return self.executor.store
+        return self.executor.runtime_state.user_store
 
     def draw(self, type='mermaid'):
         """绘制出图形，默认使用 mermaid，可点击 https://mermaid-js.github.io/mermaid-live-editor/edit 粘贴查看效果。还支持 draw('image') 直接在 Jupyter 中绘制图片"""
         if type == 'image' or type == 'img':
             return draw_image_in_jupyter(self.schema.compile())
         return draw_with_mermaid(self.schema.compile())
+    
+    def rollback(self, checkpoint = None):
+        """回滚到指定的 checkpoint，不传的情况会回滚到上一个稳定版本 """
+        pass

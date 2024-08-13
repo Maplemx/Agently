@@ -1,11 +1,14 @@
 import uuid
 import asyncio
 import inspect
+from typing import List
 from ..utils import RuntimeCtx
 from .utils.exec_tree import disable_chunk_dep_ticket, create_new_chunk_slot_with_val
 from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
+from .Runtime.BranchState import RuntimeBranchState
+from .Runtime.State import RuntimeState
 from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, BUILT_IN_EXECUTOR_TYPES, EXECUTOR_TYPE_CONDITION
 
 class MainExecutor:
@@ -16,16 +19,17 @@ class MainExecutor:
         self.max_execution_limit = self.settings.get('max_execution_limit') or 10
         self.logger = logger
         # == Step 2. 初始化状态配置 ==
-        self.running_status = 'idle'
         # 中断器
         self.breaking_hub = BreakingHub(
             breaking_handler = self._handle_breaking,
             max_execution_limit=self.max_execution_limit
         )
-        # 运行时数据存储
-        self.store = self.settings.get('store') or Store()
-        # 运行时系统存储（如存储整个 workflow 的输入输出数据）
-        self.sys_store  = self.settings.get('sys_store') or Store()
+        # 运行时状态
+        self.runtime_state = RuntimeState(
+            chunks_dep_state={},
+            user_store=self.settings.get('store') or Store(),  # 运行时数据存储
+            sys_store=self.settings.get('sys_store') or Store() # 运行时系统存储（如存储整个 workflow 的输入输出数据）
+        )
         # 是否保留执行状态
         self.persist_state = self.settings.get('persist_state') == True
         self.persist_sys_state = self.settings.get('persist_sys_state') == True
@@ -40,14 +44,15 @@ class MainExecutor:
         if storage and not isinstance(storage, dict):
             raise Exception(f"Initial storage can only be a dictionary.\nstorage = { storage }")
         if storage and isinstance(storage, dict):
-            self.store.update_by_dict(storage)
+            self.runtime_state.user_store.update_by_dict(storage)
         # 尝试灌入初始数据
-        self.sys_store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
+        self.runtime_state.sys_store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
+        self.runtime_state.update(chunks_dep_state=executed_schema.get('chunks_dep_state'))
         self.chunks_map = executed_schema.get('chunk_map') or {}
-        self.running_status = 'start'
+        self.runtime_state.running_status = 'start'
         await self._execute_main(executed_schema.get('entries') or [])
-        self.running_status = 'end'
-        return self.sys_store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
+        self.runtime_state.running_status = 'end'
+        return self.runtime_state.sys_store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
 
     def regist_executor(self, name: str, executor):
         """
@@ -66,7 +71,7 @@ class MainExecutor:
 
     def reset_all_runtime_status(self):
         """重置状态配置"""
-        self.running_status = 'idle'
+        self.runtime_state.running_status = 'idle'
         # 中断器
         self.breaking_hub = BreakingHub(
             breaking_handler=self._handle_breaking,
@@ -74,27 +79,32 @@ class MainExecutor:
         )
         # 运行时数据存储
         if not self.persist_state:
-            self.store.remove_all()
+            self.runtime_state.user_store.remove_all()
         if not self.persist_sys_state:
-            self.sys_store.remove_all()
+            self.runtime_state.sys_store.remove_all()
         # 执行节点字典
         self.chunks_map = {}
+    
+    async def rollback_to(self, checkpoint: str = 'default'):
+        """回滚到指定 checkpoint 点"""
+        pass
+
+    async def save_checkpoint(self, name: str):
+        """手动保存 checkpoint 点"""
+        if name == 'default':
+            raise ValueError('The "default" is a reserved word and is not allowed as a manually set checkpoint name.')
+        pass
     
     async def _execute_main(self, entries: list):
         """执行入口"""
 
         # 1、声明单个执行逻辑（异步）
         async def execute_from_entry(entry):
-            slow_tasks = []
-            await self._execute_partial(
-                entry,
-                slow_tasks=slow_tasks,
-                executing_ids=[],
-                visited_record=[]
-            )
+            branch_state = self.runtime_state.create_branch_state(entry)
+            await self._execute_partial(entry, branch_state)
             # 如果执行完成后，还有待执行任务，则需手动执行
-            if len(slow_tasks) > 0:
-                await self._execute_slow_tasks(slow_tasks)
+            if len(branch_state.slow_tasks) > 0:
+                await self._execute_slow_tasks(branch_state.slow_tasks)
 
         # 2、收集执行任务
         entry_tasks = [execute_from_entry(entry_chunk) for entry_chunk in entries]
@@ -102,21 +112,13 @@ class MainExecutor:
         # 3、最后再统一执行
         await asyncio.gather(*entry_tasks)
 
-    async def _execute_partial(
-            self,
-            chunk,
-            slow_tasks: list, # 缓执行任务
-            executing_ids: list, # 执行中的任务
-            visited_record: list # 已执行记录
-        ):
+    async def _execute_partial(self, chunk, branch_state: RuntimeBranchState):
         """一组分组执行的核心方法"""
 
         # 1、执行当前 chunk
         has_been_executed = await self._execute_single_chunk(
             chunk=chunk,
-            slow_tasks=slow_tasks,
-            executing_ids=executing_ids,
-            visited_record=visited_record
+            branch_state=branch_state
         )
         # 如果根本未执行过（如无执行票据），直接返回
         if not has_been_executed:
@@ -130,9 +132,7 @@ class MainExecutor:
                 f"Try to call next chunk '{self._get_chunk_title(next_chunk)}' from chunk '{self._get_chunk_title(chunk)}'")
             child_executed = await self._execute_single_chunk(
                 chunk=next_chunk,
-                slow_tasks=slow_tasks,
-                executing_ids=executing_ids,
-                visited_record=visited_record
+                branch_state=branch_state
             )
             # 成功执行的塞入记录中（用于稍后处理其后续的chunk）
             if child_executed:
@@ -166,9 +166,7 @@ class MainExecutor:
                 next_child_tasks.append(
                     self._execute_partial(
                         chunk=grandchild_chunk,
-                        slow_tasks=slow_tasks,
-                        executing_ids=executing_ids,
-                        visited_record=visited_record
+                        branch_state=branch_state
                     )
                 )
 
@@ -177,22 +175,16 @@ class MainExecutor:
             await asyncio.gather(*next_child_tasks)
 
         # 4、最后尝试执行缓执行任务（如循环，要在慢于常规任务的执行）
-        if len(executing_ids) == 0:
-            await self._execute_slow_tasks(slow_tasks)
-            slow_tasks.clear()
+        if len(branch_state.executing_ids) == 0:
+            await self._execute_slow_tasks(branch_state.slow_tasks)
+            branch_state.slow_tasks.clear()
     
-    async def _execute_single_chunk(
-        self,
-        chunk,
-        slow_tasks: list,  # 缓执行任务
-        executing_ids: list,  # 执行中的任务
-        visited_record: list  # 已执行记录
-    ):
+    async def _execute_single_chunk(self, chunk, branch_state: RuntimeBranchState):
         """执行完一个 chunk 自身（包含所有可用的依赖数据的组合）"""
         has_been_executed = False
         # 针对循环，不在本执行组内执行，存入缓执行组中，延后执行
-        if (chunk.get('loop_entry') == True) and (chunk['id'] in visited_record):
-            slow_tasks.append(chunk)
+        if (chunk.get('loop_entry') == True) and (chunk['id'] in branch_state.visited_record):
+            branch_state.create_slow_task(chunk)
             self.logger.debug(
                 f"Put the loop starting chunk '{self._get_chunk_title(chunk)}' into the slow tasks queue for delayed execution")
             return has_been_executed
@@ -204,8 +196,7 @@ class MainExecutor:
             # 基于依赖数据快照，执行分组
             await self._execute_single_chunk_core(
                 chunk=chunk,
-                executing_ids=executing_ids,
-                visited_record=visited_record,
+                branch_state=branch_state,
                 single_dep_map=single_dep_map['data']
             )
             # 执行后，收回本次用到的执行票据（仅在自身完了后才执行）
@@ -220,23 +211,22 @@ class MainExecutor:
     async def _execute_single_chunk_core(
         self,
         chunk,
-        executing_ids: list,  # 执行中的任务
-        visited_record: list,  # 已执行记录
+        branch_state: RuntimeBranchState,
         single_dep_map: dict  # 依赖项（已拆组之后的）
     ):
         """根据某一份指定的的依赖数据，执行当前 chunk 自身（不包含下游 chunk 的执行调用）"""
         # 1、执行当前 chunk
         execute_id = str(uuid.uuid4())
-        executing_ids.append(execute_id)
+        branch_state.executing_ids.append(execute_id)
         # self.logger.debug("With dependent data: ", single_dep_map)
         exec_res = await self._exec_chunk_with_dep_core(chunk, single_dep_map)
         exec_value = exec_res['value']
         condition_signal = exec_res['signal']
 
         self.breaking_hub.recoder(chunk)  # 更新中断器信息
-        visited_record.append(chunk['id'])  # 更新执行记录
+        branch_state.visited_record.append(chunk['id'])  # 更新执行记录
 
-        # 2、执行完成后，提取当前执行的结果，尝试将当前执行结果注入到下游的运行依赖插槽上 next_chunk['deps'][]['data_slots'][] = 'xxx'
+        # 2、执行完成后，提取当前执行的结果，尝试将当前执行结果注入到下游的运行依赖插槽上 self.runtime_state.chunks_dep_state[][]['data_slots'][] = 'xxx'
         for next_info in chunk['next_chunks']:
             next_chunk = self.chunks_map.get(next_info['id'])
             if not next_chunk:
@@ -256,7 +246,7 @@ class MainExecutor:
                 # 有条件的情况下，仅在条件满足时，才更新下游节点的数据
                 condition_call = next_rel_handle.get('condition')
                 if condition_call:
-                    judge_res = condition_call(condition_signal, self.store)
+                    judge_res = condition_call(condition_signal, self.runtime_state.user_store)
                     connection_status = judge_res == True
                     self.logger.debug(
                         f"The connection status of '{self._get_chunk_title(chunk)}({source_handle})' to '{self._get_chunk_title(next_chunk)}({target_handle})': {connection_status}")
@@ -266,8 +256,8 @@ class MainExecutor:
                 # 在下一个 chunk 的依赖定义中，找到与当前 chunk 的当前 handle 定义的部分，尝试更新其插槽值依赖
                 self.logger.debug(
                     f"Try update chunk '{self._get_chunk_title(next_chunk)}' dep handle '{target_handle}' with value:{source_value}")
-                next_chunk_target_dep = find_by_attr(
-                    next_chunk['deps'], 'handle', target_handle)
+                deps = self.runtime_state.chunks_dep_state.get(next_chunk.get('id'))
+                next_chunk_target_dep = find_by_attr(deps, 'handle', target_handle)
                 if next_chunk_target_dep:
                     next_chunk_dep_slots = next_chunk_target_dep['data_slots'] or []
                     # 1、首先清空掉之前由当前节点设置，但票据已失效的值
@@ -280,23 +270,22 @@ class MainExecutor:
                         create_new_chunk_slot_with_val(chunk['id'], source_value))
 
         # 任务执行完后，清理执行中的状态
-        executing_ids.remove(execute_id)
+        branch_state.executing_ids.remove(execute_id)
 
-    async def _execute_slow_tasks(self, slow_tasks):
+    async def _execute_slow_tasks(self, slow_tasks: List[RuntimeBranchState]):
         """尝试执行低优任务"""
         if len(slow_tasks) == 0:
             return
 
         self.logger.debug(f'Try to execute the slow tasks queue(length: {len(slow_tasks)})')
-        for chunk in slow_tasks:
+        for slow_snapshot in slow_tasks:
+            chunk = self.chunks_map.get(slow_snapshot.id)
             # 先清空下游所有节点数据
             self._chunks_clean_walker(chunk)
             # 再启动执行
             await self._execute_partial(
                 chunk,
-                slow_tasks=[],
-                executing_ids=[],
-                visited_record=[]
+                slow_snapshot
             )
     
     async def _exec_chunk_with_dep_core(self, chunk, specified_deps = {}):
@@ -316,7 +305,7 @@ class MainExecutor:
                 input_value = deps_dict['default']
 
         # 交给执行器执行
-        executor_type = chunk['data']['type']
+        executor_type = chunk['type']
         chunk_executor = self._get_chunk_executor(executor_type) or chunk.get('executor')
         # 是否内置的执行器（会追加系统信息）
         is_built_in_type = executor_type in BUILT_IN_EXECUTOR_TYPES
@@ -331,14 +320,14 @@ class MainExecutor:
             # 如果执行器是异步的，采用 await调用
             if inspect.iscoroutinefunction(chunk_executor):
                 if is_built_in_type:
-                    exec_res = await chunk_executor(input_value, self.store, sys_store=self.sys_store, chunk=chunk)
+                    exec_res = await chunk_executor(input_value, self.runtime_state.user_store, sys_store=self.runtime_state.sys_store, chunk=chunk)
                 else:
-                    exec_res = await chunk_executor(input_value, self.store)
+                    exec_res = await chunk_executor(input_value, self.runtime_state.user_store)
             else:
                 if is_built_in_type:
-                    exec_res = chunk_executor(input_value, self.store, sys_store=self.sys_store, chunk=chunk)
+                    exec_res = chunk_executor(input_value, self.runtime_state.user_store, sys_store=self.runtime_state.sys_store, chunk=chunk)
                 else:
-                    exec_res = chunk_executor(input_value, self.store)
+                    exec_res = chunk_executor(input_value, self.runtime_state.user_store)
         except Exception as e:
             self.logger.error(f"Node Execution Exception-'{self._get_chunk_title(chunk)}'({chunk['id']}):\n {e}")
             # 主动中断执行
@@ -357,7 +346,7 @@ class MainExecutor:
     
     def _extract_execution_single_dep_data(self, chunk):
         """实时获取某个 chunk 的一组全量可执行数据（如没有，则返回 None）"""
-        deps = chunk.get('deps')
+        deps = self.runtime_state.chunks_dep_state.get(chunk.get('id'))
         if not deps or len(deps) == 0:
             return {"is_ready": True, "data": None, "has_ticket": True}
         single_dep_map = {}
@@ -399,7 +388,8 @@ class MainExecutor:
         for dep_handle in single_dep_map:
             # 找到被执行的 id
             effect_id = single_dep_map[dep_handle]['id']
-            for dep in chunk['deps']:
+            deps = self.runtime_state.chunks_dep_state.get(chunk['id'])
+            for dep in deps:
                 slots = dep['data_slots'] or []
                 for slot in slots:
                     # 将当前 chunk 中对应手柄的数据项中的对应目标数据的执行票据收回
@@ -429,7 +419,8 @@ class MainExecutor:
 
                 visited_record.append(visited_symbol)
                 effect_handles = [handle_desc['handle'] for handle_desc in next_info['handles']]
-                for dep in next_chunk['deps']:
+                deps = self.runtime_state.chunks_dep_state.get(next_chunk.get('id'))
+                for dep in deps:
                     data_slots = dep['data_slots']
                     if len(data_slots):
                         for i in range(len(data_slots) - 1, -1, -1):
@@ -443,7 +434,7 @@ class MainExecutor:
         
     
     def _get_chunk_title(self, chunk):
-        return chunk["data"]["title"] or f'chunk-{chunk["data"]["id"]}' or 'Unknow chunk'
+        return chunk["title"] or f'chunk-{chunk["id"]}' or 'Unknow chunk'
 
     def _handle_breaking(self, chunk, type):
         """处理中断"""

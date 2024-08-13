@@ -1,4 +1,3 @@
-from ..Schema import Schema
 from ..lib.constants import EXECUTOR_TYPE_NORMAL, EXECUTOR_TYPE_START, DEFAULT_INPUT_HANDLE_VALUE
 import uuid
 
@@ -6,6 +5,9 @@ def generate_executed_schema(schema: dict):
     """根据定义描述，生成执行描述"""
     edges_map_info = generate_edge_prepare_data(schema.get('edges') or [])
     all_chunks = schema.get('chunks') or []
+
+    # 挂载各 chunk 的运行时 dep 逻辑数据
+    chunks_dep_state = {}
 
     def create_exec_chunk(chunk):
         next_chunks = []
@@ -32,26 +34,28 @@ def generate_executed_schema(schema: dict):
         inputs_desc = hanldes_desc.get('inputs') or []
         if not len(inputs_desc):
             inputs_desc = [{'handle': DEFAULT_INPUT_HANDLE_VALUE}]
+        # 挂载 dep 结构
+        chunks_dep_state[chunk['id']] = [
+            {
+                'handle': input_desc.get('handle'),
+                # 运行时的依赖值，会随运行时实时更新，初始尝试从定义中取默认值
+                'data_slots': [{
+                    'id': str(uuid.uuid4()),  # 唯一 id，设置后就不变了，用于标识管理
+                    'is_ready': True,
+                    'execution_ticket': str(uuid.uuid4()),  # 可执行票据，可派发
+                    'updator': 'default',  # 更新者
+                    'value': input_desc.get('default')
+                }] if (input_desc.get('default') != None) or (chunk.get('type') == EXECUTOR_TYPE_START) else []
+            }
+            for input_desc in inputs_desc
+        ]
         return {
             'id': chunk['id'],
+            'title': chunk['title'],
             'loop_entry': False, # 是否是循环的起点
             'next_chunks': next_chunks,
             'type': chunk.get('type') or EXECUTOR_TYPE_NORMAL,
             'executor': chunk.get('executor'),
-            'deps': [
-                {
-                    'handle': input_desc.get('handle'),
-                    # 运行时的依赖值，会随运行时实时更新，初始尝试从定义中取默认值
-                    'data_slots': [{
-                        'id': str(uuid.uuid4()), # 唯一 id，设置后就不变了，用于标识管理
-                        'is_ready': True,
-                        'execution_ticket': str(uuid.uuid4()), # 可执行票据，可派发
-                        'updator': 'default', # 更新者
-                        'value': input_desc.get('default')
-                    }] if (input_desc.get('default') != None) or (chunk.get('type') == EXECUTOR_TYPE_START) else []
-                }
-                for input_desc in inputs_desc
-            ],
             'data': chunk
         }
     
@@ -79,7 +83,8 @@ def generate_executed_schema(schema: dict):
 
     return {
         'entries': entries,
-        'chunk_map': runtime_chunks_map
+        'chunk_map': runtime_chunks_map,
+        'chunks_dep_state': chunks_dep_state
     }
 
 def create_empty_data_slot(chunk):
