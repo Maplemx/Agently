@@ -77,6 +77,7 @@ class Workflow:
                     chunk_desc.update({ "title": chunk_id })
                 self.chunks.update({
                     chunk_id: self.schema.create_chunk(
+                            id=chunk_id,
                             executor = func,
                             type = type,
                             **chunk_desc
@@ -155,6 +156,12 @@ class Workflow:
             return draw_image_in_jupyter(self.schema.compile())
         return draw_with_mermaid(self.schema.compile())
     
-    def rollback(self, checkpoint = None):
-        """回滚到指定的 checkpoint，不传的情况会回滚到上一个稳定版本 """
-        pass
+    async def save_checkpoint(self, name: str):
+        return await self.executor.save_checkpoint(name)
+
+    async def start_from_checkpoint(self, checkpoint = 'default', checkpoint_schema: dict = None):
+        """从指定的 checkpoint 启动，不传的情况会回滚到上一个稳定版本 """
+        # 传入checkpoint 描述文件的情况
+        if checkpoint_schema:
+            self.workflow_id = checkpoint_schema.get('workflow_id')
+        # return await self.executor.rollback_to(checkpoint)

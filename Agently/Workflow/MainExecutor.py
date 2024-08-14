@@ -26,6 +26,7 @@ class MainExecutor:
         )
         # 运行时状态
         self.runtime_state = RuntimeState(
+            workflow_id=self.workflow_id,
             chunks_dep_state={},
             user_store=self.settings.get('store') or Store(),  # 运行时数据存储
             sys_store=self.settings.get('sys_store') or Store() # 运行时系统存储（如存储整个 workflow 的输入输出数据）
@@ -43,11 +44,13 @@ class MainExecutor:
         # Set Initial Storage
         if storage and not isinstance(storage, dict):
             raise Exception(f"Initial storage can only be a dictionary.\nstorage = { storage }")
-        if storage and isinstance(storage, dict):
+        elif storage and isinstance(storage, dict):
             self.runtime_state.user_store.update_by_dict(storage)
+
+        # 初始化运行时状态
+        self.runtime_state.update(chunks_dep_state=executed_schema.get('chunks_dep_state'))
         # 尝试灌入初始数据
         self.runtime_state.sys_store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
-        self.runtime_state.update(chunks_dep_state=executed_schema.get('chunks_dep_state'))
         self.chunks_map = executed_schema.get('chunk_map') or {}
         self.runtime_state.running_status = 'start'
         await self._execute_main(executed_schema.get('entries') or [])
@@ -93,7 +96,8 @@ class MainExecutor:
         """手动保存 checkpoint 点"""
         if name == 'default':
             raise ValueError('The "default" is a reserved word and is not allowed as a manually set checkpoint name.')
-        pass
+        snapshot = self.runtime_state.export()
+        return snapshot
     
     async def _execute_main(self, entries: list):
         """执行入口"""
@@ -101,10 +105,12 @@ class MainExecutor:
         # 1、声明单个执行逻辑（异步）
         async def execute_from_entry(entry):
             branch_state = self.runtime_state.create_branch_state(entry)
+            branch_state.running_status = 'running'
             await self._execute_partial(entry, branch_state)
             # 如果执行完成后，还有待执行任务，则需手动执行
             if len(branch_state.slow_tasks) > 0:
                 await self._execute_slow_tasks(branch_state.slow_tasks)
+            branch_state.running_status = 'idle'
 
         # 2、收集执行任务
         entry_tasks = [execute_from_entry(entry_chunk) for entry_chunk in entries]
@@ -192,6 +198,9 @@ class MainExecutor:
         # 获取执行chunk的依赖数据（每个手柄可能有多份就绪的数据）
         single_dep_map = self._extract_execution_single_dep_data(chunk)
         while (single_dep_map['is_ready'] and single_dep_map['has_ticket']):
+            # 标识状态（仅需设置一次）
+            if not has_been_executed:
+                self.runtime_state.update_chunk_status(chunk['id'], 'running')
             has_been_executed = True
             # 基于依赖数据快照，执行分组
             await self._execute_single_chunk_core(
@@ -206,6 +215,9 @@ class MainExecutor:
             )
             # 再次更新获取依赖（如没有了，则停止了）
             single_dep_map = self._extract_execution_single_dep_data(chunk)
+        # 更新结果状态
+        if has_been_executed:
+            self.runtime_state.update_chunk_status(chunk['id'], 'success')
         return has_been_executed
 
     async def _execute_single_chunk_core(
