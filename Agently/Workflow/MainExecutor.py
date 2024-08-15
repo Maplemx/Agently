@@ -56,6 +56,16 @@ class MainExecutor:
         await self._execute_main(executed_schema.get('entries') or [])
         self.runtime_state.running_status = 'end'
         return self.runtime_state.sys_store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
+    
+    async def start_from_checkpoint(self, executed_schema: dict, checkpoint_schema: dict):
+        # Step 1. 恢复各状态数据
+        self.runtime_state.restore_from_schema(checkpoint_schema)
+        self.chunks_map = executed_schema.get('chunk_map') or {}
+        # Step 2. 恢复运行
+        await self._execute_main(executed_schema.get('entries') or [])
+        self.runtime_state.running_status = 'end'
+        return self.runtime_state.sys_store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
+        
 
     def regist_executor(self, name: str, executor):
         """
@@ -104,13 +114,34 @@ class MainExecutor:
 
         # 1、声明单个执行逻辑（异步）
         async def execute_from_entry(entry):
-            branch_state = self.runtime_state.create_branch_state(entry)
-            branch_state.running_status = 'running'
-            await self._execute_partial(entry, branch_state)
-            # 如果执行完成后，还有待执行任务，则需手动执行
-            if len(branch_state.slow_tasks) > 0:
-                await self._execute_slow_tasks(branch_state.slow_tasks)
-            branch_state.running_status = 'idle'
+            # 恢复模式
+            if self.runtime_state.restore_mode:
+                branch_state = self.runtime_state.get_branch_state(entry)
+                rs = branch_state.running_status
+                if rs in ['success', 'error']:
+                    return
+                elif rs == 'running':
+                    await self._execute_partial(entry, branch_state)
+                    # 如果执行完成后，还有待执行任务，则需手动执行
+                    if len(branch_state.slow_tasks) > 0:
+                        await self._execute_slow_tasks(branch_state.slow_tasks)
+                    branch_state.running_status = 'success'
+                else:
+                    branch_state.running_status = 'running'
+                    await self._execute_partial(entry, branch_state)
+                    # 如果执行完成后，还有待执行任务，则需手动执行
+                    if len(branch_state.slow_tasks) > 0:
+                        await self._execute_slow_tasks(branch_state.slow_tasks)
+                    branch_state.running_status = 'success'
+            # 正常模式
+            else:
+                branch_state = self.runtime_state.create_branch_state(entry)
+                branch_state.running_status = 'running'
+                await self._execute_partial(entry, branch_state)
+                # 如果执行完成后，还有待执行任务，则需手动执行
+                if len(branch_state.slow_tasks) > 0:
+                    await self._execute_slow_tasks(branch_state.slow_tasks)
+                branch_state.running_status = 'success'
 
         # 2、收集执行任务
         entry_tasks = [execute_from_entry(entry_chunk) for entry_chunk in entries]
@@ -187,6 +218,11 @@ class MainExecutor:
     
     async def _execute_single_chunk(self, chunk, branch_state: RuntimeBranchState):
         """执行完一个 chunk 自身（包含所有可用的依赖数据的组合）"""
+
+        # 先判断是否是恢复模式下，且已执行完成，如果是，则直接跳过
+        if self.runtime_state.restore_mode and self.runtime_state.get_chunk_status(chunk['id']) == 'success':
+            return True
+
         has_been_executed = False
         # 针对循环，不在本执行组内执行，存入缓执行组中，延后执行
         if (chunk.get('loop_entry') == True) and (chunk['id'] in branch_state.visited_record):

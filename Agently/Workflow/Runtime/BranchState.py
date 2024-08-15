@@ -3,8 +3,8 @@ from ..utils.chunk_helper import deep_copy_simply
 
 class RuntimeBranchState:
   """Runtime 的某个时刻的执行快照，通过叠加 action，可生成新的 snapshot"""
-  def __init__(self, id: str, **args) -> None:
-    self.id = id
+  def __init__(self, **args) -> None:
+    self.id = args.get('id')
     self.slow_tasks: List['RuntimeBranchState'] = args.get('slow_tasks', [])
     self.executing_ids: List[str] = args.get('executing_ids', [])
     self.visited_record: List[str] = args.get('visited_record', [])

@@ -122,13 +122,23 @@ class Workflow:
         else:
             raise Exception("[Workflow] At least one parameter in `yaml_str` and `path` is required when using workflow.load_yaml().")
 
-    async def start_async(self, start_data=None, *, storage=None):
+    async def start_async(self, start_data=None, *, storage=None, checkpoint = None):
+        """workflow 异步启动方法，支持传入初始参数、初始 storage、checkpoint"""
+
+        if checkpoint:
+            self.workflow_id = checkpoint.get('workflow_id')
+            self.executor.workflow_id = checkpoint.get('workflow_id')
+            executed_schema = generate_executed_schema(self.schema.compile())
+            res = await self.executor.start_from_checkpoint(executed_schema=executed_schema, checkpoint_schema=checkpoint)
+            return res
+
         executed_schema = generate_executed_schema(self.schema.compile())
         res = await self.executor.start(executed_schema, start_data, storage=storage)
         return res
 
-    def start(self, start_data = None, *, storage=None):
-        return run_async(self.start_async(start_data, storage=storage))
+    def start(self, start_data=None, *, storage=None, checkpoint=None):
+        """启动 workflow，支持传入初始参数、初始 storage、checkpoint"""
+        return run_async(self.start_async(start_data, storage=storage, checkpoint=checkpoint))
 
     def reset_runtime_status(self):
         """重置运行数据"""
@@ -158,10 +168,3 @@ class Workflow:
     
     async def save_checkpoint(self, name: str):
         return await self.executor.save_checkpoint(name)
-
-    async def start_from_checkpoint(self, checkpoint = 'default', checkpoint_schema: dict = None):
-        """从指定的 checkpoint 启动，不传的情况会回滚到上一个稳定版本 """
-        # 传入checkpoint 描述文件的情况
-        if checkpoint_schema:
-            self.workflow_id = checkpoint_schema.get('workflow_id')
-        # return await self.executor.rollback_to(checkpoint)

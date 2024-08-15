@@ -8,7 +8,8 @@ class RuntimeState:
   def __init__(self, **args) -> None:
     self.workflow_id = args.get('workflow_id')
     # 分支决策逻辑
-    self.branches_state: Dict[str, RuntimeBranchState] = args.get('branches_state', {})
+    self.branches_state: Dict[str, RuntimeBranchState] = args.get(
+        'branches_state', {})
     # 各 chunk 依赖数据
     self.chunks_dep_state = args.get('chunks_dep_state', {})
     # 总运行状态
@@ -18,6 +19,31 @@ class RuntimeState:
     # 运行数据
     self.user_store = args.get('user_store')
     self.sys_store = args.get('sys_store')
+    self.restore_mode = False
+  
+  def restore_from_schema(self, schema: dict) -> 'RuntimeState':
+    """从指定表述结构中恢复"""
+    self.workflow_id = schema.get('workflow_id')
+
+    # 恢复挂载实例化的 branch_state
+    branches_state = schema.get('branches_state')
+    self.branches_state = {}
+    for entry_id in branches_state:
+      self.branches_state[entry_id] = RuntimeBranchState(**branches_state[entry_id])
+    
+    # 恢复依赖数据
+    self.chunks_dep_state = schema.get('chunks_dep_state')
+    # 恢复运行状态
+    self.running_status = schema.get('running_status')
+    # 恢复各 chunk 的运行状态
+    self.chunk_status = schema.get('chunk_status')
+    # 恢复用户 store
+    self.user_store = self.user_store.__class__(schema.get('user_store'))
+    # 恢复系统 store
+    self.sys_store = self.sys_store.__class__(schema.get('sys_store'))
+    # 恢复模式
+    self.restore_mode = True
+    return self
 
   def update(self, chunks_dep_state: dict = {}):
     # 各 chunk 依赖数据
@@ -27,10 +53,16 @@ class RuntimeState:
     self.branches_state[chunk['id']] = RuntimeBranchState(id=chunk['id'])
     return self.branches_state[chunk['id']]
   
+  def get_branch_state(self, chunk) -> RuntimeBranchState:
+    return self.branches_state.get(chunk['id'])
+  
   def update_chunk_status(self, chunk_id, status):
     if status not in ['idle', 'success', 'running', 'error']:
       return
     self.chunk_status[chunk_id] = status
+  
+  def get_chunk_status(self, chunk_id):
+    return self.chunk_status.get(chunk_id)
   
   def export(self):
     # 将分支状态实例导出状态原值
