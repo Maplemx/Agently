@@ -14,9 +14,9 @@ class Checkpoint:
     self.repository: CheckpointRepository = repository
     self.active_snapshot: Snapshot = None
 
-  async def save(self, state: 'RuntimeState', name=DEFAULT_CHECKPOINT_NAME, timestamp=None):
+  async def save(self, state: 'RuntimeState', name=DEFAULT_CHECKPOINT_NAME, time=None):
     """将某个状态存储到快照记录中"""
-    snapshot = Snapshot(name=name, state=state, timestamp=timestamp)
+    snapshot = Snapshot(name=name, state=state, time=time)
     await self.repository.save(workflow_id=self.workflow_id, name=name, data=snapshot.export())
     return self
 

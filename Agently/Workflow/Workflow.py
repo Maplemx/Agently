@@ -187,5 +187,5 @@ class Workflow:
             raise ValueError(
                 'The "default" is a reserved word and is not allowed as a manually set checkpoint name.')
 
-        await self.checkpoint.save(self.executor.runtime_state)
+        await self.checkpoint.save(state=self.executor.runtime_state, name=name)
         return self.checkpoint

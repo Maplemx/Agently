@@ -1,15 +1,13 @@
 from typing import List
-from Agently.utils import PluginManager, StorageDelegate, ToolManager, RuntimeCtx
-checkpoint_plugin_manager = PluginManager()
-checkpoint_tool_manager = ToolManager()
-checkpoint_settings = RuntimeCtx()
+from Agently.utils import StorageDelegate
+from Agently._global import global_plugin_manager, global_settings
 
 class CheckpointRepository:
   def __init__(self, storage = None) -> None:
     self.storage = storage or StorageDelegate(
       db_name="checkpoint",
-      plugin_manager=checkpoint_plugin_manager,
-      settings=checkpoint_settings
+      plugin_manager=global_plugin_manager,
+      settings=global_settings
     )
 
   async def save(self, workflow_id, name: str, data: any):

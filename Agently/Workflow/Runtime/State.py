@@ -27,7 +27,7 @@ class RuntimeState:
   
   def restore_from_snapshot(self, snapshot: 'Snapshot') -> 'RuntimeState':
     """从指定表述结构中恢复"""
-    schema = snapshot.export()
+    schema = snapshot.export().get('state')
     self.workflow_id = schema.get('workflow_id')
 
     # 恢复挂载实例化的 branch_state
