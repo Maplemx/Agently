@@ -7,8 +7,7 @@ from .utils.exec_tree import disable_chunk_dep_ticket, create_new_chunk_slot_wit
 from .utils.find import find_by_attr
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
-from .Runtime.BranchState import RuntimeBranchState
-from .Runtime.State import RuntimeState
+from .Runtime import RuntimeBranchState, RuntimeState, Snapshot
 from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, BUILT_IN_EXECUTOR_TYPES, EXECUTOR_TYPE_CONDITION
 
 class MainExecutor:
@@ -57,15 +56,14 @@ class MainExecutor:
         self.runtime_state.running_status = 'end'
         return self.runtime_state.sys_store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
     
-    async def start_from_checkpoint(self, executed_schema: dict, checkpoint_schema: dict):
+    async def start_from_snapshot(self, executed_schema: dict, snapshot: 'Snapshot'):
         # Step 1. 恢复各状态数据
-        self.runtime_state.restore_from_schema(checkpoint_schema)
+        self.runtime_state.restore_from_snapshot(snapshot)
         self.chunks_map = executed_schema.get('chunk_map') or {}
         # Step 2. 恢复运行
         await self._execute_main(executed_schema.get('entries') or [])
         self.runtime_state.running_status = 'end'
         return self.runtime_state.sys_store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
-        
 
     def regist_executor(self, name: str, executor):
         """
@@ -97,17 +95,6 @@ class MainExecutor:
             self.runtime_state.sys_store.remove_all()
         # 执行节点字典
         self.chunks_map = {}
-    
-    async def rollback_to(self, checkpoint: str = 'default'):
-        """回滚到指定 checkpoint 点"""
-        pass
-
-    async def save_checkpoint(self, name: str):
-        """手动保存 checkpoint 点"""
-        if name == 'default':
-            raise ValueError('The "default" is a reserved word and is not allowed as a manually set checkpoint name.')
-        snapshot = self.runtime_state.export()
-        return snapshot
     
     async def _execute_main(self, entries: list):
         """执行入口"""

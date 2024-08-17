@@ -1,36 +1,34 @@
-from typing import TYPE_CHECKING, Dict
+import time
+from typing import TYPE_CHECKING, Union
 from ..utils.chunk_helper import deep_copy_simply
-from .BranchState import RuntimeBranchState
 
 if TYPE_CHECKING:
-    from .Action import RuntimeAction
+    from .State import RuntimeState
 
-class RuntimeSnapshot:
-  """Runtime 的某个时刻的执行快照，通过叠加 action，可生成新的 snapshot"""
+class Snapshot:
+  """主要负责单个 RuntimeState 的静态化挂载及管理逻辑"""
 
-  def __init__(self, chunks_dep_state: dict = {}) -> None:
-    # 分支决策逻辑
-    self.branchs_state: Dict[str, RuntimeBranchState] = {}
-    # 各 chunk 依赖数据
-    self.chunks_dep_state = chunks_dep_state or {}
+  def __init__(self, name: str, state: Union['RuntimeState', dict], timestamp: int = None) -> None:
+    self.name = name
+    self.state_schema = state if isinstance(state, dict) else state.export()
+    self.time = timestamp or time.time()
   
-  def update(self, chunks_dep_state: dict = {}):
-    # 各 chunk 依赖数据
-    self.chunks_dep_state = chunks_dep_state or {}
+  def get_state_val(self, keys_with_dots: str):
+    """获取指定状态值"""
+    keys = keys_with_dots.split('.')
+    pointer = self.state_schema
+    current_key = None
+    for key in keys:
+      if current_key:
+        pointer = pointer.get(current_key)
+      current_key = key
+      if not pointer or key not in pointer:
+        return None
+    return deep_copy_simply(pointer)
 
-  def create_branch_state(self, chunk) -> RuntimeBranchState:
-    self.branchs_state[chunk['id']] = RuntimeBranchState(id=chunk['id'])
-    return self.branchs_state[chunk['id']]
-  
-  def get_snapshot_unit(self, id) -> RuntimeBranchState:
-    return self.branchs_state.get(id)
-
-  def export(self, type="json"):
-    """导出为描述文件"""
-    pass
-
-  def update_with_action(self, action: 'RuntimeAction') -> 'RuntimeSnapshot':
-    """通过迭代一个 action，产生新的 snapshot """
-    shadow_snapshot = self.copy()
-    action.execute_on(shadow_snapshot)
-    return shadow_snapshot
+  def export(self) -> dict:
+     return deep_copy_simply({
+        'name': self.name,
+        'state': self.state_schema,
+        'time': self.time
+     })

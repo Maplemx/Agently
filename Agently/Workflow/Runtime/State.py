@@ -1,11 +1,15 @@
-import json
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
 from .BranchState import RuntimeBranchState
+
+if TYPE_CHECKING:
+    from .Snapshot import Snapshot
 
 class RuntimeState:
   """Runtime 的某个时刻的执行快照，通过叠加 action，可生成新的 snapshot"""
 
   def __init__(self, **args) -> None:
+    # schema 版本
+    self.v = 1
     self.workflow_id = args.get('workflow_id')
     # 分支决策逻辑
     self.branches_state: Dict[str, RuntimeBranchState] = args.get(
@@ -21,8 +25,9 @@ class RuntimeState:
     self.sys_store = args.get('sys_store')
     self.restore_mode = False
   
-  def restore_from_schema(self, schema: dict) -> 'RuntimeState':
+  def restore_from_snapshot(self, snapshot: 'Snapshot') -> 'RuntimeState':
     """从指定表述结构中恢复"""
+    schema = snapshot.export()
     self.workflow_id = schema.get('workflow_id')
 
     # 恢复挂载实例化的 branch_state
@@ -70,7 +75,8 @@ class RuntimeState:
     for id in self.branches_state:
       branches_state_value[id] = self.branches_state[id].export()
     # 返回快照数据
-    return json.dumps({
+    return {
+      'v': self.v,
       'workflow_id': self.workflow_id,
       'branches_state': branches_state_value,
       'chunks_dep_state': self.chunks_dep_state,
@@ -78,4 +84,4 @@ class RuntimeState:
       'chunk_status': self.chunk_status,
       'user_store': self.user_store.get_all(),
       'sys_store': self.sys_store.get_all()
-    }, indent=2)
+    }

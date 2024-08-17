@@ -1,8 +1,10 @@
 from typing import Dict
 import logging
+from Agently.utils import IdGenerator
 from .MainExecutor import MainExecutor
 from .Schema import Schema
 from .Chunk import SchemaChunk
+from .Runtime import Checkpoint
 from .executors.builtin.install import mount_built_in_executors
 from .lib.ChunkExecutorManager import ChunkExecutorManager
 from .lib.constants import EXECUTOR_TYPE_NORMAL
@@ -14,13 +16,24 @@ from .utils.logger import get_default_logger
 from .utils.runner import run_async
 from ..utils import RuntimeCtx, RuntimeCtxNamespace
 from .._global import global_settings
-from Agently.utils import IdGenerator
 
 class Workflow:
-    def __init__(self, *, schema_data: dict = None, settings: dict = {}, workflow_id:str=None):
-        """
-        Workflow，初始参数 schema_data 形如 { 'chunks': [], 'edges': [] }，handler 为要处理响应的函数
-        """
+    def __init__(self, *, schema_data: dict = None, settings: dict = {}, workflow_id: str = None, checkpoint: Checkpoint = None):
+        """Workflow，初始参数 schema_data 形如 { 'chunks': [], 'edges': [] }，handler 为要处理响应的函数"""
+
+        # Step 1. 如果有指定 checkpoint，优先处理 checkpoint 的情况
+        self.checkpoint: Checkpoint = checkpoint
+        # 判断是否存在可用的 checkpoint 记录
+        if self.checkpoint:
+            # 尝试恢复到上一个状态
+            run_async(self.checkpoint.rollback(silence=True))
+            # 再获取是否有快照
+            current_snapshot = self.checkpoint.get_active_snapshot()
+            # 如果存在，则先尝试恢复 workflow id
+            if current_snapshot:
+                workflow_id = current_snapshot.get_state_val('workflow_id')
+        
+        # Step 2. 处理其它常规参数
         self.workflow_id = workflow_id or IdGenerator("workflow").create()
         # 处理设置
         self.settings = RuntimeCtxNamespace("workflow_settings", RuntimeCtx(parent = global_settings))
@@ -122,23 +135,22 @@ class Workflow:
         else:
             raise Exception("[Workflow] At least one parameter in `yaml_str` and `path` is required when using workflow.load_yaml().")
 
-    async def start_async(self, start_data=None, *, storage=None, checkpoint = None):
+    async def start_async(self, start_data=None, *, storage=None):
         """workflow 异步启动方法，支持传入初始参数、初始 storage、checkpoint"""
 
-        if checkpoint:
-            self.workflow_id = checkpoint.get('workflow_id')
-            self.executor.workflow_id = checkpoint.get('workflow_id')
-            executed_schema = generate_executed_schema(self.schema.compile())
-            res = await self.executor.start_from_checkpoint(executed_schema=executed_schema, checkpoint_schema=checkpoint)
+        executed_schema = generate_executed_schema(self.schema.compile())
+        # 如果有激活的 snapshot 快照数据，则直接从快照数据中恢复
+        snapshot = self.checkpoint.get_active_snapshot() if self.checkpoint else None
+        if snapshot:
+            res = await self.executor.start_from_snapshot(executed_schema=executed_schema, snapshot=snapshot)
             return res
 
-        executed_schema = generate_executed_schema(self.schema.compile())
         res = await self.executor.start(executed_schema, start_data, storage=storage)
         return res
 
-    def start(self, start_data=None, *, storage=None, checkpoint=None):
+    def start(self, start_data=None, *, storage=None):
         """启动 workflow，支持传入初始参数、初始 storage、checkpoint"""
-        return run_async(self.start_async(start_data, storage=storage, checkpoint=checkpoint))
+        return run_async(self.start_async(start_data, storage=storage))
 
     def reset_runtime_status(self):
         """重置运行数据"""
@@ -167,4 +179,13 @@ class Workflow:
         return draw_with_mermaid(self.schema.compile())
     
     async def save_checkpoint(self, name: str):
-        return await self.executor.save_checkpoint(name)
+        """手动保存 checkpoint 点"""
+        if not self.checkpoint:
+            raise ValueError('Checkpoint has not been set yet.')
+
+        if name == 'default':
+            raise ValueError(
+                'The "default" is a reserved word and is not allowed as a manually set checkpoint name.')
+
+        await self.checkpoint.save(self.executor.runtime_state)
+        return self.checkpoint
