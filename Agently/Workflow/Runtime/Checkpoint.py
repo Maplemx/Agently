@@ -20,14 +20,14 @@ class Checkpoint:
     await self.repository.save(workflow_id=self.workflow_id, name=name, data=snapshot.export())
     return self
 
-  async def rollback(self, target=DEFAULT_CHECKPOINT_NAME, silence=False):
-    snapshot_raw_data = await self.repository.get(self.workflow_id, target)
+  async def rollback(self, name=DEFAULT_CHECKPOINT_NAME, silence=False):
+    snapshot_raw_data = await self.repository.get(self.workflow_id, name)
     if not snapshot_raw_data:
       # 静默态，无需抛错
       if silence:
         return self
       raise ValueError(
-          f'Attempt to roll back to a non-existent checkpoint record named "{target}".')
+          f'Attempt to roll back to a non-existent checkpoint record named "{name}".')
 
     self.active_snapshot = Snapshot(**snapshot_raw_data)
     return self
