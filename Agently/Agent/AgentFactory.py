@@ -1,4 +1,4 @@
-from ..utils import PluginManager, ToolManager, RuntimeCtx
+from ..utils import PluginManager, ToolManager, RuntimeCtx, RuntimeCtxNamespace
 from .._global import global_plugin_manager, global_storage, global_settings, global_tool_manager, global_websocket_server
 from .Agent import Agent
 
@@ -45,6 +45,27 @@ class AgentFactory(object):
     def register_plugin(self, module_name: str, plugin_name: str, plugin: callable):
         self.plugin_manager.register(module_name, plugin_name, plugin)
         return self
+
+    def attach_workflow(self, name: str, workflow: object):
+        class AttachedWorkflow:
+            def __init__(self, agent: object):
+                self.agent = agent
+                self.get_debug_status = lambda: self.agent.settings.get_trace_back("is_debug")
+                self.settings = RuntimeCtxNamespace(f"plugin_settings.agent_component.{ name }", self.agent.settings)
+            
+            def start_workflow(self, init_inputs: dict=None, init_storage: dict={}):
+                if not isinstance(init_storage, dict):
+                    raise Exception("[Workflow] Initial storage must be a dict.")
+                init_storage.update({ "$agent": self.agent })
+                return workflow.start(init_inputs, storage=init_storage)
+            
+            def export(self):
+                return {
+                    "alias": {
+                        name: { "func": self.start_workflow, "return_value": True },
+                    }
+                }
+        return self.register_plugin("agent_component", name, AttachedWorkflow)
 
     def set_settings(self, settings_key: str, settings_value: any):
         self.settings.set(settings_key, settings_value)

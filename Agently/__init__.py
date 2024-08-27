@@ -33,3 +33,24 @@ def register_plugin(module_name:str, plugin_name: str, plugin: callable):
 
 def set_plugin_settings(module_name: str, plugin_name: str, key: str, value: any):
     global_plugin_manager.set_settings(f"plugin_settings.{ module_name }.{ plugin_name }", key, value)
+
+def attach_workflow(name: str, workflow: object):
+    class AttachedWorkflow:
+        def __init__(self, agent: object):
+            self.agent = agent
+            self.get_debug_status = lambda: self.agent.settings.get_trace_back("is_debug")
+            self.settings = RuntimeCtxNamespace(f"plugin_settings.agent_component.{ name }", self.agent.settings)
+        
+        def start_workflow(self, init_inputs: dict=None, init_storage: dict={}):
+            if not isinstance(init_storage, dict):
+                raise Exception("[Workflow] Initial storage must be a dict.")
+            init_storage.update({ "$agent": self.agent })
+            return workflow.start(init_inputs, storage=init_storage)
+        
+        def export(self):
+            return {
+                "alias": {
+                    name: { "func": self.start_workflow, "return_value": True },
+                }
+            }
+    return register_plugin("agent_component", name, AttachedWorkflow)

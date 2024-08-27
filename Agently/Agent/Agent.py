@@ -3,7 +3,7 @@ import asyncio
 import threading
 import queue
 from ..Request import Request
-from ..utils import RuntimeCtx, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, DataGenerator,check_version, load_json
+from ..utils import RuntimeCtx, RuntimeCtxNamespace, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, DataGenerator,check_version, load_json
 
 class Agent(object):
     def __init__(
@@ -139,6 +139,36 @@ class Agent(object):
     def remove_agent_prompt(self, key: str):
         self.agent_runtime_ctx.remove(f"prompt.{ key }")
         return self
+
+    def register_agent_component(self, agent_component_name: str, agent_component_class: callable):
+        self.plugin_manager.register("agent_component", agent_component_name, agent_component_class)
+        self.refresh_plugins()
+        return self
+    
+    def set_agent_component_settings(self, agent_component_name: str, key: str, value: any):
+        self.plugin_manager.set_settings(f"plugin_settings.agent_component.{ agent_component_name }", key, value)
+        return self
+    
+    def attach_workflow(self, name: str, workflow: object):
+        class AttachedWorkflow:
+            def __init__(self, agent: object):
+                self.agent = agent
+                self.get_debug_status = lambda: self.agent.settings.get_trace_back("is_debug")
+                self.settings = RuntimeCtxNamespace(f"plugin_settings.agent_component.{ name }", self.agent.settings)
+            
+            def start_workflow(self, init_inputs: dict=None, init_storage: dict={}):
+                if not isinstance(init_storage, dict):
+                    raise Exception("[Workflow] Initial storage must be a dict.")
+                init_storage.update({ "$agent": self.agent })
+                return workflow.start(init_inputs, storage=init_storage)
+            
+            def export(self):
+                return {
+                    "alias": {
+                        name: { "func": self.start_workflow, "return_value": True },
+                    }
+                }
+        return self.register_agent_component(name, AttachedWorkflow)
 
     async def start_async(self, request_type: str=None, *, return_generator:bool=False):
         try:
