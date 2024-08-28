@@ -52,7 +52,8 @@ class Workflow:
         self.executor = MainExecutor(
             workflow_id=self.workflow_id,
             settings=self.settings,
-            logger=self.logger
+            logger=self.logger,
+            checkpoint=self.checkpoint
         )
         # Get Storage From Executor
         self.storage = self.executor.runtime_state.user_store

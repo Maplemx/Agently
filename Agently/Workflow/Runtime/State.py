@@ -18,8 +18,6 @@ class RuntimeState:
     self.chunks_dep_state = args.get('chunks_dep_state', {})
     # 总运行状态
     self.running_status = args.get('running_status', 'idle')
-    # 分 chunk 运行状态
-    self.chunk_status = args.get('chunk_status', {})
     # 运行数据
     self.user_store = args.get('user_store')
     self.sys_store = args.get('sys_store')
@@ -40,8 +38,6 @@ class RuntimeState:
     self.chunks_dep_state = schema.get('chunks_dep_state')
     # 恢复运行状态
     self.running_status = schema.get('running_status')
-    # 恢复各 chunk 的运行状态
-    self.chunk_status = schema.get('chunk_status')
     # 恢复用户 store
     self.user_store = self.user_store.__class__(schema.get('user_store'))
     # 恢复系统 store
@@ -61,14 +57,6 @@ class RuntimeState:
   def get_branch_state(self, chunk) -> RuntimeBranchState:
     return self.branches_state.get(chunk['id'])
   
-  def update_chunk_status(self, chunk_id, status):
-    if status not in ['idle', 'success', 'running', 'error']:
-      return
-    self.chunk_status[chunk_id] = status
-  
-  def get_chunk_status(self, chunk_id):
-    return self.chunk_status.get(chunk_id)
-  
   def export(self):
     # 将分支状态实例导出状态原值
     branches_state_value = {}
@@ -81,7 +69,6 @@ class RuntimeState:
       'branches_state': branches_state_value,
       'chunks_dep_state': self.chunks_dep_state,
       'running_status': self.running_status,
-      'chunk_status': self.chunk_status,
       'user_store': self.user_store.get_all(),
       'sys_store': self.sys_store.get_all()
     }
