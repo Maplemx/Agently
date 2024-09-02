@@ -32,7 +32,6 @@ class RuntimeBranchState:
     return self.chunk_status.get(chunk_id)
   
   def export(self):
-    print(self.running_queue)
     # 将分支状态实例导出状态原值
     slow_task_value = []
     for slow_task in self.slow_tasks:

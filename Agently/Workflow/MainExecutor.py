@@ -130,15 +130,14 @@ class MainExecutor:
 
     async def _execute_partial(self, chunk, branch_state: RuntimeBranchState):
         """一组分组执行的核心方法"""
+        print(branch_state.get_chunk_status(
+            chunk['id']), len(branch_state.running_queue))
         # 对于非恢复模式，或者恢复模式未执行态，默认初始化队列
         if not self.runtime_state.restore_mode or branch_state.get_chunk_status(chunk['id']) == 'idle':
             branch_state.running_queue.append(chunk['id'])
 
         await self._execute_partial_core(branch_state=branch_state)
-        # 最后尝试执行缓执行任务（如循环，要在慢于常规任务的执行）
-        if len(branch_state.executing_ids) == 0:
-            await self._execute_slow_tasks(branch_state.slow_tasks)
-            branch_state.slow_tasks.clear()
+        
         
     async def _execute_partial_core(self, branch_state: RuntimeBranchState):
         while branch_state.running_queue and branch_state.running_status != 'pause':
@@ -163,6 +162,13 @@ class MainExecutor:
                     continue
 
                 branch_state.running_queue.append(next_info['id'])
+
+        # 最后尝试执行缓执行任务（如循环，要慢于常规任务的执行）
+        print('exec', len(branch_state.executing_ids))
+        # if len(branch_state.executing_ids) == 0:
+        if len(branch_state.slow_tasks):
+            await self._execute_slow_tasks(branch_state.slow_tasks)
+            branch_state.slow_tasks.clear()
 
     async def _execute_single_chunk(self, chunk, branch_state: RuntimeBranchState):
         """执行完一个 chunk 自身（包含所有可用的依赖数据的组合）"""
@@ -272,7 +278,7 @@ class MainExecutor:
         for slow_snapshot in slow_tasks:
             chunk = self.chunks_map.get(slow_snapshot.id)
             # 先清空下游所有节点数据
-            self._chunks_clean_walker(chunk)
+            # self._chunks_clean_walker(chunk)
             # 再启动执行
             await self._execute_partial(
                 chunk,
