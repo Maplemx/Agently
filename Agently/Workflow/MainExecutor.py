@@ -110,25 +110,16 @@ class MainExecutor:
                     return
                 elif rs == 'running':
                     await self._execute_partial(entry, branch_state)
-                    # 如果执行完成后，还有待执行任务，则需手动执行
-                    if len(branch_state.slow_tasks) > 0:
-                        await self._execute_slow_tasks(branch_state.slow_tasks)
                     branch_state.running_status = 'success'
                 else:
                     branch_state.running_status = 'running'
                     await self._execute_partial(entry, branch_state)
-                    # 如果执行完成后，还有待执行任务，则需手动执行
-                    if len(branch_state.slow_tasks) > 0:
-                        await self._execute_slow_tasks(branch_state.slow_tasks)
                     branch_state.running_status = 'success'
             # 正常模式
             else:
                 branch_state = self.runtime_state.create_branch_state(entry)
                 branch_state.running_status = 'running'
                 await self._execute_partial(entry, branch_state)
-                # 如果执行完成后，还有待执行任务，则需手动执行
-                if len(branch_state.slow_tasks) > 0:
-                    await self._execute_slow_tasks(branch_state.slow_tasks)
                 branch_state.running_status = 'success'
 
         # 2、收集执行任务
@@ -151,7 +142,7 @@ class MainExecutor:
         
     async def _execute_partial_core(self, branch_state: RuntimeBranchState):
         while branch_state.running_queue and branch_state.running_status != 'pause':
-            current_chunk_id = branch_state.running_queue.popleft()
+            current_chunk_id = branch_state.running_queue[0]
             chunk = self.chunks_map.get(current_chunk_id)
             if not chunk:
                 raise SystemError(f'Target chunk({current_chunk_id}) not found')
@@ -160,6 +151,7 @@ class MainExecutor:
                 chunk=chunk,
                 branch_state=branch_state
             )
+            branch_state.running_queue.popleft()
             # 如果根本未执行过（如无执行票据），直接返回
             if not has_been_executed:
                 continue
@@ -174,13 +166,6 @@ class MainExecutor:
 
     async def _execute_single_chunk(self, chunk, branch_state: RuntimeBranchState):
         """执行完一个 chunk 自身（包含所有可用的依赖数据的组合）"""
-
-        # 先判断是否是恢复模式下，且已执行完成，如果是，则直接跳过
-        if self.runtime_state.restore_mode and branch_state.get_chunk_status(chunk['id']) == 'success':
-            # 消费完成，清空执行状态，避免死循环
-            branch_state.update_chunk_status(chunk['id'], 'idle')
-            return True
-
         has_been_executed = False
         # 针对循环，不在本执行组内执行，存入缓执行组中，延后执行
         if (chunk.get('loop_entry') == True) and (chunk['id'] in branch_state.visited_record):
