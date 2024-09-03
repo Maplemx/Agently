@@ -1,6 +1,6 @@
 import threading
 from ..utils import DataGenerator, DataOps
-from .buildin import gradio_app, streamlit_app
+from .buildin import gradio_app, streamlit_app, shell_app
 
 class AppConnector(object):
     def __init__(
@@ -17,7 +17,8 @@ class AppConnector(object):
         self.buffer = ""
         self.app_dict = {
             "gradio": gradio_app,
-            "streamlit": streamlit_app,        
+            "streamlit": streamlit_app,
+            "shell": shell_app,  
         }
         self.runtime = DataOps()
         self.data_generator = DataGenerator()
@@ -83,6 +84,10 @@ class AppConnector(object):
 
     def on(self, event:str, handler:callable):
         self.data_generator.event.on(event, handler)
+        return self
+    
+    def reset_data_generator(self):
+        self.data_generator = DataGenerator()
         return self
 
     def run(self, app_name:str=None, **kwargs):
