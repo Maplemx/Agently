@@ -191,7 +191,7 @@ class Schema:
                     target_chunk, edge['target_handle'])
                 # 如果是非条件的情况，直接出报错，然后跳出查找
                 if not edge.get('condition') and not is_condition_connection:
-                    status_res['status'] = 'error'
+                    status_res['status'] = 'warning'
                     status_res['message'] = f'An identical connection relationship [ {source_view_name} → {target_view_name} ] already exists.'
                     break
                 # 自身为条件连接的情况，直接出 warning，然后跳出查找
