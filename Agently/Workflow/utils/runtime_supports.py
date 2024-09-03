@@ -1,5 +1,6 @@
 from ..lib.constants import DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE
 from .find import find_by_attr
+from ..Runtime.BranchState import RuntimeBranchState
 
 def get_default_input_val(inputs_with_handle_name: dict, default_val = None):
   if DEFAULT_INPUT_HANDLE_VALUE in inputs_with_handle_name:
@@ -19,3 +20,21 @@ def get_default_handle(handles, handle_type = 'inputs'):
   elif len(handle_list) > 0:
     return handle_list[0]
   return None
+
+
+def get_next_chunk_from_branch_queue(branch_state: RuntimeBranchState):
+    """获取队列里下一个该执行的chunk"""
+    if len(branch_state.running_queue):
+      return branch_state.running_queue[0]
+    if len(branch_state.slow_queue):
+      return branch_state.slow_queue[0]
+    return None
+
+
+def popleft_next_chunk_from_branch_queue(branch_state: RuntimeBranchState):
+    """从队列里弹出下一个该执行的chunk"""
+    if len(branch_state.running_queue):
+      return branch_state.running_queue.popleft()
+    if len(branch_state.slow_queue):
+      return branch_state.slow_queue.popleft()
+    return None
