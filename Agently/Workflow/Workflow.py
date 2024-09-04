@@ -25,8 +25,10 @@ class Workflow:
         self.checkpoint: Checkpoint = checkpoint
         # 判断是否存在可用的 checkpoint 记录
         if self.checkpoint:
-            # 尝试恢复到上一个状态
-            run_async(self.checkpoint.rollback(silence=True))
+            # 如果没有激活的快照数据，尝试使用默认的
+            if not self.checkpoint.active_snapshot:
+                print(11)
+                run_async(self.checkpoint.rollback_async(silence=True))
             # 再获取是否有快照
             current_snapshot = self.checkpoint.get_active_snapshot()
             # 如果存在，则先尝试恢复 workflow id
@@ -179,7 +181,11 @@ class Workflow:
             return draw_image_in_jupyter(self.schema.compile())
         return draw_with_mermaid(self.schema.compile())
     
-    async def save_checkpoint(self, name: str):
+    def save_checkpoint(self, name: str):
+        """手动保存 checkpoint 点"""
+        return run_async(self.save_checkpoint_async(name=name))
+
+    async def save_checkpoint_async(self, name: str):
         """手动保存 checkpoint 点"""
         if not self.checkpoint:
             raise ValueError('Checkpoint has not been set yet.')
@@ -188,5 +194,6 @@ class Workflow:
             raise ValueError(
                 'The "default" is a reserved word and is not allowed as a manually set checkpoint name.')
 
-        await self.checkpoint.save(state=self.executor.runtime_state, name=name)
+        await self.checkpoint.save_async(state=self.executor.runtime_state, name=name)
+        self.logger.info(f"Checkpoint \"{name}\" has been saved.")
         return self.checkpoint

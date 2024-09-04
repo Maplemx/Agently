@@ -52,9 +52,11 @@ class MainExecutor:
         # 尝试灌入初始数据
         self.runtime_state.sys_store.set(WORKFLOW_START_DATA_HANDLE_NAME, start_data)
         self.chunks_map = executed_schema.get('chunk_map') or {}
+        # 启动
         self.runtime_state.running_status = 'start'
         await self._execute_main(executed_schema.get('entries') or [])
         self.runtime_state.running_status = 'end'
+        # 尝试返回执行结果
         return self.runtime_state.sys_store.get(WORKFLOW_END_DATA_HANDLE_NAME) or None
     
     async def start_from_snapshot(self, executed_schema: dict, snapshot: 'Snapshot'):
@@ -153,6 +155,10 @@ class MainExecutor:
             )
             # 从队列中弹出本次执行的逻辑
             popleft_next_chunk_from_branch_queue(branch_state)
+            # 尝试自动保存 checkpoint
+            if self.checkpoint and self.settings.get('auto_save_checkpoint') != False:
+                await self.checkpoint.save_async(self.runtime_state)
+
             # 如果根本未执行过（如无执行票据），直接返回
             if not has_been_executed:
                 continue
@@ -308,8 +314,8 @@ class MainExecutor:
         except Exception as e:
             self.logger.error(f"Node Execution Exception-'{self._get_chunk_title(chunk)}'({chunk['id']}):\n {e}")
             # 处理 checkpoint 自动保存到默认的 checkpoint 点
-            if self.settings.get('save_checkpoint_on_error') != False and self.checkpoint:
-                await self.checkpoint.save(self.runtime_state)
+            if self.checkpoint and self.settings.get('save_checkpoint_on_error') != False:
+                await self.checkpoint.save_async(self.runtime_state)
                 self.logger.info("Checkpoint has been automatically saved.")
             # 主动中断执行
             raise Exception(e)

@@ -10,16 +10,16 @@ class CheckpointRepository:
       settings=global_settings
     )
 
-  async def save(self, workflow_id, name: str, data: any):
-    self.storage.set(table_name=workflow_id, key=name, value=data)
+  async def save(self, checkpoint_id, name: str, data: any):
+    self.storage.set(table_name=checkpoint_id, key=name, value=data)
     return self
 
-  async def remove(self, workflow_id, name: str):
-    self.storage.remove(table_name=workflow_id, key=name)
+  async def remove(self, checkpoint_id, name: str):
+    self.storage.remove(table_name=checkpoint_id, key=name)
     return self
 
-  async def get(self, workflow_id, name: str):
-    return self.storage.get(workflow_id, key=name)
+  async def get(self, checkpoint_id, name: str):
+    return self.storage.get(checkpoint_id, key=name)
 
-  async def get_all(self, workflow_id, names: List[str] = None):
-    return self.storage.get_all(workflow_id, keys=names)
+  async def get_all(self, checkpoint_id, names: List[str] = None):
+    return self.storage.get_all(checkpoint_id, keys=names)

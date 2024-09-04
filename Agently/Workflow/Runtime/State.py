@@ -4,12 +4,16 @@ from .BranchState import RuntimeBranchState
 if TYPE_CHECKING:
     from .Snapshot import Snapshot
 
+CURRENT_STATE_VERSION = 1
+
 class RuntimeState:
   """Runtime 的某个时刻的执行快照，通过叠加 action，可生成新的 snapshot"""
 
   def __init__(self, **args) -> None:
+    if args.get('v') and args.get('v') != CURRENT_STATE_VERSION:
+      raise ValueError(f'The state data of version {args.get("v")} cannot be used on the checkpoint management logic of version {CURRENT_STATE_VERSION}.')
     # schema 版本
-    self.v = 1
+    self.v = CURRENT_STATE_VERSION
     self.workflow_id = args.get('workflow_id')
     # 分支决策逻辑
     self.branches_state: Dict[str, RuntimeBranchState] = args.get(
@@ -26,6 +30,10 @@ class RuntimeState:
   def restore_from_snapshot(self, snapshot: 'Snapshot') -> 'RuntimeState':
     """从指定表述结构中恢复"""
     schema = snapshot.export().get('state')
+    # 版本校验
+    if schema.get('v') and schema.get('v') != CURRENT_STATE_VERSION:
+      raise ValueError(
+          f'The state data of version {schema.get("v")} cannot be used on the checkpoint management logic of version {CURRENT_STATE_VERSION}.')
     self.workflow_id = schema.get('workflow_id')
 
     # 恢复挂载实例化的 branch_state

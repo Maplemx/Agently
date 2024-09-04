@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 from .Repository import CheckpointRepository
 from .Snapshot import Snapshot
 from ..lib.constants import DEFAULT_CHECKPOINT_NAME
+from ..utils.runner import run_async
 
 if TYPE_CHECKING:
     from .State import RuntimeState
@@ -9,19 +10,28 @@ if TYPE_CHECKING:
 class Checkpoint:
   """ Checkpoint 管理逻辑，包含快照数据存储、回溯、恢复等 """
 
-  def __init__(self, workflow_id, repository=CheckpointRepository()) -> None:
-    self.workflow_id = workflow_id
+  def __init__(self, checkpoint_id, repository=CheckpointRepository()) -> None:
+    self.checkpoint_id = checkpoint_id
     self.repository: CheckpointRepository = repository
     self.active_snapshot: Snapshot = None
 
-  async def save(self, state: 'RuntimeState', name=DEFAULT_CHECKPOINT_NAME, time=None):
+  async def save(self, state: 'RuntimeState', name=DEFAULT_CHECKPOINT_NAME, time=None, **args):
+    """将某个状态存储到快照记录中"""
+    run_async(self.save_async(state=state, name=name, time=time,  **args))
+
+  async def save_async(self, state: 'RuntimeState', name=DEFAULT_CHECKPOINT_NAME, time=None):
     """将某个状态存储到快照记录中"""
     snapshot = Snapshot(name=name, state=state, time=time)
-    await self.repository.save(workflow_id=self.workflow_id, name=name, data=snapshot.export())
+    await self.repository.save(checkpoint_id=self.checkpoint_id, name=name, data=snapshot.export())
     return self
 
-  async def rollback(self, name=DEFAULT_CHECKPOINT_NAME, silence=False):
-    snapshot_raw_data = await self.repository.get(self.workflow_id, name)
+  def rollback(self, name=DEFAULT_CHECKPOINT_NAME, silence=False, **args):
+    """ 回滚到指定checkpoint """
+    run_async(self.rollback_async(name=name, silence=silence, **args))
+
+  async def rollback_async(self, name=DEFAULT_CHECKPOINT_NAME, silence=False):
+    """ 回滚到指定checkpoint """
+    snapshot_raw_data = await self.repository.get(self.checkpoint_id, name)
     if not snapshot_raw_data:
       # 静默态，无需抛错
       if silence:
