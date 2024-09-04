@@ -1,3 +1,5 @@
+# Shell Interaction Optimization
+pyreadline3
 # Async Ensurence
 # nest_asyncio
 # Network

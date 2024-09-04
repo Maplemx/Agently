@@ -1,5 +1,8 @@
 #import nest_asyncio
-import readline
+try:
+    import readline
+except ImportError:
+    import pyreadline as readline
 from .Request import Request
 from .Agent import AgentFactory
 from .Facility import FacilityManager
