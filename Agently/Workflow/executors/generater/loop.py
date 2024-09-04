@@ -50,12 +50,12 @@ def use_loop_executor(sub_workflow):
                 i += 1
             return final_result
 
-    async def loop_unit_core(unit_val, store):
+    async def loop_unit_core(unit_val, store={}):
         if inspect.iscoroutinefunction(sub_workflow):
             return await sub_workflow(unit_val, store)
         elif inspect.isfunction(sub_workflow):
             return sub_workflow(unit_val, store)
         else:
-            return await sub_workflow.start_async(unit_val)
+            return await sub_workflow.start_async(unit_val, storage=store.get_all() if store else {})
     
     return loop_executor

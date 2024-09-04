@@ -37,8 +37,10 @@ def gradio_app(app_connector, **kwargs):
                         time.sleep(0.01)
                     if item:
                         yield item
+                app_connector.reset_data_generator()
                 return
             except StopIteration:
+                app_connector.reset_data_generator()
                 return
         else:
             return "No Message Handler, use `.set_message_handler()` to set one."

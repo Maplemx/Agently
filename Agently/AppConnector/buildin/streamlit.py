@@ -53,3 +53,4 @@ def streamlit_app(app_connector, **kwargs):
                 response_generator = get_chat_response()
                 response = st.write_stream(response_generator)
                 st.session_state.chat_history.append({ "role": "assistant", "content": response })
+                app_connector.reset_data_generator()
