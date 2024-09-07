@@ -3,7 +3,7 @@ from typing import List
 from ..utils.chunk_helper import deep_copy_simply
 
 class RuntimeBranchState:
-  """Runtime 的某个时刻的执行快照，通过叠加 action，可生成新的 snapshot"""
+  """某个分支的运行时状态"""
   def __init__(self, **args) -> None:
     self.id = args.get('id')
     # 恢复各 chunk 的运行状态

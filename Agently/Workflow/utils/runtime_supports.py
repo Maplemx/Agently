@@ -29,12 +29,3 @@ def get_next_chunk_from_branch_queue(branch_state: RuntimeBranchState):
     if len(branch_state.slow_queue):
       return branch_state.slow_queue[0]
     return None
-
-
-def popleft_next_chunk_from_branch_queue(branch_state: RuntimeBranchState):
-    """从队列里弹出下一个该执行的chunk"""
-    if len(branch_state.running_queue):
-      return branch_state.running_queue.popleft()
-    if len(branch_state.slow_queue):
-      return branch_state.slow_queue.popleft()
-    return None

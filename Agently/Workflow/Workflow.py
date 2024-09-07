@@ -27,7 +27,6 @@ class Workflow:
         if self.checkpoint:
             # 如果没有激活的快照数据，尝试使用默认的
             if not self.checkpoint.active_snapshot:
-                print(11)
                 run_async(self.checkpoint.rollback_async(silence=True))
             # 再获取是否有快照
             current_snapshot = self.checkpoint.get_active_snapshot()

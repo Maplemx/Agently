@@ -15,14 +15,22 @@ class Checkpoint:
     self.repository: CheckpointRepository = repository
     self.active_snapshot: Snapshot = None
 
-  async def save(self, state: 'RuntimeState', name=DEFAULT_CHECKPOINT_NAME, time=None, **args):
+  def save(self, state: 'RuntimeState', name=DEFAULT_CHECKPOINT_NAME, time=None, **args):
     """将某个状态存储到快照记录中"""
-    run_async(self.save_async(state=state, name=name, time=time,  **args))
+    return run_async(self.save_async(state=state, name=name, time=time,  **args))
 
   async def save_async(self, state: 'RuntimeState', name=DEFAULT_CHECKPOINT_NAME, time=None):
     """将某个状态存储到快照记录中"""
     snapshot = Snapshot(name=name, state=state, time=time)
     await self.repository.save(checkpoint_id=self.checkpoint_id, name=name, data=snapshot.export())
+    return self
+  
+  def remove(self, name=DEFAULT_CHECKPOINT_NAME):
+    return run_async(self.remove_async(name=name))
+
+  async def remove_async(self, name=DEFAULT_CHECKPOINT_NAME):
+    """删除指定的快照存储"""
+    await self.repository.remove(checkpoint_id=self.checkpoint_id, name=name)
     return self
 
   def rollback(self, name=DEFAULT_CHECKPOINT_NAME, silence=False, **args):

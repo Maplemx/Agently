@@ -5,7 +5,7 @@ from .Runtime import RuntimeBranchState, RuntimeState, Snapshot, Checkpoint
 from ..utils import RuntimeCtx
 from .utils.exec_tree import disable_chunk_dep_ticket, create_new_chunk_slot_with_val
 from .utils.find import find_by_attr
-from .utils.runtime_supports import get_next_chunk_from_branch_queue, popleft_next_chunk_from_branch_queue
+from .utils.runtime_supports import get_next_chunk_from_branch_queue
 from .lib.BreakingHub import BreakingHub
 from .lib.Store import Store
 from .lib.constants import WORKFLOW_START_DATA_HANDLE_NAME, WORKFLOW_END_DATA_HANDLE_NAME, DEFAULT_INPUT_HANDLE_VALUE, DEFAULT_OUTPUT_HANDLE_VALUE, BUILT_IN_EXECUTOR_TYPES, EXECUTOR_TYPE_CONDITION
@@ -153,8 +153,13 @@ class MainExecutor:
                 branch_state=branch_state,
                 force_exec_loop=is_slow_task
             )
-            # 从队列中弹出本次执行的逻辑
-            popleft_next_chunk_from_branch_queue(branch_state)
+            # 清理，从队列中弹出本次执行的逻辑
+            if is_slow_task:
+                if len(branch_state.slow_queue):
+                    branch_state.slow_queue.popleft()
+            else:
+                if len(branch_state.running_queue):
+                    branch_state.running_queue.popleft()
             # 尝试自动保存 checkpoint
             if self.checkpoint and self.settings.get('auto_save_checkpoint') != False:
                 await self.checkpoint.save_async(self.runtime_state)

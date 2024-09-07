@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 CURRENT_STATE_VERSION = 1
 
 class RuntimeState:
-  """Runtime 的某个时刻的执行快照，通过叠加 action，可生成新的 snapshot"""
+  """整个 workflow 的运行时状态"""
 
   def __init__(self, **args) -> None:
     if args.get('v') and args.get('v') != CURRENT_STATE_VERSION:
