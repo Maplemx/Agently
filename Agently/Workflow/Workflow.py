@@ -7,7 +7,7 @@ from .Chunk import SchemaChunk
 from .Runtime import Checkpoint
 from .executors.builtin.install import mount_built_in_executors
 from .lib.ChunkExecutorManager import ChunkExecutorManager
-from .lib.constants import EXECUTOR_TYPE_NORMAL
+from .lib.constants import EXECUTOR_TYPE_NORMAL, DEFAULT_CHECKPOINT_NAME
 from .lib.painter import draw_with_mermaid, draw_image_in_jupyter
 from .lib.Store import Store
 from .yamlflow.yamlflow import start_yaml_from_str, start_yaml_from_path
@@ -189,9 +189,9 @@ class Workflow:
         if not self.checkpoint:
             raise ValueError('Checkpoint has not been set yet.')
 
-        if name == 'default':
+        if name == DEFAULT_CHECKPOINT_NAME:
             raise ValueError(
-                'The "default" is a reserved word and is not allowed as a manually set checkpoint name.')
+                f'The "{DEFAULT_CHECKPOINT_NAME}" is a reserved word and is not allowed as a manually set checkpoint name.')
 
         await self.checkpoint.save_async(state=self.executor.runtime_state, name=name)
         self.logger.info(f"Checkpoint \"{name}\" has been saved.")

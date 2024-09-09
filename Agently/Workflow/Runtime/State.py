@@ -20,6 +20,8 @@ class RuntimeState:
         'branches_state', {})
     # 各 chunk 依赖数据
     self.chunks_dep_state = args.get('chunks_dep_state', {})
+    # 各 chunk 附加数据（如 Loop chunk 的 State 数据）
+    self.chunks_extra_data = args.get('chunks_extra_data', {})
     # 总运行状态
     self.running_status = args.get('running_status', 'idle')
     # 运行数据
