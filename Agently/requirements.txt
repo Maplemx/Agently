@@ -10,7 +10,7 @@ tornado
 # Model Client
 openai
 erniebot
-zhipuai
+zhipuai==1.0.7
 tencentcloud-sdk-python
 qianfan
 # Format
