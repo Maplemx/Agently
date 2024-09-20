@@ -58,7 +58,7 @@ class AppConnector(object):
             def delta_handler(data):
                 self.emit_delta(data)
             @self.binded_agent.on_event("done")
-            def delta_handler(data):
+            def done_handler(data):
                 self.emit_done(data)
         return self
     
