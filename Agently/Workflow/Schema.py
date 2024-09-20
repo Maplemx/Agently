@@ -20,6 +20,8 @@ class Schema:
                 .connect_with_edges(schema_data.get('edges', []))
         )
         self.workflow = workflow
+        # 辅助 id 命名
+        self.chunk_id_cursor = 0
     
     def compile(self):
         """编译处理，得到可用数据"""
@@ -65,6 +67,8 @@ class Schema:
     
     def create_chunk(self, type = EXECUTOR_TYPE_NORMAL, executor: callable = None, **chunk_desc) -> SchemaChunk:
         """根据 chunk 的描述，创建 chunk 实例"""
+        chunk_id = chunk_desc.get('id', f'{self.workflow.workflow_id}::chunk::{self.chunk_id_cursor}')
+        chunk_desc['id'] = chunk_id
         chunk_inst = SchemaChunk(
             workflow_schema=self,
             type=type,
@@ -101,6 +105,7 @@ class Schema:
             raise ValueError(
                 f"The Chunk with the existing id '{chunk_copy['id']}' already exists.")
         self._chunks.append(chunk)
+        self.chunk_id_cursor = self.chunk_id_cursor + 1
         return self
     
     def append_raw_chunk_list(self, chunks: list):

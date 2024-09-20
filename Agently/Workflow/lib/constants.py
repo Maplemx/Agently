@@ -30,3 +30,6 @@ DEFAULT_INPUT_HANDLE = {'handle': DEFAULT_INPUT_HANDLE_VALUE}
 # 默认的输出 handle，表示数据输出的总出口（会输出所有数据）
 DEFAULT_OUTPUT_HANDLE_VALUE = '*'
 DEFAULT_OUTPUT_HANDLE = {'handle': DEFAULT_OUTPUT_HANDLE_VALUE}
+
+# 默认存储的 checkpoint 名
+DEFAULT_CHECKPOINT_NAME = 'default'
