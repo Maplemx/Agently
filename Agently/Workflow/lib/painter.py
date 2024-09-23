@@ -12,7 +12,13 @@ def draw_with_mermaid(schema_compiled_data):
     def fix_display_text(label: str):
         if not label:
             return label
-        escaped_string = label.replace('"', '&quot;')
+        replaced_dict = {
+            '*': '#42;',
+            '"': '&quot;'
+        }
+        escaped_string = label
+        for char, entity in replaced_dict.items():
+            escaped_string = escaped_string.replace(char, entity)
         return f'"{escaped_string}"'
 
     def to_node_symbol(chunk, title=None):
