@@ -12,7 +12,7 @@
 >
 > 💡 Ideas / Bug Report: [Report Issues Here](https://github.com/Maplemx/Agently/issues)
 >
-> 📧 Email Us: [developer@agently.cn](mailto:developer@agently.cn)
+> 📧 Email Us: [developer@agently.cn](mailto:developer@agently.tech)
 >
 > 👾 Discord Group:
 >
