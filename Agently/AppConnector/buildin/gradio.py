@@ -13,7 +13,7 @@ def gradio_app(app_connector, **kwargs):
         import gradio as gr
     except:
         raise Exception("[Application Connector] Package 'gradio' require to be installed. Use 'pip install gradio' to install.")
-    def app_executor(message, history):
+    def app_executor(message, history, *args):
         if app_connector.message_handler:
             # Refresh binded agent event
             app_connector.refresh_binded_agent()
@@ -29,7 +29,7 @@ def gradio_app(app_connector, **kwargs):
             app_connector.on("buffer", lambda data: { "yield": data })
             app_connector.on("done", lambda data: { "yield": data, "end": True })
             # Run message handler
-            app_connector.run_message_handler(message, chat_history)
+            app_connector.run_message_handler(message, chat_history, *args)
             # Get response from data generator
             try:
                 for item in app_connector.data_generator.start():

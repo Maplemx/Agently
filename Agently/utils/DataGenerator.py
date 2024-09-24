@@ -1,3 +1,4 @@
+import threading
 import queue
 
 class DataGeneratorTimeoutException(Exception):
@@ -33,11 +34,21 @@ class DataGeneratorEvent:
 
 class DataGenerator:
     def __init__(self, *, timeout:int=None, allow_timeout:bool=False):
+        self.thread = None
         self.queue = queue.Queue()
         self.timeout = timeout
         self.allow_timeout = allow_timeout
         self.event = DataGeneratorEvent(self)
     
+    def future(self, todo_func: callable):
+        self.thread = threading.Thread(target=todo_func, args=[self.start])
+        self.thread.start()
+        return self
+    
+    def join(self):
+        self.thread.join()
+        return self
+
     def start(self):
         end_flag = False
         while True:
