@@ -167,7 +167,7 @@ while not is_finish:
     show_thinking = None
     while str(show_thinking).lower() not in ("y", "n"):
         show_thinking = input("Do you want to observe the thinking process? [Y/N]: ")
-    show_thinking = False if show_thinking.lower == "n" else True
+    show_thinking = False if show_thinking.lower() == "n" else True
     print("[Generating...]")
     result = agent\
         .input({
