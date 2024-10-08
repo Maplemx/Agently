@@ -124,8 +124,17 @@ def find_all_jsons(origin: str):
     return json_blocks
 
 def find_json(origin: str):
-    result = find_all_jsons(origin)
-    if len(result) > 0:
-        return result[0]
-    else:
+    try:
+        results = find_all_jsons(origin)
+        if len(results) > 0:
+            if len(results) == 1:
+                return results[0]
+            else:
+                for result in results:
+                    if len(result) > 2:
+                        return result
+                return results[0]
+        else:
+            return None
+    except:
         return None
