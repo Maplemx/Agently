@@ -15,6 +15,7 @@ class Realtime(ComponentABC):
         self._streamed_keys = []
         self._ongoing_key = None
         self._ongoing_value = None
+        self._last_value = None
     
     def use_realtime(self):
         self._is_enable = True
@@ -39,6 +40,21 @@ class Realtime(ComponentABC):
             else:
                 if self._ongoing_key == (prefix + key):
                     self._ongoing_value = value
+                    if self._last_value and isinstance(self._ongoing_value, str):
+                        delta = self._ongoing_value.replace(self._last_value, "")
+                    else:
+                        delta = value
+                    if delta != "":
+                        await self.agent.call_event_listeners(
+                            "response:realtime",
+                            {
+                                "key": self._ongoing_key,
+                                "value": self._ongoing_value,
+                                "delta": delta,
+                                "complete_value": realtime_value,
+                            },
+                        )
+                        self._last_value = value
                 if self._ongoing_key != prefix + key:
                     if (prefix + key) not in self._streamed_keys and value not in (None, ""):
                         if self._ongoing_key != None:
@@ -47,6 +63,21 @@ class Realtime(ComponentABC):
                         await self.agent.call_event_listeners(f"key_start:{ self._ongoing_key }", None)
                         self._streamed_keys.append(prefix + key)
                         self._ongoing_value = value
+                        if self._last_value and isinstance(self._ongoing_value, str):
+                            delta = self._ongoing_value.replace(self._last_value, "")
+                        else:
+                            delta = value
+                        if delta != "":
+                            await self.agent.call_event_listeners(
+                                "response:realtime",
+                                {
+                                    "key": self._ongoing_key,
+                                    "value": self._ongoing_value,
+                                    "delta": delta,
+                                    "complete_value": realtime_value,
+                                },
+                            )
+                            self._last_value = value
                     if (prefix + key) in self._streamed_keys or value in (None, ""):
                         continue
     
@@ -67,26 +98,24 @@ class Realtime(ComponentABC):
                     lexer.append_string(realtime_json_str)
                     realtime_value = json5.loads(lexer.complete_json())
                     if self._output_data_frame == None:
-                        await self.agent.call_event_listeners(
-                            "response:realtime",
-                            {
-                                "key": None,
-                                "value": realtime_value,
-                                "complete_value": realtime_value,
-                            },
-                        )
+                        if self._last_value and isinstance(realtime_value, str):
+                            delta = realtime_value.replace(self._last_value, "")
+                        else:
+                            delta = realtime_value
+                        if delta != "":
+                            await self.agent.call_event_listeners(
+                                "response:realtime",
+                                {
+                                    "key": None,
+                                    "value": realtime_value,
+                                    "delta": delta,
+                                    "complete_value": realtime_value,
+                                },
+                            )
+                            self._last_value = realtime_value
                     else:
                         if isinstance(realtime_value, dict):
                             await self.__scan_realtime_value(realtime_value, "", self._output_data_frame)
-                            if self._ongoing_key != None:
-                                await self.agent.call_event_listeners(
-                                    "response:realtime",
-                                    {
-                                        "key": self._ongoing_key,
-                                        "value": self._ongoing_value,
-                                        "complete_value": realtime_value,
-                                    },
-                                )
     
     def export(self):
         return {
