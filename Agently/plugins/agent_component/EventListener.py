@@ -34,6 +34,10 @@ class EventListener(ComponentABC):
     def on_finally(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
         self.add("response:finally", listener, is_await=is_await, is_agent_event=is_agent_event)
         return self.agent
+
+    def on_realtime(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
+        self.add("response:realtime", listener, is_await=is_await, is_agent_event=is_agent_event)
+        return self.agent
     
     async def call_event_listeners(self, event: str, data: any):
         listeners = self.listeners.get_trace_back() or {}
@@ -65,6 +69,7 @@ class EventListener(ComponentABC):
                 "on_delta": { "func": self.on_delta },
                 "on_done": { "func": self.on_done },
                 "on_finally": { "func": self.on_finally },
+                "on_realtime": { "func": self.on_realtime },
                 "call_event_listeners": { "func": self.call_event_listeners },
             },
         }
