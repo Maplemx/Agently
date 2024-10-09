@@ -1,4 +1,4 @@
-from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc
+from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, format_request_messages
 from Agently.utils import RuntimeCtxNamespace
 import erniebot
 
@@ -11,6 +11,12 @@ class Ernie(RequestABC):
             self.request_type = "chat"
         self.model_name = "ERNIE"
         self.model_settings = RuntimeCtxNamespace(f"model.{self.model_name}", self.request.settings)
+        if not self.model_settings.get_trace_back("message_rules.no_multi_system_messages"):
+            self.model_settings.set("message_rules.no_multi_system_messages", True)
+        if not self.model_settings.get_trace_back("message_rules.strict_orders"):
+            self.model_settings.set("message_rules.strict_orders", True)
+        if not self.model_settings.get_trace_back("message_rules.no_multi_type_messages"):
+            self.model_settings.set("message_rules.no_multi_type_messages", True)    
 
     def _create_client(self):
         if self.request_type == "chat":
@@ -101,19 +107,21 @@ class Ernie(RequestABC):
             erniebot.access_token = access_token[api_type]
             messages = self.construct_request_messages()
             request_messages = []
-            system_prompt = ""
+            #system_prompt = ""
             for message in messages:
                 if message["role"] == "system":
-                    system_prompt += f"{ message['content'] }\n"
+                    #system_prompt += f"{ message['content'] }\n"
+                    message["role"] = "user"
+                    request_messages.append(message)
                 else:
                     request_messages.append(message)
             request_data = {
-                "messages": request_messages,
+                "messages": format_request_messages(request_messages, self.model_settings),
                 "stream": True,
                 **options,
             }
-            if system_prompt != "" and self.request.settings.get_trace_back("retry_count", 0) > 0:
-                request_data.update({ "system": system_prompt })
+            #if system_prompt != "" and self.request.settings.get_trace_back("retry_count", 0) > 0:
+            #    request_data.update({ "system": system_prompt })
         # request type: embedding
         elif self.request_type == "embedding":
             if "model" not in options:

@@ -170,19 +170,21 @@ class Qianfan(RequestABC):
                 options["model"] = "ERNIE-Speed-8K"
             messages = format_request_messages(self.construct_request_messages(), self.model_settings)
             request_messages = []
-            system_prompt = ""
+            #system_prompt = ""
             for message in messages:
                 if message["role"] == "system":
-                    system_prompt += f"{ message['content'] }\n"
+                    message["role"] = "user"
+                    request_messages.append(message)
+                    #system_prompt += f"{ message['content'] }\n"
                 else:
                     request_messages.append(message)
             request_data = {
-                "messages": request_messages,
+                "messages": format_request_messages(request_messages, self.model_settings),
                 "stream": True,
                 **options,
             }
-            if system_prompt != "" and self.request.settings.get_trace_back("retry_count", 0) > 0:
-                request_data.update({ "system": system_prompt })
+            #if system_prompt != "" and self.request.settings.get_trace_back("retry_count", 0) > 0:
+            #    request_data.update({ "system": system_prompt })
         elif self.request_type in ["completion", "completions"]:
             if "model" not in options:
                 options["model"] = "Yi-34B-Chat"
