@@ -62,7 +62,7 @@ class NamespaceOps(object):
             self.data_ops.update(f"{ self.namespace_name }.{ keys_with_dots }", value)
         return self.return_to
         
-    def get(self, keys_with_dots: (str, None) = None, default = None, *, no_copy: bool = False):
+    def get(self, keys_with_dots: str = None, default = None, *, no_copy: bool = False):
         return self.data_ops.get(f"{ self.namespace_name }.{ keys_with_dots }" if keys_with_dots else self.namespace_name, default, no_copy = no_copy)
 
     def remove(self, keys_with_dots: str):
@@ -180,7 +180,7 @@ class DataOps(object):
         else:
             return copy.deepcopy(data)
 
-    def get(self, keys_with_dots: (str, None) = None, default: str=None, *, no_copy: bool = False):
+    def get(self, keys_with_dots: str = None, default: str=None, *, no_copy: bool = False):
         if keys_with_dots:
             keys = keys_with_dots.split('.')
             pointer = self.target_data
