@@ -120,7 +120,7 @@ Here down below are two CLI application demos that in two totally different doma
 
 ### DEMO 1: SQL Generator
 
-**DEMO VEDIO**
+**DEMO VIDEO**
 
 https://github.com/Maplemx/Agently/assets/4413155/b7d16592-5fdc-43c0-a14c-f2272c7900da
 
