@@ -13,7 +13,10 @@ class EventListener(ComponentABC):
 
     def add(self, event:str, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
         event = event.replace(".", "->")
+        if event == "realtime":
+            self.agent.settings.set("use_realtime", True)
         if event.startswith("realtime:"):
+            self.agent.settings.set("use_realtime", True)
             event_data = event.replace(" ", "").split(":")
             hooks = event_data[1].replace("->", ".").split("&")
             hook_list = []
@@ -55,8 +58,8 @@ class EventListener(ComponentABC):
                                     await listener(data)
                                 else:
                                     listener(data)
-                if event not in (self.listeners.get(trace_back=False) or {}):
-                    self.listeners.update(event, [])
+                if "realtime" not in (self.listeners.get(trace_back=False) or {}):
+                    self.listeners.update("realtime", [])
                 self.listeners.append("realtime", { "listener": realtime_hook_handler, "is_await": is_await })
         else:
             if is_agent_event:
@@ -83,6 +86,7 @@ class EventListener(ComponentABC):
         return self.agent
 
     def on_realtime(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
+        self.agent.settings.set("use_realtime", True)
         self.add("realtime", listener, is_await=is_await, is_agent_event=is_agent_event)
         return self.agent
     
