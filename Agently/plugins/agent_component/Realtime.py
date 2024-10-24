@@ -6,7 +6,7 @@ from Agently.utils import find_json
 class Realtime(ComponentABC):
     def __init__(self, agent: object):
         self.agent = agent
-        self.__is_enable = False
+        self.__get_enable = self.agent.settings.get_trace_back("use_realtime")
         self.__is_init = False
         self.__on_going_key_id = None
         self.__cached_value = {}
@@ -16,7 +16,7 @@ class Realtime(ComponentABC):
         self.__realtime_value = None
     
     def use_realtime(self):
-        self.__is_enable = True
+        self.agent.settings.set("use_realtime", True)
         return self.agent
     
     def __scan_possible_keys(self, prompt_output_pointer, *, prefix:str=None):
@@ -32,16 +32,16 @@ class Realtime(ComponentABC):
             return
     
     async def __emit_realtime(self, key, indexes, delta, value):
-        await self.agent.call_event_listeners(
-            "realtime",
-            {
-                "key": key[1:],
-                "indexes": indexes,
-                "delta": delta,
-                "value": value,
-                "complete_value": self.__realtime_value, 
-            }
-        )
+        event = "realtime"
+        data = {
+            "key": key[1:],
+            "indexes": indexes,
+            "delta": delta,
+            "value": value,
+            "complete_value": self.__realtime_value, 
+        }
+        self.agent.put_data_to_generator(event, data)
+        await self.agent.call_event_listeners(event, data)
 
     async def __scan_realtime_value(self, key: str, indexes:list, value:any):
         indexes = indexes[:]
@@ -115,7 +115,7 @@ class Realtime(ComponentABC):
 
     async def _suffix(self, event: str, data: any):
         if (
-            not self.__is_enable
+            not self.agent.settings.get("use_realtime")
             or "type" not in self.agent.request.response_cache
             or self.agent.request.response_cache["type"] != "JSON"
         ):
