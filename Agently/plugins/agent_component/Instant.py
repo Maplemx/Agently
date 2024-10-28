@@ -19,12 +19,6 @@ class Instant(ComponentABC):
         self.agent.settings.set("use_instant", True)
         return self.agent
     
-    def use_instant(self):
-        return self.use_instant()
-    
-    def use_instant(self):
-        return self.use_instant()
-    
     def __scan_possible_keys(self, prompt_output_pointer, *, prefix:str=None):
         prefix = prefix if prefix != None else ""
         self.__possible_keys.add(prefix)
@@ -70,7 +64,7 @@ class Instant(ComponentABC):
                 cached_value = cached_value if cached_value != None else ""
                 delta = value.replace(cached_value, "")
                 if len(delta) > 0:
-                    await self.__emit_instant(key, indexes, delta, value)
+                    await self.__emit_instant(key + ".$delta", indexes, delta, value)
                     self.__cached_value[key_id] = value
                     self.__on_going_key_id = key_id
             else:
@@ -106,10 +100,6 @@ class Instant(ComponentABC):
                     key_ids_to_del.append(key_id)
                 elif isinstance(value, list):
                     await self.__emit_instant(key_id[0], indexes, value, value)
-                    self.__emitted.add(key_id)
-                    key_ids_to_del.append(key_id)
-                elif isinstance(value, str):
-                    await self.__emit_instant(key_id[0] + ".$complete", indexes, value, value)
                     self.__emitted.add(key_id)
                     key_ids_to_del.append(key_id)
                 else:
@@ -165,7 +155,7 @@ class Instant(ComponentABC):
             "suffix": self._suffix,
             "alias": {
                 "use_instant": { "func": self.use_instant },
-                "use_instant": { "func": self.use_instant },
+                "use_realtime": { "func": self.use_instant },
             },
         }
 
