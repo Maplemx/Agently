@@ -13,7 +13,6 @@ class ResponseGenerator(ComponentABC):
 
     def get_complete_generator(self):
         thread = threading.Thread(target=self.agent.start)
-        thread.daemon = True
         thread.start()
         while True:
             try:
@@ -25,17 +24,16 @@ class ResponseGenerator(ComponentABC):
                 continue
         thread.join()
     
-    def get_realtime_generator(self):
-        self.agent.settings.set("use_realtime", True)
+    def get_instant_generator(self):
+        self.agent.settings.set("use_instant", True)
         thread = threading.Thread(target=self.agent.start)
-        thread.daemon = True
         thread.start()
         while True:
             try:
                 item = self.data_queue.get_nowait()
                 if item == (None, None):
                     break
-                if item[0] == "realtime":
+                if item[0] == "instant":
                     yield item[1]
             except:
                 continue
@@ -43,7 +41,6 @@ class ResponseGenerator(ComponentABC):
     
     def get_generator(self):
         thread = threading.Thread(target=self.agent.start)
-        thread.daemon = True
         thread.start()
         while True:
             try:
@@ -68,7 +65,8 @@ class ResponseGenerator(ComponentABC):
             "alias": { 
                 "put_data_to_generator": { "func": self.put_data_to_generator },
                 "get_generator": { "func": self.get_generator, "return_value": True },
-                "get_realtime_generator": { "func": self.get_realtime_generator, "return_value": True },
+                "get_instant_generator": { "func": self.get_instant_generator, "return_value": True },
+                "get_realtime_generator": { "func": self.get_instant_generator, "return_value": True },
                 "get_complete_generator": { "func": self.get_complete_generator, "return_value": True },
             },
         }
