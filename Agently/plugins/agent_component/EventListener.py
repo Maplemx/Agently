@@ -1,5 +1,5 @@
-import types
 import asyncio
+from itertools import combinations
 from .utils import ComponentABC
 from Agently.utils import RuntimeCtx, RuntimeCtxNamespace
 
@@ -23,49 +23,46 @@ class EventListener(ComponentABC):
              self.agent.settings.set("use_instant", True)
         if event.startswith("instant:"):
             event_data = event.replace(" ", "").split(":")
-            hooks = event_data[1].replace("->", ".").split("&")
-            hook_list = []
-            for hook in hooks:
-                hook_key_indexes = hook.split("?")
-                hook_key = hook_key_indexes[0]
-                hook_indexes = None
-                if len(hook_key_indexes) > 1:
-                    hook_indexes = hook_key_indexes[1].split(",")
-                    for index, item in enumerate(hook_indexes):
-                        if item.startswith("(") and item.endswith(")"):
-                            items_in_item = item[1:-1].split("|")
+            keys = event_data[1].replace("->", ".").split("&")
+            key_indexes_list = []
+            for key_str in keys:
+                if isinstance(key_str, str):
+                    if "?" in key_str:
+                        key, indexes_str = key_str.split("?")
+                        index_list = indexes_str.split(",")
+                        if index_list == [""]:
+                            index_list = []
+                    else:
+                        key = key_str
+                        index_list = []
+                    indexes = []
+                    for index in index_list:
+                        if index in ("_", "*"):
+                            indexes.append(-1)
                         else:
-                            items_in_item = [item]
-                        for i, value in enumerate(items_in_item):    
-                            try:
-                                items_in_item[i] = int(value)
-                            except:
-                                items_in_item[i] = None
-                        hook_indexes[index] = items_in_item
-                hook_list.append((hook_key, hook_indexes))
-                async def instant_hook_handler(data):
-                    for hook in hook_list:
-                        hook_key = hook[0]
-                        hook_indexes = hook[1]
-                        if (data["key"] == hook_key):
-                            if hook_indexes and len(hook_indexes) <= len(data["indexes"]):
-                                can_call = True
-                                for position, hook_index in enumerate(hook_indexes):
-                                    if hook_index != None and data["indexes"][position] not in hook_index:
-                                        can_call = False
-                                if can_call:
-                                    if asyncio.iscoroutinefunction(listener):
-                                        await listener(data)
-                                    else:
-                                        listener(data)
+                            indexes.append(int(index))
+                    key_indexes_list.append((key, indexes))
+            async def instant_hook_handler(data):
+                indexes = data["indexes"]
+                if (data["key"], indexes) in key_indexes_list or (data["key"], []) in key_indexes_list:
+                    if asyncio.iscoroutinefunction(listener):
+                        await listener(data)
+                    else:
+                        listener(data)
+                indexes_len = len(indexes)
+                for r in range(1, indexes_len + 1):
+                    for indices in combinations(range(indexes_len), r):
+                        possible_indexes = indexes[:]
+                        for i in indices:
+                            possible_indexes[i] = -1
+                        if (data["key"], possible_indexes) in key_indexes_list:
+                            if asyncio.iscoroutinefunction(listener):
+                                await listener(data)
                             else:
-                                if asyncio.iscoroutinefunction(listener):
-                                    await listener(data)
-                                else:
-                                    listener(data)
-                if event not in (self.listeners.get(trace_back=False) or {}):
-                    self.listeners.update(event, [])
-                self.listeners.append("instant", { "listener": instant_hook_handler, "is_await": is_await })
+                                listener(data)
+            if event not in (self.listeners.get(trace_back=False) or {}):
+                self.listeners.update(event, [])
+            self.listeners.append("instant", { "listener": instant_hook_handler, "is_await": is_await })
         else:
             if is_agent_event:
                 if event not in (self.agent_listeners.get(trace_back=False) or {}):
