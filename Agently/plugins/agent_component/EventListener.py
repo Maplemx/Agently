@@ -14,9 +14,14 @@ class EventListener(ComponentABC):
     def add(self, event:str, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
         event = event.replace(".", "->")
         if event == "realtime":
-            self.agent.settings.set("use_realtime", True)
+            self.agent.settings.set("use_instant", True)
+            event = "instant"
         if event.startswith("realtime:"):
-            self.agent.settings.set("use_realtime", True)
+            self.agent.settings.set("use_instant", True)
+            event = "instant:" + event[9:]
+        if event == "instant" or event.startswith("instant:"):
+             self.agent.settings.set("use_instant", True)
+        if event.startswith("instant:"):
             event_data = event.replace(" ", "").split(":")
             hooks = event_data[1].replace("->", ".").split("&")
             hook_list = []
@@ -38,7 +43,7 @@ class EventListener(ComponentABC):
                                 items_in_item[i] = None
                         hook_indexes[index] = items_in_item
                 hook_list.append((hook_key, hook_indexes))
-                async def realtime_hook_handler(data):
+                async def instant_hook_handler(data):
                     for hook in hook_list:
                         hook_key = hook[0]
                         hook_indexes = hook[1]
@@ -58,9 +63,9 @@ class EventListener(ComponentABC):
                                     await listener(data)
                                 else:
                                     listener(data)
-                if "realtime" not in (self.listeners.get(trace_back=False) or {}):
-                    self.listeners.update("realtime", [])
-                self.listeners.append("realtime", { "listener": realtime_hook_handler, "is_await": is_await })
+                if event not in (self.listeners.get(trace_back=False) or {}):
+                    self.listeners.update(event, [])
+                self.listeners.append("instant", { "listener": instant_hook_handler, "is_await": is_await })
         else:
             if is_agent_event:
                 if event not in (self.agent_listeners.get(trace_back=False) or {}):
@@ -85,9 +90,13 @@ class EventListener(ComponentABC):
         self.add("response:finally", listener, is_await=is_await, is_agent_event=is_agent_event)
         return self.agent
 
+    def on_instant(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
+        self.add("instant", listener, is_await=is_await, is_agent_event=is_agent_event)
+        return self.agent
+    
     def on_realtime(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
-        self.agent.settings.set("use_realtime", True)
-        self.add("realtime", listener, is_await=is_await, is_agent_event=is_agent_event)
+        self.agent.settings.set("use_instant", True)
+        self.add("instant", listener, is_await=is_await, is_agent_event=is_agent_event)
         return self.agent
     
     async def call_event_listeners(self, event: str, data: any):
@@ -121,7 +130,7 @@ class EventListener(ComponentABC):
                 "on_delta": { "func": self.on_delta },
                 "on_done": { "func": self.on_done },
                 "on_finally": { "func": self.on_finally },
-                "on_realtime": { "func": self.on_realtime },
+                "on_instant": { "func": self.on_instant },
                 "call_event_listeners": { "func": self.call_event_listeners },
             },
         }
