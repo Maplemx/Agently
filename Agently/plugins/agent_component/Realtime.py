@@ -19,10 +19,10 @@ class Instant(ComponentABC):
         self.agent.settings.set("use_instant", True)
         return self.agent
     
-    def use_realtime(self):
+    def use_instant(self):
         return self.use_instant()
     
-    def use_realtime(self):
+    def use_instant(self):
         return self.use_instant()
     
     def __scan_possible_keys(self, prompt_output_pointer, *, prefix:str=None):
@@ -44,7 +44,7 @@ class Instant(ComponentABC):
             "indexes": indexes,
             "delta": delta,
             "value": value,
-            "complete_value": self.__realtime_value, 
+            "complete_value": self.__instant_value, 
         }
         self.agent.put_data_to_generator(event, data)
         await self.agent.call_event_listeners(event, data)
@@ -121,7 +121,7 @@ class Instant(ComponentABC):
 
     async def _suffix(self, event: str, data: any):
         if (
-            not self.agent.settings.get("use_realtime")
+            not self.agent.settings.get("use_instant")
             or "type" not in self.agent.request.response_cache
             or self.agent.request.response_cache["type"] != "JSON"
         ):
@@ -164,7 +164,7 @@ class Instant(ComponentABC):
         return {
             "suffix": self._suffix,
             "alias": {
-                "use_realtime": { "func": self.use_realtime },
+                "use_instant": { "func": self.use_instant },
                 "use_instant": { "func": self.use_instant },
             },
         }
