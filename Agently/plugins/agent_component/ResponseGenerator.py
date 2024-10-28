@@ -1,5 +1,5 @@
+from itertools import combinations
 import threading
-import asyncio
 import queue
 from .utils import ComponentABC
 
@@ -35,12 +35,18 @@ class ResponseGenerator(ComponentABC):
             if isinstance(key_str, str):
                 if "?" in key_str:
                     key, indexes_str = key_str.split("?")
-                    indexes = indexes_str.split(",")
-                    if indexes == [""]:
-                        indexes = []
+                    index_list = indexes_str.split(",")
+                    if index_list == [""]:
+                        index_list = []
                 else:
                     key = key_str
-                    indexes = []
+                    index_list = []
+                indexes = []
+                for index in index_list:
+                    if index in ("_", "*"):
+                        indexes.append(-1)
+                    else:
+                        indexes.append(int(index))
                 key_indexes_list.append((key, indexes))
         self.agent.settings.set("use_instant", True)
         thread = threading.Thread(target=self.agent.start)
@@ -51,8 +57,19 @@ class ResponseGenerator(ComponentABC):
                 if item == (None, None):
                     break
                 if item[0] == "instant":
-                    if (item[1]["key"], item[1]["indexes"]) in key_indexes_list:
+                    indexes = item[1]["indexes"]
+                    if (item[1]["key"], indexes) in key_indexes_list or (item[1]["key"], []) in key_indexes_list:
                         yield item[1]
+                        continue
+                    indexes_len = len(indexes)
+                    for r in range(1, indexes_len + 1):
+                        for indices in combinations(range(indexes_len), r):
+                            possible_indexes = indexes[:]
+                            for i in indices:
+                                possible_indexes[i] = -1
+                            if (item[1]["key"], possible_indexes) in key_indexes_list:
+                                yield item[1]
+                                break
             except:
                 continue
         thread.join()
