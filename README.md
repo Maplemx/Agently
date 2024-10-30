@@ -269,7 +269,7 @@ print("Bye👋~")
 
 The post about [LLM Powered Autonomous Agents](https://lilianweng.github.io/posts/2023-06-23-agent/) by Lilian Weng from OpenAI has given a really good concept of the basic structure of AI agent. But the post did not give the explanation about how to build an AI agent.
 
-Some awesome projects like [LangChain](https://python.langchain.com/docs/modules/agents/) and [Camel-AI](https://github.com/camel-ai/camel/tree/master/camel/agents) present their ideas about how to build AI agent. In these projects, agents are classified into many different type according the task of the agent or the thinking process of the agent.
+Some awesome projects like [LangChain](https://python.langchain.com/docs/how_to/#agents) and [Camel-AI](https://github.com/camel-ai/camel/tree/master/camel/agents) present their ideas about how to build AI agent. In these projects, agents are classified into many different type according the task of the agent or the thinking process of the agent.
 
 But if we follow these ideas to build agents, that means we must build a whole new agent if we want to have a new agent to work in a different domain. Even though all the projects provide a ChatAgent basic class or something like that, still new agent sub-classes will be built and more and more specific types of agent will be produce. With the number of agent types increasing, one day, boom! There'll be too many types of agent for developer to choose and for agent platform to manage. They'll be hard to seach, hard to choose, hard to manage and hard to update.
 
