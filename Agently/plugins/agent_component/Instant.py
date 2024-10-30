@@ -3,20 +3,20 @@ from Agently.utils import Lexer
 from .utils import ComponentABC
 from Agently.utils import find_json
 
-class Realtime(ComponentABC):
+class Instant(ComponentABC):
     def __init__(self, agent: object):
         self.agent = agent
-        self.__get_enable = self.agent.settings.get_trace_back("use_realtime")
+        self.__get_enable = self.agent.settings.get_trace_back("use_instant")
         self.__is_init = False
         self.__on_going_key_id = None
         self.__cached_value = {}
         self.__possible_keys = set()
         self.__emitted = set()
         self.__streaming_buffer = ""
-        self.__realtime_value = None
+        self.__instant_value = None
     
-    def use_realtime(self):
-        self.agent.settings.set("use_realtime", True)
+    def use_instant(self):
+        self.agent.settings.set("use_instant", True)
         return self.agent
     
     def __scan_possible_keys(self, prompt_output_pointer, *, prefix:str=None):
@@ -31,32 +31,32 @@ class Realtime(ComponentABC):
         else:
             return
     
-    async def __emit_realtime(self, key, indexes, delta, value):
-        event = "realtime"
+    async def __emit_instant(self, key, indexes, delta, value):
+        event = "instant"
         data = {
             "key": key[1:],
             "indexes": indexes,
             "delta": delta,
             "value": value,
-            "complete_value": self.__realtime_value, 
+            "complete_value": self.__instant_value, 
         }
         self.agent.put_data_to_generator(event, data)
         await self.agent.call_event_listeners(event, data)
 
-    async def __scan_realtime_value(self, key: str, indexes:list, value:any):
+    async def __scan_instant_value(self, key: str, indexes:list, value:any):
         indexes = indexes[:]
         key_id = (key, json5.dumps(indexes))
         if key_id in self.__emitted or key not in self.__possible_keys:
             return
         if isinstance(value, dict):
             for item_key, item_value in value.items():
-                await self.__scan_realtime_value(key + f".{ item_key }", indexes, item_value)
+                await self.__scan_instant_value(key + f".{ item_key }", indexes, item_value)
             self.__cached_value[key_id] = value
         elif isinstance(value, list):
             for item_index, item_value in enumerate(value):
                 temp = indexes[:]
                 temp.append(item_index)
-                await self.__scan_realtime_value(key + f".[]", temp, item_value)
+                await self.__scan_instant_value(key + f".[]", temp, item_value)
             self.__cached_value[key_id] = value
         else:
             if isinstance(value, str):
@@ -64,7 +64,7 @@ class Realtime(ComponentABC):
                 cached_value = cached_value if cached_value != None else ""
                 delta = value.replace(cached_value, "")
                 if len(delta) > 0:
-                    await self.__emit_realtime(key, indexes, delta, value)
+                    await self.__emit_instant(key + ".$delta", indexes, delta, value)
                     self.__cached_value[key_id] = value
                     self.__on_going_key_id = key_id
             else:
@@ -95,19 +95,15 @@ class Realtime(ComponentABC):
                 continue
             if self.__judge_can_emit(key_id, self.__on_going_key_id) or is_done:
                 if isinstance(value, dict):
-                    await self.__emit_realtime(key_id[0], indexes, value, value)
+                    await self.__emit_instant(key_id[0], indexes, value, value)
                     self.__emitted.add(key_id)
                     key_ids_to_del.append(key_id)
                 elif isinstance(value, list):
-                    await self.__emit_realtime(key_id[0], indexes, value, value)
-                    self.__emitted.add(key_id)
-                    key_ids_to_del.append(key_id)
-                elif isinstance(value, str):
-                    await self.__emit_realtime(key_id[0] + ".$complete", indexes, value, value)
+                    await self.__emit_instant(key_id[0], indexes, value, value)
                     self.__emitted.add(key_id)
                     key_ids_to_del.append(key_id)
                 else:
-                    await self.__emit_realtime(key_id[0], indexes, value, value)
+                    await self.__emit_instant(key_id[0], indexes, value, value)
                     self.__emitted.add(key_id)
                     key_ids_to_del.append(key_id)
         for key_id in key_ids_to_del:
@@ -115,7 +111,7 @@ class Realtime(ComponentABC):
 
     async def _suffix(self, event: str, data: any):
         if (
-            not self.agent.settings.get("use_realtime")
+            not self.agent.settings.get("use_instant")
             or "type" not in self.agent.request.response_cache
             or self.agent.request.response_cache["type"] != "JSON"
         ):
@@ -127,13 +123,13 @@ class Realtime(ComponentABC):
             self.__is_init = True
         if event == "response:delta":
             self.__streaming_buffer += data
-            realtime_json_str = find_json(self.__streaming_buffer)
-            if realtime_json_str != None:
+            instant_json_str = find_json(self.__streaming_buffer)
+            if instant_json_str != None:
                 lexer = Lexer()
-                lexer.append_string(realtime_json_str)
+                lexer.append_string(instant_json_str)
                 try:
-                    self.__realtime_value = json5.loads(lexer.complete_json())
-                    await self.__scan_realtime_value("", [], self.__realtime_value)
+                    self.__instant_value = json5.loads(lexer.complete_json())
+                    await self.__scan_instant_value("", [], self.__instant_value)
                     await self.__emit_waiting()
                 except ValueError:
                     return None
@@ -141,13 +137,13 @@ class Realtime(ComponentABC):
                     raise(e)
         if event == "response:done":
             self.__streaming_buffer += data
-            realtime_json_str = find_json(self.__streaming_buffer)
-            if realtime_json_str != None:
+            instant_json_str = find_json(self.__streaming_buffer)
+            if instant_json_str != None:
                 lexer = Lexer()
-                lexer.append_string(realtime_json_str)
+                lexer.append_string(instant_json_str)
                 try:
-                    self.__realtime_value = json5.loads(lexer.complete_json())
-                    await self.__scan_realtime_value("", [], self.__realtime_value)
+                    self.__instant_value = json5.loads(lexer.complete_json())
+                    await self.__scan_instant_value("", [], self.__instant_value)
                     await self.__emit_waiting(is_done=True)
                 except ValueError:
                     return None
@@ -157,8 +153,11 @@ class Realtime(ComponentABC):
     def export(self):
         return {
             "suffix": self._suffix,
-            "alias": { "use_realtime": { "func": self.use_realtime } }
+            "alias": {
+                "use_instant": { "func": self.use_instant },
+                "use_realtime": { "func": self.use_instant },
+            },
         }
 
 def export():
-    return ("Realtime", Realtime)
+    return ("Instant", Instant)

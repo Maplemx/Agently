@@ -34,6 +34,8 @@ class Decorator(ComponentABC):
             and not event.startswith("tool:")
             and not event.startswith("realtime:")
             and not event == "realtime"
+            and not event.startswith("instant:")
+            and not event == "instant"
         ):
             event = "response:" + event
         def decorator(func: callable):
@@ -65,7 +67,6 @@ class Decorator(ComponentABC):
             self.agent.register_tool(**tool_info_kwrags)
             return func
         return decorator
-
         
     def export(self):
         return {

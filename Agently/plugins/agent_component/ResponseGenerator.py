@@ -1,5 +1,5 @@
+from itertools import combinations
 import threading
-import asyncio
 import queue
 from .utils import ComponentABC
 
@@ -13,7 +13,6 @@ class ResponseGenerator(ComponentABC):
 
     def get_complete_generator(self):
         thread = threading.Thread(target=self.agent.start)
-        thread.daemon = True
         thread.start()
         while True:
             try:
@@ -25,17 +24,67 @@ class ResponseGenerator(ComponentABC):
                 continue
         thread.join()
     
-    def get_realtime_generator(self):
-        self.agent.settings.set("use_realtime", True)
+    def get_instant_keys_generator(self, keys):
+        if not isinstance(keys, list):
+            if isinstance(keys, str):
+                keys = keys.split("&")
+            else:
+                raise Exception("[Response Generator]", ".get_instant_keys_generator(<keys>) require a list or string input.\nKey format: <key string>?<indexes string split by ','>")
+        key_indexes_list = []
+        for key_str in keys:
+            if isinstance(key_str, str):
+                if "?" in key_str:
+                    key, indexes_str = key_str.split("?")
+                    index_list = indexes_str.split(",")
+                    if index_list == [""]:
+                        index_list = []
+                else:
+                    key = key_str
+                    index_list = []
+                indexes = []
+                for index in index_list:
+                    if index in ("_", "*"):
+                        indexes.append(-1)
+                    else:
+                        indexes.append(int(index))
+                key_indexes_list.append((key, indexes))
+        self.agent.settings.set("use_instant", True)
         thread = threading.Thread(target=self.agent.start)
-        thread.daemon = True
         thread.start()
         while True:
             try:
                 item = self.data_queue.get_nowait()
                 if item == (None, None):
                     break
-                if item[0] == "realtime":
+                if item[0] == "instant":
+                    indexes = item[1]["indexes"]
+                    if (item[1]["key"], indexes) in key_indexes_list or (item[1]["key"], []) in key_indexes_list:
+                        yield item[1]
+                        continue
+                    indexes_len = len(indexes)
+                    for r in range(1, indexes_len + 1):
+                        for indices in combinations(range(indexes_len), r):
+                            possible_indexes = indexes[:]
+                            for i in indices:
+                                possible_indexes[i] = -1
+                            if (item[1]["key"], possible_indexes) in key_indexes_list:
+                                yield item[1]
+                                break
+            except:
+                continue
+        thread.join()
+
+    
+    def get_instant_generator(self):
+        self.agent.settings.set("use_instant", True)
+        thread = threading.Thread(target=self.agent.start)
+        thread.start()
+        while True:
+            try:
+                item = self.data_queue.get_nowait()
+                if item == (None, None):
+                    break
+                if item[0] == "instant":
                     yield item[1]
             except:
                 continue
@@ -43,7 +92,6 @@ class ResponseGenerator(ComponentABC):
     
     def get_generator(self):
         thread = threading.Thread(target=self.agent.start)
-        thread.daemon = True
         thread.start()
         while True:
             try:
@@ -68,7 +116,9 @@ class ResponseGenerator(ComponentABC):
             "alias": { 
                 "put_data_to_generator": { "func": self.put_data_to_generator },
                 "get_generator": { "func": self.get_generator, "return_value": True },
-                "get_realtime_generator": { "func": self.get_realtime_generator, "return_value": True },
+                "get_instant_generator": { "func": self.get_instant_generator, "return_value": True },
+                "get_realtime_generator": { "func": self.get_instant_generator, "return_value": True },
+                "get_instant_keys_generator": { "func": self.get_instant_keys_generator, "return_value": True },
                 "get_complete_generator": { "func": self.get_complete_generator, "return_value": True },
             },
         }
