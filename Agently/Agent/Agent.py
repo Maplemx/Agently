@@ -156,11 +156,11 @@ class Agent(object):
                 self.get_debug_status = lambda: self.agent.settings.get_trace_back("is_debug")
                 self.settings = RuntimeCtxNamespace(f"plugin_settings.agent_component.{ name }", self.agent.settings)
             
-            def start_workflow(self, init_inputs: dict=None, init_storage: dict={}):
-                if not isinstance(init_storage, dict):
-                    raise Exception("[Workflow] Initial storage must be a dict.")
-                init_storage.update({ "$agent": self.agent })
-                return workflow.start(init_inputs, storage=init_storage)
+            def start_workflow(self, init_inputs: dict=None, **kwargs):
+                if not kwargs:
+                    kwargs = {}
+                kwargs.update({ "$agent": self.agent })
+                return workflow.start(init_inputs, storage=kwargs)
             
             def export(self):
                 return {
@@ -271,7 +271,9 @@ class Agent(object):
                 self.request_runtime_ctx.empty()
                 return self.request.response_cache["reply"]
         except Exception as e:
-            retry_time = self.settings.get_trace_back("request.retry_times", 2)
+            retry_time = self.settings.get_trace_back("request.retry_times")
+            if not isinstance(retry_time, int):
+                retry_time = 0
             retry_count = self.request_runtime_ctx.get_trace_back("retry_count", 0)
             if retry_count >= retry_time:
                 self.response_generator.end()
