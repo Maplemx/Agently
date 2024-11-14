@@ -133,9 +133,13 @@ class Tool(ComponentABC):
                         if self.is_debug():
                             print("[Tool Error]: ", e)
                     if call_result:
-                        info_key = str(step["purpose"])
+                        info_key = str(step["using_tool"]["tool_name"])
+                        purpose = step["purpose"]
                         info_value = call_result["for_agent"] if isinstance(call_result, dict) and "for_agent" in call_result else call_result
-                        tool_results[info_key] = info_value
+                        tool_results[info_key] = {
+                            "purpose": purpose,
+                            "result": info_value
+                        }
                         await self.agent.call_event_listeners(
                             "tool:response",
                             {
@@ -203,7 +207,9 @@ class Tool(ComponentABC):
             tool_results = await self.call_plan_func(self)
             if tool_results and len(tool_results.keys()) > 0:
                 return {
-                    "info": tool_results,
+                    "info": {
+                        "tool_using_results": tool_results,
+                    },
                     "instruct": "Response according {helpful information} provided.\nProvide URL for keywords in markdown format if needed.\nIf error occured or not enough information, response you don't know honestly unless you are very sure about the answer without information support."
                 }
             else:
