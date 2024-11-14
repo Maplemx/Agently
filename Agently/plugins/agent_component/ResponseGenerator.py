@@ -16,12 +16,13 @@ class ResponseGenerator(ComponentABC):
         thread.start()
         while True:
             try:
-                item = self.data_queue.get_nowait()
+                item = self.data_queue.get()
                 if item == (None, None):
                     break
                 yield item
             except:
                 continue
+        self.data_queue = queue.Queue()
         thread.join()
     
     def get_instant_keys_generator(self, keys):
@@ -53,7 +54,7 @@ class ResponseGenerator(ComponentABC):
         thread.start()
         while True:
             try:
-                item = self.data_queue.get_nowait()
+                item = self.data_queue.get()
                 if item == (None, None):
                     break
                 if item[0] == "instant":
@@ -72,22 +73,23 @@ class ResponseGenerator(ComponentABC):
                                 break
             except:
                 continue
+        self.data_queue = queue.Queue()
         thread.join()
 
-    
     def get_instant_generator(self):
         self.agent.settings.set("use_instant", True)
         thread = threading.Thread(target=self.agent.start)
         thread.start()
         while True:
             try:
-                item = self.data_queue.get_nowait()
+                item = self.data_queue.get()
                 if item == (None, None):
                     break
                 if item[0] == "instant":
                     yield item[1]
-            except:
+            except Exception as e:
                 continue
+        self.data_queue = queue.Queue()
         thread.join()
     
     def get_generator(self):
@@ -95,13 +97,14 @@ class ResponseGenerator(ComponentABC):
         thread.start()
         while True:
             try:
-                item = self.data_queue.get_nowait()
+                item = self.data_queue.get()
                 if item == (None, None):
                     break
                 if not item[0].endswith(("_origin")):
                     yield item
             except:
                 continue
+        self.data_queue = queue.Queue()
         thread.join()
 
     def _suffix(self, event, data):
