@@ -3,7 +3,7 @@ import asyncio
 import threading
 import queue
 from ..Request import Request
-from ..utils import RuntimeCtx, RuntimeCtxNamespace, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, DataGenerator,check_version, load_json
+from ..utils import RuntimeCtx, RuntimeCtxNamespace, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, DataGenerator, check_version, load_json
 
 class Agent(object):
     def __init__(
@@ -17,7 +17,7 @@ class Agent(object):
         global_websocket_server: object,
         parent_plugin_manager: object,
         parent_settings: object,
-        is_debug: bool=False
+        is_debug: bool=None,
     ):
         # Integrate
         self.global_storage = global_storage
@@ -39,7 +39,8 @@ class Agent(object):
             parent_settings = self.settings,
         )
         # Debug
-        self.settings.set("is_debug", is_debug)
+        if is_debug:
+            self.settings.set("is_debug", is_debug)
         # Agent Id
         if agent_id == None or agent_id == "":
             self.agent_id = IdGenerator("agent").create()

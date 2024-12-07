@@ -1,29 +1,28 @@
 from itertools import combinations
+import asyncio
 import threading
 import queue
 from .utils import ComponentABC
+from Agently.utils.Stage import Stage, Tunnel
 
 class ResponseGenerator(ComponentABC):
     def __init__(self, agent):
         self.agent = agent
-        self.data_queue = queue.Queue()
+        self._tunnel = Tunnel()
     
     def put_data_to_generator(self, event, data):
-        self.data_queue.put((event, data))
+        if (event, data) != (None, None):
+            self._tunnel.put((event, data))
+        else:
+            self._tunnel.put_stop()
 
     def get_complete_generator(self):
-        thread = threading.Thread(target=self.agent.start)
-        thread.start()
-        while True:
-            try:
-                item = self.data_queue.get()
-                if item == (None, None):
-                    break
-                yield item
-            except:
-                continue
-        self.data_queue = queue.Queue()
-        thread.join()
+        stage = Stage()
+        stage.go(self.agent.start)
+        response = self._tunnel.get()
+        for item in response:
+            yield item
+        stage.close()
     
     def get_instant_keys_generator(self, keys):
         if not isinstance(keys, list):
@@ -50,68 +49,50 @@ class ResponseGenerator(ComponentABC):
                         indexes.append(int(index))
                 key_indexes_list.append((key, indexes))
         self.agent.settings.set("use_instant", True)
-        thread = threading.Thread(target=self.agent.start)
-        thread.start()
-        while True:
-            try:
-                item = self.data_queue.get()
-                if item == (None, None):
-                    break
-                if item[0] == "instant":
-                    indexes = item[1]["indexes"]
-                    if (item[1]["key"], indexes) in key_indexes_list or (item[1]["key"], []) in key_indexes_list:
-                        yield item[1]
-                        continue
-                    indexes_len = len(indexes)
-                    for r in range(1, indexes_len + 1):
-                        for indices in combinations(range(indexes_len), r):
-                            possible_indexes = indexes[:]
-                            for i in indices:
-                                possible_indexes[i] = -1
-                            if (item[1]["key"], possible_indexes) in key_indexes_list:
-                                yield item[1]
-                                break
-            except:
-                continue
-        self.data_queue = queue.Queue()
-        thread.join()
-
+        stage = Stage()
+        stage.go(self.agent.start)
+        response = self._tunnel.get()
+        for item in response:
+            if item[0] == "instant":
+                indexes = item[1]["indexes"]
+                if (item[1]["key"], indexes) in key_indexes_list or (item[1]["key"], []) in key_indexes_list:
+                    yield item[1]
+                    continue
+                indexes_len = len(indexes)
+                for r in range(1, indexes_len + 1):
+                    for indices in combinations(range(indexes_len), r):
+                        possible_indexes = indexes[:]
+                        for i in indices:
+                            possible_indexes[i] = -1
+                        if (item[1]["key"], possible_indexes) in key_indexes_list:
+                            yield item[1]
+                            break
+        stage.close()
+    
     def get_instant_generator(self):
         self.agent.settings.set("use_instant", True)
-        thread = threading.Thread(target=self.agent.start)
-        thread.start()
-        while True:
-            try:
-                item = self.data_queue.get()
-                if item == (None, None):
-                    break
-                if item[0] == "instant":
-                    yield item[1]
-            except Exception as e:
-                continue
-        self.data_queue = queue.Queue()
-        thread.join()
+        stage = Stage()
+        stage.go(self.agent.start)
+        response = self._tunnel.get()
+        for item in response:
+            if item[0] == "instant":
+                yield item[1]
+        stage.close()
     
     def get_generator(self):
-        thread = threading.Thread(target=self.agent.start)
-        thread.start()
-        while True:
-            try:
-                item = self.data_queue.get()
-                if item == (None, None):
-                    break
-                if not item[0].endswith(("_origin")):
-                    yield item
-            except:
-                continue
-        self.data_queue = queue.Queue()
-        thread.join()
+        stage = Stage()
+        stage.go(self.agent.start)
+        response = self._tunnel.get()
+        for item in response:
+            if not item[0].endswith(("_origin")):
+                yield item
+        stage.close()
 
-    def _suffix(self, event, data):
+    async def _suffix(self, event, data):
         if event != "response:finally":
-            self.put_data_to_generator(event, data)
+            self._tunnel.put((event, data))
         else:
-            self.put_data_to_generator(None, None)
+            self._tunnel.put_stop()
     
     def export(self):
         return {
