@@ -22,7 +22,7 @@ class Web(ToolABC):
         '''
         search_kwargs = {}
         if proxy:
-            search_kwargs["proxies"] = proxy
+            search_kwargs["proxy"] = proxy
         if "max_results" not in options:
             options.update({ "max_results": 5 })
         try:
