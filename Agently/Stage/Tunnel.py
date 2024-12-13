@@ -15,8 +15,9 @@ class Tunnel:
     def _defer_close_stage(self):
         def close_stage():
             self._close_event.wait()
-            self._stage.close()
-            self._stage = None
+            if self._stage is not None:
+                self._stage.close()
+                self._stage = None
         defer_thread = threading.Thread(target=close_stage)
         defer_thread.start()
     
