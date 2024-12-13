@@ -1,9 +1,6 @@
 from itertools import combinations
-import asyncio
-import threading
-import queue
 from .utils import ComponentABC
-from Agently.utils.Stage import Stage, Tunnel
+from Agently.Stage import Stage, Tunnel
 
 class ResponseGenerator(ComponentABC):
     def __init__(self, agent):
@@ -87,6 +84,15 @@ class ResponseGenerator(ComponentABC):
             if not item[0].endswith(("_origin")):
                 yield item
         stage.close()
+    
+    def get_delta_generator(self):
+        stage = Stage()
+        stage.go(self.agent.start)
+        response = self._tunnel.get()
+        for event, data in response:
+            if event == "response:delta":
+                yield data
+        stage.close()
 
     async def _suffix(self, event, data):
         if event != "response:finally":
@@ -100,6 +106,7 @@ class ResponseGenerator(ComponentABC):
             "alias": { 
                 "put_data_to_generator": { "func": self.put_data_to_generator },
                 "get_generator": { "func": self.get_generator, "return_value": True },
+                "get_delta_generator": { "func": self.get_delta_generator, "return_value": True },
                 "get_instant_generator": { "func": self.get_instant_generator, "return_value": True },
                 "get_realtime_generator": { "func": self.get_instant_generator, "return_value": True },
                 "get_instant_keys_generator": { "func": self.get_instant_keys_generator, "return_value": True },
