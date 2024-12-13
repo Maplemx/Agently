@@ -172,6 +172,8 @@ class Agent(object):
         return self.register_agent_component(name, AttachedWorkflow)
 
     async def start_async(self, request_type: str=None, *, return_generator:bool=False):
+        if return_generator:
+            return self.get_delta_generator()
         try:
             is_debug = self.settings.get_trace_back("is_debug")
             # Auto Save Agent runtime_ctx
@@ -265,12 +267,8 @@ class Agent(object):
 
             await handle_response({ "event": "response:finally", "data": self.request.response_cache })
 
-            if return_generator:
-                self.request_runtime_ctx.empty()
-                return self.response_generator.start()
-            else:
-                self.request_runtime_ctx.empty()
-                return self.request.response_cache["reply"]
+            self.request_runtime_ctx.empty()
+            return self.request.response_cache["reply"]
         except Exception as e:
             retry_time = self.settings.get_trace_back("request.retry_times")
             if not isinstance(retry_time, int):
@@ -288,6 +286,8 @@ class Agent(object):
                 return await self.start_async(request_type, return_generator=return_generator)
 
     def start(self, request_type: str=None, *, return_generator:bool=False):
+        if return_generator:
+            return self.get_delta_generator()
         reply_queue = queue.Queue()
         is_debug = self.settings.get_trace_back("is_debug")
         def start_in_theard():
@@ -307,15 +307,12 @@ class Agent(object):
                     loop.close()
         theard = threading.Thread(target=start_in_theard)
         theard.start()
-        if return_generator:
-            return self.response_generator.start()
-        else:
-            theard.join()
-            try:        
-                reply = reply_queue.get_nowait()
-            except:
-                reply = None
-            return reply
+        theard.join()
+        try:        
+            reply = reply_queue.get_nowait()
+        except:
+            reply = None
+        return reply
 
     def start_websocket_server(self, port:int=15365):
         is_debug = self.settings.get_trace_back("is_debug")

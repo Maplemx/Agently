@@ -1,3 +1,4 @@
+import atexit
 import inspect
 import threading
 import asyncio
@@ -7,42 +8,92 @@ from .StageHybridGenerator import StageHybridGenerator
 from .StageFunction import StageFunctionMixin
 
 class BaseStage:
-    def __init__(self, max_workers=5, max_concurrent_tasks=None, on_error=None, close_when_exception=False):
-        self._max_workers = max_workers
+    _global_executor = None
+    _global_max_workers = 5
+    _executor_lock = threading.RLock()
+
+    @staticmethod
+    def _get_global_executor():
+        if BaseStage._global_executor is None:
+            with BaseStage._executor_lock:
+                BaseStage._global_executor = ThreadPoolExecutor(max_workers=BaseStage._global_max_workers)
+        return BaseStage._global_executor
+        
+    @staticmethod
+    def set_global_max_workers(global_max_workers):
+        BaseStage._global_max_workers = global_max_workers
+        with BaseStage._executor_lock:
+            if BaseStage._global_executor:
+                BaseStage._global_executor.shutdown(wait=True)
+                BaseStage._global_executor = ThreadPoolExecutor(max_workers=BaseStage._global_max_workers)
+                atexit.register(BaseStage._global_executor.shutdown)
+    
+    def __init__(self, private_max_workers=5, max_concurrent_tasks=None, on_error=None, is_daemon=False):
+        self._private_max_workers = private_max_workers
         self._max_concurrent_tasks = max_concurrent_tasks
         self._on_error = on_error
+        self._is_daemon = is_daemon
         self._semaphore = None
         self._loop_thread = None
         self._loop = None
-        self._executor = None
-        self._responses = []
-        #self._initialize()
+        self._current_executor = None
+        self._loop_ready = threading.Event()
+        self._responses = set()
+        self._closed = False
+        if self._is_daemon:
+            atexit.register(self.close)
+        self._initialize()
+    
+    def __enter__(self):
+        self._initialize()
+        return self
+    
+    def __exit__(self, type, value, traceback):
+        self.close()
+        if type is not None and self._on_error is not None:
+            self._on_error(value)
+        return False
+
+    @property
+    def _executor(self):
+        if self._current_executor is not None:
+            return self._current_executor
+        if self._private_max_workers:
+            self._current_executor = ThreadPoolExecutor(max_workers=self._private_max_workers)
+            return self._current_executor
+        else:
+            self._current_executor = BaseStage._get_global_executor()
+            return self._current_executor
     
     def _initialize(self):
-        self._loop_ready = threading.Event()
-        self._loop_thread = threading.Thread(target=self._start_loop)
-        self._loop_thread.start()
-        self._executor = ThreadPoolExecutor(max_workers=self._max_workers)
-        self._loop_ready.wait()
-        del self._loop_ready
+        self._closed = False
+        if (
+            not self._loop_thread
+            or not self._loop_thread.is_alive()
+            or not self._loop
+            or not self._loop.is_running()
+        ):
+            self._loop_thread = threading.Thread(target=self._start_loop, daemon=self._is_daemon)
+            self._loop_thread.start()
+            self._loop_ready.wait()
 
+    def _start_loop(self):
+        self._loop = asyncio.new_event_loop()
+        self._loop.set_exception_handler(self._loop_exception_handler)
+        if self._max_concurrent_tasks:
+            self._semaphore = asyncio.Semaphore(self._max_concurrent_tasks)
+        asyncio.set_event_loop(self._loop)
+        self._loop.call_soon(lambda: self._loop_ready.set())
+        self._loop.run_forever()
+    
     def _loop_exception_handler(self, loop, context):
         if self._on_error is not None:
             loop.call_soon_threadsafe(self._on_error, context["exception"])
         else:
             raise context["exception"]
     
-    def _start_loop(self):
-        self._loop = asyncio.new_event_loop()
-        self._loop.set_exception_handler(self._loop_exception_handler)
-        asyncio.set_event_loop(self._loop)
-        if self._max_concurrent_tasks:
-            self._semaphore = asyncio.Semaphore(self._max_concurrent_tasks)
-        self._loop_ready.set()
-        self._loop.run_forever()
-    
     def go(self, task, *args, on_success=None, on_error=None, lazy=False, async_gen_interval=0.1, **kwargs):
-        if not self._executor or not self._loop or not self._loop.is_running():
+        if not self._loop or self._loop.is_running():
             self._initialize()
         response_kwargs = {
             "on_success": on_success,
@@ -93,7 +144,7 @@ class BaseStage:
         elif inspect.isfunction(task) or inspect.ismethod(task):
             return StageResponse(self, self._loop.run_in_executor(self._executor, lambda: task(*args, **kwargs)), **response_kwargs)
         else:
-            return task
+            raise TypeError(f"Task seems like a value or an executed function not an executable task: { task }")
     
     def go_all(self, *task_list):
         response_list = []
@@ -134,7 +185,11 @@ class BaseStage:
         self._on_error = handler
     
     def close(self):
-        for response in self._responses:
+        if self._closed:
+            return
+        self._closed = True
+        
+        for response in self._responses.copy():
             response._result_ready.wait()
         
         if self._loop and self._loop.is_running():
@@ -143,15 +198,15 @@ class BaseStage:
             pending = asyncio.all_tasks(self._loop)
             if pending:
                 self._loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        if self._private_max_workers and self._current_executor is not None:
+            self._current_executor.shutdown(wait=True)
+            self._current_executor = None
         if self._loop_thread and self._loop_thread.is_alive():
             self._loop_thread.join()
             self._loop_thread = None
-        if self._loop and not self._loop.is_closed:
+        if self._loop and not self._loop.is_closed():
             self._loop.close()
         self._loop = None
-        if self._executor:
-            self._executor.shutdown(wait=True)
-            self._executor = None
 
 class Stage(BaseStage, StageFunctionMixin):
     pass
