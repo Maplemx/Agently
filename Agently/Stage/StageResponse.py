@@ -4,7 +4,7 @@ import threading
 class StageResponse:
     def __init__(self, stage, task, on_success=None, on_error=None):
         self._stage = stage
-        self._stage._responses.append(self)
+        self._stage._responses.add(self)
         self._loop = self._stage._loop
         self._on_success = on_success
         self._on_error = on_error
@@ -26,14 +26,17 @@ class StageResponse:
             if self._on_success:
                 self._final_result = self._on_success(self._result)
             self._result_ready.set()
+            self._stage._responses.discard(self)
         except Exception as e:
             self._status = False
             self._error = e
             if self._on_error:
                 self._final_result = self._on_error(self._error)
                 self._result_ready.set()
+                self._stage._responses.discard(self)
             else:
                 self._result_ready.set()
+                self._stage._responses.discard(self)
                 raise self._error
     
     def get(self):

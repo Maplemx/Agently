@@ -5,7 +5,7 @@ import threading
 class StageHybridGenerator:
     def __init__(self, stage, task, on_success=None, on_error=None, lazy=None, async_gen_interval=0.1):
         self._stage = stage
-        self._stage._responses.append(self)
+        self._stage._responses.add(self)
         self._loop = stage._loop
         self._on_success = on_success
         self._on_error = on_error
@@ -29,11 +29,12 @@ class StageHybridGenerator:
         future.result()
         if self._error is not None:
             def raise_error():
-                raise Exception(self._error)
+                raise self._error
             self._loop.call_soon_threadsafe(raise_error)
         if self._on_success:
             self._final_result = self._on_success(self._result)
         self._result_ready.set()
+        self._stage._responses.discard(self)
     
     async def _consume_async_gen(self, task):
         try:

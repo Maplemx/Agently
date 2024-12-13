@@ -3,10 +3,11 @@ import threading
 from .Stage import Stage
 
 class Tunnel:
-    def __init__(self, max_workers=5, max_concurrent_tasks=None, on_error=None):
-        self._max_worker = max_workers
+    def __init__(self, private_max_workers=1, max_concurrent_tasks=None, on_error=None, timeout=None):
+        self._private_max_worker = private_max_workers
         self._max_concurrent_tasks = max_concurrent_tasks
         self._on_error = on_error
+        self._timeout = timeout
         self._data_queue = queue.Queue()
         self._close_event = threading.Event()
         self._stage = None
@@ -15,6 +16,7 @@ class Tunnel:
         def close_stage():
             self._close_event.wait()
             self._stage.close()
+            self._stage = None
         defer_thread = threading.Thread(target=close_stage)
         defer_thread.start()
     
@@ -22,7 +24,7 @@ class Tunnel:
         if self._stage is not None:
             return self._stage
         else:
-            self._stage = Stage(max_workers=self._max_worker, max_concurrent_tasks=self._max_concurrent_tasks, on_error=self._on_error)
+            self._stage = Stage(private_max_workers=self._private_max_worker, max_concurrent_tasks=self._max_concurrent_tasks, on_error=self._on_error)
             return self._stage
     
     def put(self, data):
@@ -36,7 +38,13 @@ class Tunnel:
         stage = self._get_stage()
         def queue_consumer():
             while True:
-                data = self._data_queue.get()
+                try:
+                    if self._timeout is not None:
+                        data = self._data_queue.get(timeout=self._timeout)
+                    else:
+                        data = self._data_queue.get()
+                except queue.Empty:
+                    break
                 if data is StopIteration:
                     break
                 yield data
