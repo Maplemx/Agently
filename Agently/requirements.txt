@@ -1,3 +1,5 @@
+# Core
+agently-stage==0.2.0a0
 # Shell Interaction Optimization
 pyreadline3
 # Async Ensurence
@@ -20,4 +22,3 @@ json5
 duckduckgo_search
 beautifulsoup4
 requests
-litellm
