@@ -15,6 +15,7 @@ erniebot
 zhipuai==1.0.7
 tencentcloud-sdk-python
 qianfan
+litellm
 # Format
 PyYAML
 json5
