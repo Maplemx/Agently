@@ -220,14 +220,18 @@ class OAIClient(RequestABC):
         if self.request_type == "chat":
             response_message = {}
             async for part in response_generator:
-                delta = dict(part.choices[0].delta)
-                for key, value in delta.items():
-                    if key not in response_message:
-                        response_message[key] = value or ""
-                    else:
-                        response_message[key] += value or ""
-                yield({ "event": "response:delta_origin", "data": part })
-                yield({ "event": "response:delta", "data": part.choices[0].delta.content or "" })
+                part_dict = dict(part)
+                if "choices" in part_dict and len(part_dict["choices"]) > 0:
+                    delta = dict(part.choices[0].delta)
+                    for key, value in delta.items():
+                        if key not in response_message:
+                            response_message[key] = value or ""
+                        else:
+                            response_message[key] += value or ""
+                    yield({ "event": "response:delta_origin", "data": part_dict })
+                    yield({ "event": "response:delta", "data": part.choices[0].delta.content or "" })
+                else:
+                    yield({ "event": "response:other", "data": part_dict })
             yield({ "event": "response:done_origin", "data": response_message })
             yield({ "event": "response:done", "data": response_message["content"] })
         elif self.request_type == "completions":
