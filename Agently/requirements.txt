@@ -1,5 +1,5 @@
 # Core
-agently-stage==0.2.0a0
+agently-stage==0.2.0a1
 # Shell Interaction Optimization
 pyreadline3
 # Async Ensurence
