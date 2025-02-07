@@ -1,6 +1,6 @@
 from itertools import combinations
 from .utils import ComponentABC
-from agently_stage import Stage, Tunnel
+from Agently.Stage import Stage, Tunnel
 
 class ResponseGenerator(ComponentABC):
     def __init__(self, agent):
@@ -16,7 +16,7 @@ class ResponseGenerator(ComponentABC):
     def get_complete_generator(self):
         with Stage() as stage:
             stage.go(self.agent.start)
-            for item in self._tunnel:
+            for item in self._tunnel.get():
                 yield item
             self._tunnel = Tunnel()
     
@@ -47,7 +47,7 @@ class ResponseGenerator(ComponentABC):
         self.agent.settings.set("use_instant", True)
         with Stage() as stage:
             stage.go(self.agent.start)
-            for item in self._tunnel:
+            for item in self._tunnel.get():
                 if item[0] == "instant":
                     indexes = item[1]["indexes"]
                     if (item[1]["key"], indexes) in key_indexes_list or (item[1]["key"], []) in key_indexes_list:
@@ -68,7 +68,7 @@ class ResponseGenerator(ComponentABC):
         self.agent.settings.set("use_instant", True)
         with Stage() as stage:
             stage.go(self.agent.start)
-            for item in self._tunnel:
+            for item in self._tunnel.get():
                 if item[0] == "instant":
                     yield item[1]
             self._tunnel = Tunnel()
@@ -76,7 +76,7 @@ class ResponseGenerator(ComponentABC):
     def get_generator(self):
         with Stage() as stage:
             stage.go(self.agent.start)
-            for item in self._tunnel:
+            for item in self._tunnel.get():
                 if not item[0].endswith(("_origin")):
                     yield item
             self._tunnel = Tunnel()
@@ -84,7 +84,7 @@ class ResponseGenerator(ComponentABC):
     def get_delta_generator(self):
         with Stage() as stage:
             stage.go(self.agent.start)
-            for event, data in self._tunnel:
+            for event, data in self._tunnel.get():
                 if event == "response:delta":
                     yield data
             self._tunnel = Tunnel()
