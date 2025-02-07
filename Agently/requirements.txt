@@ -1,5 +1,3 @@
-# Core
-agently-stage==0.2.0a1
 # Shell Interaction Optimization
 pyreadline3
 # Async Ensurence
@@ -15,7 +13,6 @@ erniebot
 zhipuai==1.0.7
 tencentcloud-sdk-python
 qianfan
-litellm
 # Format
 PyYAML
 json5
