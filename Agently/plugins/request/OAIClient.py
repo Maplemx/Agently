@@ -233,7 +233,11 @@ class OAIClient(RequestABC):
                 else:
                     yield({ "event": "response:other", "data": part_dict })
             yield({ "event": "response:done_origin", "data": response_message })
-            yield({ "event": "response:done", "data": response_message["content"] })
+            if "content" in response_message:
+                yield({ "event": "response:done", "data": response_message["content"] })
+            else:
+                yield({ "event": "response:done", "data": response_message })
+                yield({ "event": "response:error", "data": response_message })
         elif self.request_type == "completions":
             response_message = {}
             async for part in response_generator:
@@ -251,8 +255,11 @@ class OAIClient(RequestABC):
                         print(f"[Request] Server Response Message: { str(dict(part)) }")
                 yield({ "event": "response:delta_origin", "data": part })
             yield({ "event": "response:done_origin", "data": response_message })
-            yield({ "event": "response:done", "data": response_message["text"] })
-                
+            if "text" in response_message:
+                yield({ "event": "response:done", "data": response_message["text"] })
+            else:
+                yield({ "event": "response:done", "data": response_message })
+                yield({ "event": "response:error", "data": response_message })
     def export(self):
         return {
             "generate_request_data": self.generate_request_data,
