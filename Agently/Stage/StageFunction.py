@@ -48,6 +48,4 @@ class StageFunction:
 
 class StageFunctionMixin:        
     def func(self, func):
-        def wrapper(*args, **kwargs):
-            return StageFunction(self, func, *args, **kwargs)
-        return wrapper
+        return StageFunction(self, func)
