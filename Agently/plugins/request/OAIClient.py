@@ -199,7 +199,7 @@ class OAIClient(RequestABC):
                 httpx_params.update({ "verify": verify })
             # proxy
             if proxy:
-                httpx_params.update({ "proxies": proxy })
+                httpx_params.update({ "proxy": proxy })
             client_params.update({
                 "http_client": httpx.AsyncClient(**httpx_params),
             })
@@ -219,6 +219,7 @@ class OAIClient(RequestABC):
     async def broadcast_response(self, response_generator):
         if self.request_type == "chat":
             response_message = {}
+            is_reasoning = False
             async for part in response_generator:
                 delta = dict(part.choices[0].delta)
                 for key, value in delta.items():
@@ -227,9 +228,25 @@ class OAIClient(RequestABC):
                     else:
                         response_message[key] += value or ""
                 yield({ "event": "response:delta_origin", "data": part })
-                yield({ "event": "response:delta", "data": part.choices[0].delta.content or "" })
+                if "reasoning_content" in delta and delta["reasoning_content"]:
+                    if not is_reasoning:
+                        yield({ "event": "response:delta", "data": "<thinking>" })
+                        is_reasoning = True
+                    yield({ "event": "response:delta", "data": delta["reasoning_content"] })
+                    yield({ "event": "response:reasoning_delta", "data": delta["reasoning_content"] })
+                if "content" in delta and delta["content"]:
+                    if is_reasoning and ("reasoning_content" not in delta or not delta["reasoning_content"]):
+                        yield({ "event": "response:delta", "data": "</thinking>\n\n" })
+                    yield({ "event": "response:delta", "data": delta["content"] })
+                    yield({ "event": "response:delta", "data": delta["content"] })
             yield({ "event": "response:done_origin", "data": response_message })
-            yield({ "event": "response:done", "data": response_message["content"] })
+            done_content = ""
+            if "reasoning_content" in response_message:
+                yield({ "event": "response:reasoning_done", "data": response_message["reasoning_content"] })
+                done_content += f"<thinking>\n\n{ response_message['reasoning_content'] }\n\n</thinking>\n\n"
+            if "content" in response_message:
+                done_content += response_message["content"]
+            yield({ "event": "response:done", "data": done_content })
         elif self.request_type == "completions":
             response_message = {}
             async for part in response_generator:
