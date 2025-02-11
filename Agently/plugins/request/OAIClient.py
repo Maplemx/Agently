@@ -17,7 +17,9 @@ class OAIClient(RequestABC):
         if not self.model_settings.get_trace_back("message_rules.strict_orders"):
             self.model_settings.set("message_rules.strict_orders", True)
         if not self.model_settings.get_trace_back("message_rules.no_multi_type_messages"):
-            self.model_settings.set("message_rules.no_multi_type_messages", True)    
+            self.model_settings.set("message_rules.no_multi_type_messages", True)
+        if not self.model_settings.get_trace_back("content_with_reasoning"):
+            self.model_settings.set("content_with_reasoning", False)
 
     def construct_request_messages(self):
         #init request messages
@@ -229,21 +231,23 @@ class OAIClient(RequestABC):
                         response_message[key] += value or ""
                 yield({ "event": "response:delta_origin", "data": part })
                 if "reasoning_content" in delta and delta["reasoning_content"]:
-                    if not is_reasoning:
-                        yield({ "event": "response:delta", "data": "<thinking>" })
-                        is_reasoning = True
-                    yield({ "event": "response:delta", "data": delta["reasoning_content"] })
+                    if self.model_settings.get_trace_back("content_with_reasoning"):
+                        if not is_reasoning:
+                            yield({ "event": "response:delta", "data": "<thinking>" })
+                            is_reasoning = True
+                        yield({ "event": "response:delta", "data": delta["reasoning_content"] })
                     yield({ "event": "response:reasoning_delta", "data": delta["reasoning_content"] })
                 if "content" in delta and delta["content"]:
-                    if is_reasoning and ("reasoning_content" not in delta or not delta["reasoning_content"]):
-                        yield({ "event": "response:delta", "data": "</thinking>\n\n" })
-                    yield({ "event": "response:delta", "data": delta["content"] })
+                    if self.model_settings.get_trace_back("content_with_reasoning"):
+                        if is_reasoning and ("reasoning_content" not in delta or not delta["reasoning_content"]):
+                            yield({ "event": "response:complete_delta", "data": "</thinking>\n\n" })
                     yield({ "event": "response:delta", "data": delta["content"] })
             yield({ "event": "response:done_origin", "data": response_message })
             done_content = ""
             if "reasoning_content" in response_message:
                 yield({ "event": "response:reasoning_done", "data": response_message["reasoning_content"] })
-                done_content += f"<thinking>\n\n{ response_message['reasoning_content'] }\n\n</thinking>\n\n"
+                if self.model_settings.get_trace_back("content_with_reasoning"):
+                    done_content += f"<thinking>\n\n{ response_message['reasoning_content'] }\n\n</thinking>\n\n"
             if "content" in response_message:
                 done_content += response_message["content"]
             yield({ "event": "response:done", "data": done_content })
