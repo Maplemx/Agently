@@ -1,11 +1,10 @@
 import os
-
 from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, replace_placeholder_keyword, format_request_messages
 from Agently.utils import RuntimeCtxNamespace
-import qianfan
 
 class Qianfan(RequestABC):
     def __init__(self, request):
+        import qianfan
         self.request = request
         self.request_type = self.request.request_runtime_ctx.get("request_type", "chat")
         if self.request_type == None:
