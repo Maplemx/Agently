@@ -2,7 +2,7 @@ import atexit
 import inspect
 import threading
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 from .StageResponse import StageResponse
 from .StageHybridGenerator import StageHybridGenerator
 from .StageFunction import StageFunctionMixin
@@ -134,7 +134,7 @@ class BaseStage:
         elif inspect.isgenerator(task):
             async def async_generator():
                 for item in task:
-                    result = await self._loop.run_in_executor(self._executor, lambda: item)
+                    result = await self._loop.run_in_executor(self._executor, lambda: item) if not self._executor._shutdown else item
                     yield result
             return self.go(async_generator())
         elif inspect.iscoroutinefunction(task) or inspect.isasyncgenfunction(task):
@@ -142,7 +142,17 @@ class BaseStage:
         elif inspect.isgeneratorfunction(task):
             return self.go(task(*args, **kwargs), **hybrid_generator_kwargs)
         elif inspect.isfunction(task) or inspect.ismethod(task):
-            return StageResponse(self, self._loop.run_in_executor(self._executor, lambda: task(*args, **kwargs)), **response_kwargs)
+            if not self._executor._shutdown:
+                return StageResponse(self, self._loop.run_in_executor(self._executor, lambda: task(*args, **kwargs)), **response_kwargs)
+            else:
+                try:
+                    future = Future()
+                    return StageResponse(self, future, **response_kwargs)
+                finally:
+                    try:
+                        future.set_result(task(*args, **kwargs))
+                    except Exception as e:
+                        future.set_exception(e)
         else:
             raise TypeError(f"Task seems like a value or an executed function not an executable task: { task }")
     
@@ -190,7 +200,7 @@ class BaseStage:
         self._closed = True
         
         for response in self._responses.copy():
-            response._result_ready.wait()
+            response.get()
         
         if self._loop and self._loop.is_running():
             self._loop.call_soon_threadsafe(self._loop.stop)

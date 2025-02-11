@@ -5,6 +5,7 @@ from Agently.Stage import Stage, Tunnel
 class ResponseGenerator(ComponentABC):
     def __init__(self, agent):
         self.agent = agent
+        self._start_agent = Stage(is_daemon=True).func(self.agent.start)
         self._tunnel = Tunnel()
     
     def put_data_to_generator(self, event, data):
@@ -14,12 +15,10 @@ class ResponseGenerator(ComponentABC):
             self._tunnel.put_stop()
 
     def get_complete_generator(self):
-        stage = Stage()
-        stage.go(self.agent.start)
-        response = self._tunnel.get()
-        for item in response:
+        self._start_agent.go()
+        for item in self._tunnel.get():
             yield item
-        stage.close()
+        self._tunnel = Tunnel()
     
     def get_instant_keys_generator(self, keys):
         if not isinstance(keys, list):
@@ -46,10 +45,8 @@ class ResponseGenerator(ComponentABC):
                         indexes.append(int(index))
                 key_indexes_list.append((key, indexes))
         self.agent.settings.set("use_instant", True)
-        stage = Stage()
-        stage.go(self.agent.start)
-        response = self._tunnel.get()
-        for item in response:
+        self._start_agent.go()
+        for item in self._tunnel.get():
             if item[0] == "instant":
                 indexes = item[1]["indexes"]
                 if (item[1]["key"], indexes) in key_indexes_list or (item[1]["key"], []) in key_indexes_list:
@@ -64,36 +61,30 @@ class ResponseGenerator(ComponentABC):
                         if (item[1]["key"], possible_indexes) in key_indexes_list:
                             yield item[1]
                             break
-        stage.close()
+        self._tunnel = Tunnel()
     
     def get_instant_generator(self):
         self.agent.settings.set("use_instant", True)
-        stage = Stage()
-        stage.go(self.agent.start)
-        response = self._tunnel.get()
-        for item in response:
+        self._start_agent.go()
+        for item in self._tunnel.get():
             if item[0] == "instant":
                 yield item[1]
-        stage.close()
+        self._tunnel = Tunnel()
     
     def get_generator(self):
-        stage = Stage()
-        stage.go(self.agent.start)
-        response = self._tunnel.get()
-        for item in response:
+        self._start_agent.go()
+        for item in self._tunnel.get():
             if not item[0].endswith(("_origin")):
                 yield item
-        stage.close()
+        self._tunnel = Tunnel()
     
     def get_delta_generator(self):
-        stage = Stage()
-        stage.go(self.agent.start)
-        response = self._tunnel.get()
-        for event, data in response:
+        self._start_agent.go()
+        for event, data in self._tunnel.get():
             if event == "response:delta":
                 yield data
-        stage.close()
-
+        self._tunnel = Tunnel()
+        
     async def _suffix(self, event, data):
         if event != "response:finally":
             self._tunnel.put((event, data))

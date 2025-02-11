@@ -3,7 +3,7 @@ import threading
 from .Stage import Stage
 
 class Tunnel:
-    def __init__(self, private_max_workers=1, max_concurrent_tasks=None, on_error=None, timeout=None):
+    def __init__(self, private_max_workers=1, max_concurrent_tasks=None, on_error=None, timeout=10):
         self._private_max_worker = private_max_workers
         self._max_concurrent_tasks = max_concurrent_tasks
         self._on_error = on_error
