@@ -1,6 +1,6 @@
 [project]
 name = "agently"
-version = "3.4.2.4444"
+version = "3.4.2.4"
 description = "[GenAI Application Development Framework] - 🚀 Build GenAI application quick and easy 💬 Easy to interact with GenAI agent in code using structure data and chained-calls syntax 🧩 Use Agently Workflow to manage complex GenAI working logic 🔀 Switch to any model without rewrite application code"
 authors = [
     {name = "Agently Team",email = "developer@agently.tech"}
