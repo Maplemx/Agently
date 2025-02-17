@@ -1,6 +1,6 @@
 [project]
 name = "agently"
-version = "3.4.2.1"
+version = "3.4.2.4"
 description = "[GenAI Application Development Framework] - 🚀 Build GenAI application quick and easy 💬 Easy to interact with GenAI agent in code using structure data and chained-calls syntax 🧩 Use Agently Workflow to manage complex GenAI working logic 🔀 Switch to any model without rewrite application code"
 authors = [
     {name = "Agently Team",email = "developer@agently.tech"}
@@ -15,7 +15,6 @@ dependencies = [
     "websockets (>=14.2,<15.0)",
     "tornado (>=6.4.2,<7.0.0)",
     "openai (>=1.61.1,<2.0.0)",
-    "tencentcloud-sdk-python (>=3.0.1316,<4.0.0)",
     "litellm (>=1.61.0,<2.0.0)",
     "pyyaml (>=6.0.2,<7.0.0)",
     "json5 (>=0.10.0,<0.11.0)",

@@ -1,15 +1,27 @@
 import json
 import types
-from tencentcloud.common import credential
-from tencentcloud.common.profile.client_profile import ClientProfile
-from tencentcloud.common.profile.http_profile import HttpProfile
-from tencentcloud.hunyuan.v20230901 import hunyuan_client, models
 
 from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, find_json, format_request_messages
 from Agently.utils import RuntimeCtxNamespace
 
+class TencentCloud:
+    def __init__(self):
+        try:
+            from tencentcloud.common import credential
+            from tencentcloud.common.profile.client_profile import ClientProfile
+            from tencentcloud.common.profile.http_profile import HttpProfile
+            from tencentcloud.hunyuan.v20230901 import hunyuan_client, models
+        except:
+            raise ImportError("[Agently Request] Can not find package 'tencentcloud-sdk-python', please use `pip install tencentcloud-sdk-python` to install.")
+        self.credential = credential
+        self.ClientProfile = ClientProfile
+        self.HttpProfile = HttpProfile
+        self.hunyuan_client = hunyuan_client
+        self.models = models
+
 class Hunyuan(RequestABC):
     def __init__(self, request):
+        self.tencentcloud = TencentCloud()
         self.request = request
         self.model_name = 'Hunyuan'
         self.model_settings = RuntimeCtxNamespace(f"model.{self.model_name}", self.request.settings)
@@ -117,14 +129,14 @@ class Hunyuan(RequestABC):
         auth = auth if isinstance(auth, dict) else {}
         if "secret_id" not in auth or "secret_key" not in auth:
             raise Exception("[Request] Missing 'secret_id' or 'secret_key' in auth. Use .set_settings('model.Hunyuan.auth', { 'secret_id': '***', 'secret_key': '***' }) to set it.")
-        cred = credential.Credential(auth["secret_id"], auth["secret_key"])
-        httpProfile = HttpProfile()
+        cred = self.tencentcloud.credential.Credential(auth["secret_id"], auth["secret_key"])
+        httpProfile = self.tencentcloud.HttpProfile()
         httpProfile.endpoint = auth["endpoint"] if "endpoint" in auth else "hunyuan.tencentcloudapi.com"
-        clientProfile = ClientProfile()
+        clientProfile = self.tencentcloud.ClientProfile()
         clientProfile.httpProfile = httpProfile
-        client = hunyuan_client.HunyuanClient(cred, "", clientProfile)
+        client = self.tencentcloud.hunyuan_client.HunyuanClient(cred, "", clientProfile)
 
-        request = models.ChatCompletionsRequest()
+        request = self.tencentcloud.models.ChatCompletionsRequest()
         request.from_json_string(json.dumps(request_data))
 
         resp = client.ChatCompletions(request)
