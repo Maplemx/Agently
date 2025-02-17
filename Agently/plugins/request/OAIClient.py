@@ -18,8 +18,10 @@ class OAIClient(RequestABC):
             self.model_settings.set("message_rules.strict_orders", True)
         if not self.model_settings.get_trace_back("message_rules.no_multi_type_messages"):
             self.model_settings.set("message_rules.no_multi_type_messages", True)
-        if not self.model_settings.get_trace_back("content_with_reasoning"):
-            self.model_settings.set("content_with_reasoning", False)
+        if not self.model_settings.get_trace_back("separate_reasoning_from_content"):
+            self.model_settings.set("separate_reasoning_from_content", True)
+        self.reasoning_prefixes = ["<think>", "<thinking>"]
+        self.reasoning_suffixes = ["</think>", "</thinking>"]
 
     def construct_request_messages(self):
         #init request messages
@@ -220,37 +222,57 @@ class OAIClient(RequestABC):
 
     async def broadcast_response(self, response_generator):
         if self.request_type == "chat":
-            response_message = {}
+            response_message = { "content": "" }
             is_reasoning = False
+            is_in_content_reasoning = False
+            reasoning_content = ""
+            done_content = ""
             async for part in response_generator:
                 delta = dict(part.choices[0].delta)
                 for key, value in delta.items():
                     if key not in response_message:
                         response_message[key] = value or ""
-                    else:
+                    elif key != "content":
                         response_message[key] += value or ""
                 yield({ "event": "response:delta_origin", "data": part })
                 if "reasoning_content" in delta and delta["reasoning_content"]:
-                    if self.model_settings.get_trace_back("content_with_reasoning"):
+                    if not self.model_settings.get_trace_back("separate_reasoning_from_content"):
                         if not is_reasoning:
-                            yield({ "event": "response:delta", "data": "<thinking>" })
+                            yield({ "event": "response:delta", "data": self.reasoning_prefixes[0] })
                             is_reasoning = True
                         yield({ "event": "response:delta", "data": delta["reasoning_content"] })
+                        reasoning_content += delta["reasoning_content"]
                     yield({ "event": "response:reasoning_delta", "data": delta["reasoning_content"] })
                 if "content" in delta and delta["content"]:
-                    if self.model_settings.get_trace_back("content_with_reasoning"):
-                        if is_reasoning and ("reasoning_content" not in delta or not delta["reasoning_content"]):
-                            yield({ "event": "response:complete_delta", "data": "</thinking>\n\n" })
+                    if (
+                        not self.model_settings.get_trace_back("separate_reasoning_from_content")
+                        and is_reasoning
+                        and ("reasoning_content" not in delta or not delta["reasoning_content"])
+                    ):
+                        yield({ "event": "response:complete_delta", "data": f"{ self.reasoning_suffixes[0] }\n\n" })
+                    if self.model_settings.get_trace_back("separate_reasoning_from_content"):
+                        if delta["content"] in self.reasoning_prefixes and not is_in_content_reasoning:
+                            is_in_content_reasoning = True
+                            continue
+                        if delta["content"] in self.reasoning_suffixes and is_in_content_reasoning:
+                            is_in_content_reasoning = False
+                            continue
+                        if is_in_content_reasoning:
+                            reasoning_content += delta["content"]
+                            yield({ "event": "response:reasoning_delta", "data": delta["content"] })
+                            if self.model_settings.get_trace_back("separate_reasoning_from_content"):
+                                continue
                     yield({ "event": "response:delta", "data": delta["content"] })
-            yield({ "event": "response:done_origin", "data": response_message })
-            done_content = ""
+                    done_content += delta["content"]
+            if "reasoning_content"  not in response_message and reasoning_content != "":
+                response_message.update({ "reasoning_content": reasoning_content })
             if "reasoning_content" in response_message:
                 yield({ "event": "response:reasoning_done", "data": response_message["reasoning_content"] })
-                if self.model_settings.get_trace_back("content_with_reasoning"):
-                    done_content += f"<thinking>\n\n{ response_message['reasoning_content'] }\n\n</thinking>\n\n"
-            if "content" in response_message:
-                done_content += response_message["content"]
+                if not self.model_settings.get_trace_back("separate_reasoning_from_content"):
+                    done_content = f"{ self.reasoning_prefixes[0] }\n\n{ response_message['reasoning_content'] }\n\n{ self.reasoning_suffixes[0] }\n\n{ done_content }"
             yield({ "event": "response:done", "data": done_content })
+            response_message.update({ "content": done_content })
+            yield({ "event": "response:done_origin", "data": response_message })
         elif self.request_type == "completions":
             response_message = {}
             async for part in response_generator:
