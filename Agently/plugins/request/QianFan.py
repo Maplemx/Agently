@@ -5,6 +5,7 @@ from Agently.utils import RuntimeCtxNamespace
 class Qianfan(RequestABC):
     def __init__(self, request):
         import qianfan
+        self.qianfan = qianfan
         self.request = request
         self.request_type = self.request.request_runtime_ctx.get("request_type", "chat")
         if self.request_type == None:
@@ -240,15 +241,15 @@ class Qianfan(RequestABC):
     
     async def request_model(self, request_data: dict):
         if self.request_type == "chat":
-            return await qianfan.ChatCompletion().ado(**request_data)
+            return await self.qianfan.ChatCompletion().ado(**request_data)
         elif self.request_type in ["completion", "completions"]:
-            return await qianfan.Completion().ado(**request_data)
+            return await self.qianfan.Completion().ado(**request_data)
         elif self.request_type in ["embedding", "embeddings"]:
-            return await qianfan.Embedding().ado(**request_data)
+            return await self.qianfan.Embedding().ado(**request_data)
         elif self.request_type in ["image", "images"]:
-            return await qianfan.Text2Image().ado(**request_data)
+            return await self.qianfan.Text2Image().ado(**request_data)
         elif self.request_type in ["rerank", "reranker"]:
-            return await qianfan.resources.Reranker().ado(**request_data)
+            return await self.qianfan.resources.Reranker().ado(**request_data)
     
     async def broadcast_response(self, response_generator):
         if self.request_type == "chat" or self.request_type in ["completion", "completions"]:
