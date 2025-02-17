@@ -1,10 +1,13 @@
 from .utils import RequestABC, to_prompt_structure, to_instruction, to_json_desc, format_request_messages
 from Agently.utils import RuntimeCtxNamespace
-import erniebot
-
 
 class Ernie(RequestABC):
     def __init__(self, request):
+        try:
+            import erniebot
+        except:
+            raise ImportError("[Agently Request] Can not find package 'erniebot', please use `pip install erniebot` to install.")
+        self.erniebot = erniebot
         self.request = request
         self.request_type = self.request.request_runtime_ctx.get("request_type", "chat")
         if self.request_type == None:
@@ -20,11 +23,11 @@ class Ernie(RequestABC):
 
     def _create_client(self):
         if self.request_type == "chat":
-            client = erniebot.ChatCompletion
+            client = self.erniebot.ChatCompletion
         elif self.request_type == "embedding":
-            client = erniebot.Embedding
+            client = self.erniebot.Embedding
         elif self.request_type == "image":
-            client = erniebot.Image
+            client = self.erniebot.Image
         return client
 
     def construct_request_messages(self):
@@ -103,8 +106,8 @@ class Ernie(RequestABC):
                 raise Exception(
                     f"[Request] ERNIE require 'access-token-for-aistudio or access-token-for-qianfan' when request type is '{self.request_type}'. Use .set_model_auth({{ 'aistudio': <YOUR-ACCESS-TOKEN-FOR-AISTUDIO> }} or {{ 'qianfan': <YOUR-ACCESS-TOKEN-FOR-QIANFAN> }}) to set.")
             api_type = next(iter(access_token))
-            erniebot.api_type = api_type
-            erniebot.access_token = access_token[api_type]
+            self.erniebot.api_type = api_type
+            self.erniebot.access_token = access_token[api_type]
             messages = self.construct_request_messages()
             request_messages = []
             #system_prompt = ""
@@ -129,8 +132,8 @@ class Ernie(RequestABC):
             if "aistudio" not in access_token:
                 raise Exception(
                     f"[Request] ERNIE require 'access-token-for-aistudio' when request type is '{self.request_type}'. Use .set_model_auth({{ 'aistudio': <YOUR-ACCESS-TOKEN-FOR-AISTUDIO> }}) to set.\n How to get your own access token? visit: https://github.com/PaddlePaddle/ERNIE-Bot-SDK/blob/develop/docs/authentication.md")
-            erniebot.api_type = "aistudio"
-            erniebot.access_token = access_token["aistudio"]
+            self.erniebot.api_type = "aistudio"
+            self.erniebot.access_token = access_token["aistudio"]
             content_input = self.request.request_runtime_ctx.get("prompt.input")
             if not isinstance(content_input, list):
                 content_input = [content_input]
@@ -145,8 +148,8 @@ class Ernie(RequestABC):
             if "yinian" not in access_token:
                 raise Exception(
                     f"[Request] ERNIE require 'access-token-for-yinian' when request type is '{self.request_type}'. Use .set_model_auth({{ 'yinian': <YOUR-ACCESS-TOKEN-FOR-YINIAN> }}) to set.\n⚠️ Yinian Access Token is different from AIStudio Access Token!\n How to get your own access token? visit: https://github.com/PaddlePaddle/ERNIE-Bot-SDK/blob/develop/docs/authentication.md")
-            erniebot.api_type = "yinian"
-            erniebot.access_token = access_token["yinian"]
+            self.erniebot.api_type = "yinian"
+            self.erniebot.access_token = access_token["yinian"]
             prompt = self.request.request_runtime_ctx.get("prompt.input")
             output_requirement = self.request.request_runtime_ctx.get("prompt.output", {})
             if not isinstance(output_requirement, dict):

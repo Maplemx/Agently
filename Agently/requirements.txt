@@ -9,8 +9,6 @@ websockets
 tornado
 # Model Client
 openai
-erniebot
-tencentcloud-sdk-python
 litellm
 # Format
 PyYAML

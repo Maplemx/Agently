@@ -4,7 +4,10 @@ from Agently.utils import RuntimeCtxNamespace
 
 class Qianfan(RequestABC):
     def __init__(self, request):
-        import qianfan
+        try:
+            import qianfan
+        except:
+            raise ImportError("[Agently Request] Can not find package 'qianfan', please use `pip install qianfan` to install.")
         self.qianfan = qianfan
         self.request = request
         self.request_type = self.request.request_runtime_ctx.get("request_type", "chat")
