@@ -57,12 +57,13 @@ class Request(object):
         return self
 
     def _register_default_alias(self, alias_manager):
-        def set_model_settings(key: str, value: any, *, model_name:str = None):
-            model_name = model_name if model_name else self.settings.get_trace_back("current_model")
-            if model_name == None:
-                raise Exception("[Model Settings] No model was appointed. Use .use_model(<model name>) or kwarg parameter model_name=<model_name> to set.")
-            self.settings.update(f"model.{ model_name }.{ key }", value)
+        def set_model_settings(key: str, value: any, *, client_name:str = None):
+            client_name = client_name if client_name else self.settings.get_trace_back("current_client", self.settings.get_trace_back("current_model"))
+            if client_name == None:
+                raise Exception("[Model Settings] No model client was appointed. Use .use_client(<model client name>) or kwarg parameter model_name=<model_name> to set.")
+            self.settings.update(f"model.{ client_name }.{ key }", value)
 
+        alias_manager.register("use_client", lambda client_name: self.settings.set("current_client", client_name))
         alias_manager.register("use_model", lambda model_name: self.settings.set("current_model", model_name))
         alias_manager.register("set_model", set_model_settings)
         alias_manager.register("set_model_auth", lambda key, value, *, model_name=None: set_model_settings(f"auth.{ key }", value))
@@ -94,9 +95,9 @@ class Request(object):
             "reply": None,
         }
         # Confirm model name
-        model_name = self.settings.get_trace_back("current_model")
+        model_name = self.settings.get_trace_back("current_client", self.settings.get_trace_back("current_model"))
         if not model_name:
-            raise Exception(f"[Request] 'current_model' must be set. Use .use_model(<model_name>) to set.")
+            raise Exception(f"[Request] 'current_client' must be set. Use .set_settings('current_client', <model_client_name>) to set.")
         # Load request plugin by model name
         request_plugin_instance = self.plugin_manager.get("request", model_name)(request = self)
         request_plugin_export = request_plugin_instance.export()

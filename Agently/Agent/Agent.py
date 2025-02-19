@@ -213,8 +213,8 @@ class Agent(object):
             event_generator = await self.request.get_event_generator(request_type)
         
             # Call Suffix Func to Handle Response Events
-            if is_debug:
-                print("[Realtime Response]\n")
+            self.request_runtime_ctx.set("is_start_reasoning", False)
+            self.request_runtime_ctx.set("is_start_delta", False)
             async def call_request_suffix(response):
                 for suffix_func in self.agent_request_suffix:
                     if asyncio.iscoroutinefunction(suffix_func):
@@ -223,9 +223,18 @@ class Agent(object):
                         suffix_func(response["event"], response["data"])
 
             async def handle_response(response):
+                if response["event"] == "response:reasoning_delta":
+                    if is_debug:
+                        if not self.request_runtime_ctx.get("is_start_reasoning"):
+                            print("\n[Realtime Reasoning]\n")
+                            self.request_runtime_ctx.set("is_start_reasoning", True)
+                        print(response["data"], end="", flush=True)
                 if response["event"] == "response:delta":
                     if is_debug:
-                        print(response["data"], end="")
+                        if not self.request_runtime_ctx.get("is_start_delta"):
+                            print("\n[Realtime Response]\n")
+                            self.request_runtime_ctx.set("is_start_delta", True)
+                        print(response["data"], end="", flush=True)
                     self.response_generator.add(response["data"])
                 if response["event"] == "response:done":
                     if self.request.response_cache["reply"] == None:

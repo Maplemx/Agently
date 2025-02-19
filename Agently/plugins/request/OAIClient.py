@@ -21,7 +21,7 @@ class OAIClient(RequestABC):
         if not self.model_settings.get_trace_back("separate_reasoning_from_content"):
             self.model_settings.set("separate_reasoning_from_content", True)
         self.reasoning_prefixes = ["<think>", "<thinking>"]
-        self.reasoning_suffixes = ["</think>", "</thinking>"]
+        self.reasoning_suffixes = ["</think>", "</thinking>", "</think>\n\n", "</thinking>\n\n"]
 
     def construct_request_messages(self):
         #init request messages
@@ -228,6 +228,8 @@ class OAIClient(RequestABC):
             reasoning_content = ""
             done_content = ""
             async for part in response_generator:
+                if not hasattr(part, "choices") or len(part.choices) < 1:
+                    continue
                 delta = dict(part.choices[0].delta)
                 for key, value in delta.items():
                     if key not in response_message:
@@ -239,17 +241,24 @@ class OAIClient(RequestABC):
                     if not self.model_settings.get_trace_back("separate_reasoning_from_content"):
                         if not is_reasoning:
                             yield({ "event": "response:delta", "data": self.reasoning_prefixes[0] })
-                            is_reasoning = True
+                            yield({ "event": "response:delta", "data": "\n\n" })
                         yield({ "event": "response:delta", "data": delta["reasoning_content"] })
                         reasoning_content += delta["reasoning_content"]
                     yield({ "event": "response:reasoning_delta", "data": delta["reasoning_content"] })
+                    is_reasoning = True
+                    if "content" in delta and delta["content"]:
+                        is_in_content_reasoning = True
+                if (
+                    is_reasoning
+                    and ("reasoning_content" not in delta or not delta["reasoning_content"])
+                ):
+                    if not self.model_settings.get_trace_back("separate_reasoning_from_content"):
+                        yield({ "event": "response:delta", "data": self.reasoning_suffixes[0] })
+                        yield({ "event": "response:delta", "data": "\n\n" })
+                    is_reasoning = False
+                if is_reasoning:
+                    continue
                 if "content" in delta and delta["content"]:
-                    if (
-                        not self.model_settings.get_trace_back("separate_reasoning_from_content")
-                        and is_reasoning
-                        and ("reasoning_content" not in delta or not delta["reasoning_content"])
-                    ):
-                        yield({ "event": "response:complete_delta", "data": f"{ self.reasoning_suffixes[0] }\n\n" })
                     if self.model_settings.get_trace_back("separate_reasoning_from_content"):
                         if delta["content"] in self.reasoning_prefixes and not is_in_content_reasoning:
                             is_in_content_reasoning = True
@@ -260,8 +269,7 @@ class OAIClient(RequestABC):
                         if is_in_content_reasoning:
                             reasoning_content += delta["content"]
                             yield({ "event": "response:reasoning_delta", "data": delta["content"] })
-                            if self.model_settings.get_trace_back("separate_reasoning_from_content"):
-                                continue
+                            continue
                     yield({ "event": "response:delta", "data": delta["content"] })
                     done_content += delta["content"]
             if "reasoning_content"  not in response_message and reasoning_content != "":
