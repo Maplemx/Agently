@@ -51,7 +51,7 @@ while not is_finish:
             "output language: Chinese",
         ])\
         .output({
-            "thinkings": ["String", "Your problem solving thinking step by step"],
+            "thinkings": ("String", "Your problem solving thinking step by step"),
             "SQL": ("String", "final SQL only"),
         })\
         .start()
