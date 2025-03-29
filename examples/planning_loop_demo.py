@@ -15,7 +15,7 @@ load_dotenv(env_path)
 # 搜索工具
 def search(keywords:list):
     payload = json.dumps({
-        "q": ' '.join(keywords),
+        "q": ' '.join(keywords) if isinstance(keywords, list) else keywords,
     })
     headers = {
         'X-API-KEY': os.environ.get("SERPER_API_KEY"),
@@ -122,7 +122,7 @@ def reply(inputs, storage):
 async def use_tool(inputs, storage):
     tool_using_info = inputs["default"]["tool_using"]
     tools_info = storage.get("tools_info")
-    tool_func = tools_info[tool_using_info["tool_name"]]["func"]
+    tool_func = tools_info[tool_using_info["tool_name"].lower()]["func"]
     if storage.get("print_process"):
         print("[🪛 我觉得需要使用工具]：")
         print("🤔 我想要解决的问题是：", tool_using_info["purpose"])
@@ -159,20 +159,23 @@ async def use_tool(inputs, storage):
 search_agent = (
     Agently.create_agent()
         .set_settings("current_model", "OAIClient")
-        .set_settings("model.OAIClient.url", "https://api.deepseek.com/v1")
-        .set_settings("model.OAIClient.auth", { "api_key": os.environ.get("DEEPSEEK_API_KEY") })
-        .set_settings("model.OAIClient.options", { "model": "deepseek-chat" })
+        #.set_settings("model.OAIClient.url", "https://api.deepseek.com/v1")
+        #.set_settings("model.OAIClient.auth", { "api_key": os.environ.get("DEEPSEEK_API_KEY") })
+        #.set_settings("model.OAIClient.options", { "model": "deepseek-chat" })
+        .set_settings("model.OAIClient.url", "http://127.0.0.1:11434/v1")
+        .set_settings("model.OAIClient.options", { "model": "deepseek-r1:14b" })
 )
 search_agent.attach_workflow("tool_using", tool_using_workflow)
 
 # 使用新附着的tool_using方法，调用你提供的任意工具集回答问题
+question = input("请输入您的问题：")
 result = search_agent.tool_using(
-    "Agently框架的Instant模式是什么？能不能给一段代码样例",
+    question,
     tools_info={
         "search": {
             "desc": "使用网络搜索工具，搜索{keywords}指定关键词相关信息",
             "kwargs": {
-                "keywords": [("str", "一个关键词")],
+                "keywords": [("str", "key word")],
             },
             "func": search,
         },
