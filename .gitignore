@@ -28,7 +28,8 @@ test.js
 private_settings
 myenv
 *test*
-*_old
+*_old*
+*.old
 
 .idea/
 dist
