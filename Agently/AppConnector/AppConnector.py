@@ -1,6 +1,6 @@
 import threading
 from ..utils import DataGenerator, DataOps
-from .buildin import gradio_app, streamlit_app, shell_app
+from .builtins import gradio_app, streamlit_app, shell_app
 
 class AppConnector(object):
     def __init__(
