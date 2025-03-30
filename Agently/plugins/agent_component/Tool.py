@@ -153,7 +153,7 @@ class Tool(ComponentABC):
                 config = config["mcpServers"]
             for server_name, server_info in config.items():
                 if "command" in server_info and "args" in server_info:
-                    self._use_mcp_server(
+                    self.use_mcp_server(
                         command=server_info["command"],
                         args=server_info["args"],
                         env=server_info["env"] if "env" in server_info else None,
