@@ -4,9 +4,6 @@ pyreadline3
 # nest_asyncio
 # Network
 httpx
-aiohttp
-websockets
-tornado
 # Model Client
 openai
 litellm
@@ -17,3 +14,6 @@ json5
 duckduckgo_search
 beautifulsoup4
 requests
+# MCP
+mcp
+fastapi
