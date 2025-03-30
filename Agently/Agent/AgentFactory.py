@@ -1,5 +1,5 @@
 from ..utils import PluginManager, ToolManager, RuntimeCtx, RuntimeCtxNamespace
-from .._global import global_plugin_manager, global_storage, global_settings, global_tool_manager, global_websocket_server
+from .._global import global_plugin_manager, global_storage, global_settings, global_tool_manager
 from .Agent import Agent
 
 class AgentFactory(object):
@@ -18,14 +18,11 @@ class AgentFactory(object):
         #use plugin manager
         self.plugin_manager = PluginManager(parent = parent_plugin_manager)
 
-        #use tool mananger
+        #use tool manager
         self.tool_manager = ToolManager(parent = parent_tool_manager)
 
         #use global storage
         self.global_storage = global_storage
-
-        #use global websocket server
-        self.global_websocket_server = global_websocket_server
 
         #debug
         self.set_settings("is_debug", is_debug)
@@ -36,7 +33,6 @@ class AgentFactory(object):
             parent_agent_runtime_ctx = self.factory_agent_runtime_ctx,
             parent_tool_manager = self.tool_manager,
             global_storage = self.global_storage,            
-            global_websocket_server = self.global_websocket_server,
             parent_plugin_manager = self.plugin_manager,
             parent_settings = self.settings,
             is_debug = is_debug
