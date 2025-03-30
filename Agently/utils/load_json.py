@@ -1,5 +1,6 @@
 import json5
 from .transform import find_json
+from .lexer import Lexer
 
 def check_structure(origin: any, compare_target: any, position: str=""):
     errors = []
@@ -57,7 +58,12 @@ async def load_json(origin: str, input_dict: any, output_dict: any, request: obj
     except Exception as e:
         if is_debug:
             print("[JSON Decode Error Occurred] Start Fixing Process...")
-        return await fix_json(origin, input_dict, output_dict, request, is_debug = is_debug, errors = [str(e)])
+        try:
+            lexer = Lexer()
+            lexer.append_string(find_json(origin))
+            return json5.loads(lexer.complete_json())
+        except Exception as e:
+            return await fix_json(origin, input_dict, output_dict, request, is_debug = is_debug, errors = [str(e)])
 
 def find_and_load_json(origin: str):
     try:
