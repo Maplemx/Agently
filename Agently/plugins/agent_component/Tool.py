@@ -1,190 +1,260 @@
+import yaml
 import asyncio
-import json
+from typing import Union, List
 from datetime import datetime
 from .utils import ComponentABC
 from Agently.utils import RuntimeCtxNamespace, to_json_desc
+from Agently.Workflow import Workflow
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+from ...Stage import Stage
+
+from mcp.server.fastmcp import FastMCP
 
 class Tool(ComponentABC):
     def __init__(self, agent: object):
-        self.agent = agent
-        self.is_debug = lambda: self.agent.settings.get_trace_back("is_debug")
-        self.settings = RuntimeCtxNamespace("plugin_settings.agent_component.Tool", self.agent.settings)
-        self.tool_manager = self.agent.tool_manager
-        self.tool_dict = {}
-        self.must_call_tool_info = None
-        self.get_tool_func = self.tool_manager.get_tool_func
-        self.call_tool_func = self.tool_manager.call_tool_func
-        self.set_tool_proxy = self.tool_manager.set_tool_proxy
-        # Tool Events
-        self.event_handlers = {}
-        self.async_tasks = []
+        self._agent = agent
+        self._is_debug = lambda: self._agent.settings.get_trace_back("is_debug")
+        self._settings = RuntimeCtxNamespace("plugin_settings.agent_component.Tool", self._agent.settings)
+        self._tool_manager = self._agent.tool_manager
+        self._tools_info = {}
+        self._tools_mapping = {}
+        self._must_call_tools_info = None
+        self._tool_using_workflow = self._get_default_tool_using_workflow()
 
-    def register_tool(self, tool_name: str, desc: any, args: dict, func: callable, *, categories: (str, list) = None, require_proxy: bool=False):
-        self.tool_manager.register(tool_name, desc, args, func, categories=categories, require_proxy=require_proxy)
-        self.tool_dict.update({ tool_name: { "tool_name": tool_name, "desc": desc, "args": args } })
-        return self.agent
+    # Normal Tool
+    def register_tool(
+        self,
+        tool_name: str,
+        desc: any,
+        args: dict,
+        func: callable,
+        *,
+        categories: Union[str, List[str]] = None,
+    ):
+        self._tool_manager.register(
+            tool_name,
+            desc,
+            args,
+            func,
+            categories=categories,
+        )
+        self._tools_info.update({
+            tool_name: {
+                "tool_name": tool_name,
+                "desc": desc,
+                "kwargs": to_json_desc(args),
+            }
+        })
+        return self._agent
 
-    def stop_tools(self, tool_name_list: (str, list)):
-        if isinstance(tool_name_list, str):
-            tool_name_list = [tool_name_list]
-        for tool_name in tool_name_list:
-            if tool_name in self.tool_dict:
-                del self.tool_dict[tool_name]
-        return self.agent
-
-    def add_public_tools(self, tool_name_list: (str, list)):
-        if isinstance(tool_name_list, str):
-            tool_name_list = [tool_name_list]
-        for tool_name in tool_name_list:
-            tool_info = self.tool_manager.get_tool_info(tool_name, with_args=True)
+    def remove_tools(self, tool_names: Union[str, List[str]]):
+        if isinstance(tool_names, str):
+            tool_names = [tool_names]
+        for tool_name in tool_names:
+            if tool_name in self._tools_info:
+                del self._tools_info[tool_name]
+        return self._agent
+    
+    def use_public_tools(self, tool_names: Union[str, List[str]]):
+        if isinstance(tool_names, str):
+            tool_names = [tool_names]
+        for tool_name in tool_names:
+            tool_info = self._tool_manager.get_tool_info(tool_name, with_args=True)
             if tool_info:
-                self.tool_dict.update({ tool_name: tool_info })
-        return self.agent
+                self._tools_info.update({ tool_name: tool_info })
+        return self._agent
+    
+    def use_public_categories(self, tool_categories: Union[str, List[str]]):
+        if isinstance(tool_categories, str):
+            tool_categories = [tool_categories]
+        tools_info = self._tool_manager.get_tool_dict(categories=tool_categories, with_args=True)
+        for key, value in tools_info.items():
+            self._tools_info.update({ key: value })
+        return self._agent
 
-    def add_public_categories(self, tool_category_list: (str, list)):
-        if isinstance(tool_category_list, str):
-            tool_category_list = [tool_category_list]
-        tool_dict = self.tool_manager.get_tool_dict(categories=tool_category_list, with_args=True)
-        for key, value in tool_dict.items():
-            self.tool_dict.update({ key: value })
-        return self.agent
-
-    def add_all_public_tools(self):
-        all_tool_dict = self.tool_manager.get_tool_dict(with_args=True)
-        for key, value in all_tool_dict.items():
-            self.tool_dict.update({ key: value })
-        return self.agent
-
+    def use_all_public_tools(self):
+        tools_info = self._tool_manager.get_tool_dict(with_args=True)
+        for key, value in tools_info.items():
+            self._tools_info.update({ key: value })
+        return self._agent
+    
+    # Must Call
     def must_call(self, tool_name: str):
-        tool_info = self.tool_manager.get_tool_info(tool_name, full=True)
+        tool_info = self._tool_manager.get_tool_info(tool_name, with_args=True)
         if tool_info:
-            self.must_call_tool_info = tool_info
+            self._must_call_tools_info = tool_info
         else:
-            raise Exception(f"[Agent Component] Tool-must call: can not find tool named '{ tool_name }'.")
-
-    async def call_plan_func(self, tool):
-        if self.is_debug():
-            print("[Agent Component] Using Tools: Start tool using judgement...")
-        tool_list = []
-        for tool_name, tool_info in self.tool_dict.items():
-            tool_list.append(tool_info)
-        try:
-            result = (
-                await self.agent.worker_request
-                    .input({
-                        "target": self.agent.request.request_runtime_ctx.get("prompt")
+            raise NotImplementedError(f"[Agent Component] Tool-must call: can not find tool named '{ tool_name }'.")
+        return self._agent
+    
+    # MCP
+    async def _get_tools_info_from_mcp_async(self, *, mcp_server_params: StdioServerParameters):
+        async with stdio_client(mcp_server_params) as (read, write):
+            async with ClientSession(read, write) as session:
+                tools_info = {}
+                await session.initialize()
+                tools_data = await session.list_tools()
+                for tool in tools_data.tools:
+                    tools_info.update({
+                        tool.name: {
+                            "tool_name": tool.name,
+                            "desc": tool.description,
+                            "kwargs": {}
+                        },
                     })
-                    .info("current date", datetime.now().date().strftime("%Y-%B-%d"))
-                    .info("tools", to_json_desc(tool_list))
-                    .instruct(
-                        "rule",
-                        [
-                            "decide whether and what tools to use for achieving {input.target}.",
-                            "* if use search tool, choose ONLY ONE SEARCH TOOL THAT FIT MOST",
-                            "* search keywords should use same language as {input.target}",
-                        ]
-                    )
-                    .output({
-                        "need_tool": ("Boolean", "judge if you need to use tool to reply {input.target} or not?"),
-                        "input_target_language": ("String", "language of {input.target}"),
-                        "tools_using": ([{
-                            "purpose": ("String", "what question you want to use tool to solve?"),
-                            "using_tool": (
-                                {
-                                    "tool_name": ("String", "{tool_name} from {tools}"),
-                                    "args": ("according {args} requirement in {tools}", ),
-                                },
-                            ),
-                        }], "output [] if {need_tool} == false"),
-                    })
-                    .start_async()
-            )
-        except Exception as e:
-            await self.agent.call_event_listeners("tool:judgement", { "status": 400, "error": str(e) })
-            return { "Tools using error": str(e) }
-        if "tools_using" not in result or result["tools_using"] == []:
-            await self.agent.call_event_listeners("tool:judgement", { "status": 200, "data": [] })
-            return None
-        await self.agent.call_event_listeners("tool:judgement", { "status": 200, "data": result["tools_using"] })
-        tool_results = {}
-        event_response_results = []
-        for step in result["tools_using"]:
-            if "using_tool" in step and isinstance(step["using_tool"], dict) and "tool_name" in step["using_tool"]:
-                if self.is_debug():
-                    print("[Using Tool]: ", step["using_tool"])
-                tool_info = self.tool_manager.get_tool_info(step["using_tool"]["tool_name"], full=True)
-                if tool_info:
-                    tool_kwrags = step["using_tool"]["args"] if "args" in step["using_tool"] and isinstance(step["using_tool"]["args"], dict) else {}
-                    if tool_info["require_proxy"]:
-                        proxy = self.agent.settings.get_trace_back("proxy")
-                        if proxy == None:
-                            proxy = self.agent.tool_manager.get_tool_proxy()
-                        if proxy:
-                            tool_kwrags.update({ "proxy": proxy })
-                    call_result = None
-                    try:
-                        tool_func = self.get_tool_func(tool_info["tool_name"])
-                        if asyncio.iscoroutinefunction(tool_func):
-                            call_result = await tool_func(**tool_kwrags)
-                        else:
-                            call_result = tool_func(**tool_kwrags)
-                    except Exception as e:
-                        call_result = str(e)
-                        if self.is_debug():
-                            print("[Tool Error]: ", e)
-                    if call_result:
-                        info_key = str(step["using_tool"]["tool_name"])
-                        purpose = step["purpose"]
-                        info_value = call_result["for_agent"] if isinstance(call_result, dict) and "for_agent" in call_result else call_result
-                        tool_results[info_key] = {
-                            "purpose": purpose,
-                            "result": info_value
-                        }
-                        await self.agent.call_event_listeners(
-                            "tool:response",
-                            {
-                                "tool_info": tool_info,
-                                "call_args": tool_kwrags,
-                                "purpose": info_key,
-                                "result": info_value,
-                            }
-                        )
-                        event_response_results.append({
-                            "tool_info": tool_info,
-                            "call_args": tool_kwrags,
-                            "purpose": info_key,
-                            "result": info_value,
+                    for key, value in tool.inputSchema["properties"].items():
+                        tools_info[tool.name]["kwargs"].update({
+                            key: (value["type"], value["title"]),
                         })
-                        if self.is_debug():
-                            print("[Result]: ", info_key, info_value)
-                else:
-                    if self.is_debug():
-                        print(f"[Result]: Can not find tool '{ step['using_tool']['tool_name'] }'")
-        if len(tool_results.keys()) > 0:
-            await self.agent.call_event_listeners("tool:all_responses", event_response_results)
-            return tool_results
+        return tools_info
+
+    def _get_tools_info_from_mcp(self, *, mcp_server_params: StdioServerParameters):
+        return asyncio.run(self._get_tools_info_from_mcp_async(mcp_server_params=mcp_server_params))
+
+    def _generate_mcp_tool(self, mcp_server_params: StdioServerParameters, tool_name:str):
+        async def _call_mcp_tool_async(**kwargs):
+            async with stdio_client(mcp_server_params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    return await session.call_tool(tool_name, arguments=kwargs)
+        def _call_mcp_tool(**kwargs):
+            with Stage() as stage:
+                return stage.get(_call_mcp_tool_async, **kwargs)
+        return _call_mcp_tool
+    
+    def use_mcp_server(
+        self,
+        command:str=None,
+        args:List[str]=None,
+        env:str=None,
+        *,
+        config:dict=None,
+        categories:Union[str, List[str]]=None,
+    ):
+        if command and args:
+            mcp_server_params = StdioServerParameters(
+                command=command,
+                args=args,
+                env=env,
+            )
+            tools_info = self._get_tools_info_from_mcp(mcp_server_params=mcp_server_params)
+            for tool_name, tool_info in tools_info.items():
+                self._tools_info.update({ tool_name: tool_info })
+                self._tool_manager.register(
+                    tool_info["tool_name"],
+                    tool_info["desc"],
+                    to_json_desc(tool_info["kwargs"]),
+                    self._generate_mcp_tool(mcp_server_params, tool_info["tool_name"]),
+                    categories=categories,          
+                )
+        elif config:
+            if "mcpServers" in config:
+                config = config["mcpServers"]
+            for server_name, server_info in config.items():
+                if "command" in server_info and "args" in server_info:
+                    self._use_mcp_server(
+                        command=server_info["command"],
+                        args=server_info["args"],
+                        env=server_info["env"] if "env" in server_info else None,
+                        categories=categories,
+                    )
         else:
-            await self.agent.call_event_listeners("tool:all_responses", [])
-            return None
+            raise NotImplementedError(f"[Agent Component] Tool - Use MCP Server: `command`, `arg` or `config` dict must be provided.")
+        return self._agent
+    
+    # Customize Workflow
+    def set_tool_using_workflow(self, workflow: Workflow):
+        self._tool_using_workflow = workflow
+        return self._agent
 
-    def customize_call_plan(self, call_plan_func: callable):
-        self.call_plan_func = call_plan_func
-        return self.agent
-    
-    def on_tool_judgement(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
-        self.agent.add_event_listener("tool:judgement", listener, is_await=is_await, is_agent_event=is_agent_event)
-        return self.agent
-    
-    def on_tool_response(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
-        self.agent.add_event_listener("tool:response", listener, is_await=is_await, is_agent_event=is_agent_event)
-        return self.agent
-    
-    def on_tool_all_responses(self, listener: callable, *, is_await:bool=False, is_agent_event:bool=False):
-        self.agent.add_event_listener("tool:all_responses", listener, is_await=is_await, is_agent_event=is_agent_event)
-        return self.agent
+    # Default Workflow
+    def _get_default_tool_using_workflow(self):
+        tool_using_workflow = Workflow()
 
+        @tool_using_workflow.chunk()
+        def save_user_input(inputs, storage):
+            storage.set("user_input", inputs["default"])
+            return
+
+        @tool_using_workflow.chunk()
+        def make_next_plan(inputs, storage):
+            agent = storage.get("$agent")
+            user_input = storage.get("user_input", {})
+            tools_info = storage.get("tools_info", {})
+            done_plans = storage.get("done_plans", [])
+            result = (
+                agent
+                    .input(user_input)
+                    .info({
+                        "tool_list": [to_json_desc(item) for item in list(tools_info.values())],
+                        "already_dones": done_plans,
+                        "now": datetime.now().strftime("%Y-%B-%d %H:%M:%S"),
+                    })
+                    .instruct([
+                        "According {input}, {already_dones} and {HELPFUL INFORMATION.tool_list}, make a next move plan",
+                        "If {already_dones} shows that some action repeats for too many times, next step MUST BE 'OUTPUT'",
+                        "USE WHAT NATURAL LANGUAGE TONGUE {INPUT} USED AS POSSIBLE.",
+                    ])
+                    .output({
+                        "input_natural_language": ("str", ),
+                        "next_step_thinking": ("str", ),
+                        "next_step_action": {
+                            "type": ("'TOOL USING' | 'OUTPUT'", "MUST IN values provided. If {HELPFUL INFORMATION.already_dones} have enough info to reply {input}, MUST choose 'OUTPUT'"),
+                            "tool_using": (
+                                {
+                                    "tool_name": ("str from {HELPFUL INFORMATION.tool_list.tool_name}", "MUST USE {HELPFUL INFORMATION.tool_list.tool_name} provided tool name ONLY!"),
+                                    "purpose": ("str", "Describe the problem need to use this tool to solve"),
+                                    "kwargs": ("dict", "MUST FOLLOW {HELPFUL INFORMATION.tool_list.kwargs} format requirement!"),
+                                },
+                                "if {next_step_action.type} == 'OUTPUT' just output null",
+                            ),
+                        }
+                    })
+                    .start()
+            )
+            return result["next_step_action"]
+
+        @tool_using_workflow.chunk()
+        async def use_tool(inputs, storage):
+            tool_using_info = inputs["default"]["tool_using"]
+            if storage.get("print_process"):
+                print("[🤔 Need to use tool]: ")
+                print("❓ Problem is:", tool_using_info["purpose"])
+                print("🪛 Use tool:", tool_using_info["tool_name"])
+            tool_result = self._tool_manager.call_tool_func(tool_using_info["tool_name"], **tool_using_info["kwargs"])
+            if storage.get("print_process"):
+                print("ℹ️ Tool result: ", tool_result[:100], "...")
+            done_plans = storage.get("done_plans", [])
+            done_plans.append({
+                "purpose": tool_using_info["purpose"],
+                "tool_name": tool_using_info["tool_name"],
+                "result": tool_result,
+            })
+            storage.set("done_plans", done_plans)
+            return
+    
+        @tool_using_workflow.chunk()
+        def reply(inputs, storage):
+            if storage.get("print_process"):
+                print("✅ Tool using Done!")
+            return storage.get("done_plans", None)
+
+        (
+            tool_using_workflow
+                .connect_to("save_user_input")
+                .connect_to("make_next_plan")
+                .if_condition(lambda return_value, storage: return_value["type"] == "OUTPUT")
+                    .connect_to("reply")
+                    .connect_to("end")
+                .else_condition()
+                    .connect_to("use_tool")
+                    .connect_to("make_next_plan")
+        )
+        return tool_using_workflow
+    
     async def _prefix(self):
-        if self.must_call_tool_info:
+        if self._must_call_tools_info:
             if self.is_debug():
                 print(f"[Agent Component] Using Tools: Must call '{ self.must_call_tool_info['tool_name'] }'")
             self.agent.request.request_runtime_ctx.remove("prompt.instruct")
@@ -203,38 +273,56 @@ class Tool(ComponentABC):
                     "question": ("String", "if {can_call}==false, output question for user to collecting enough information."),
                 }
             }
-        elif len(self.tool_dict.keys()) > 0:
-            tool_results = await self.call_plan_func(self)
-            if tool_results and len(tool_results.keys()) > 0:
+        elif len(self._tools_info.keys()) > 0:
+            prompt = self._agent.request.request_runtime_ctx.get("prompt", {})
+            if len(prompt.keys()) == 1 and "input" in prompt:
+                prompt =  yaml.safe_dump(prompt["input"], allow_unicode=True)
+            else:
+                prompt = yaml.safe_dump(prompt, allow_unicode=True)
+            tool_using_result = self._tool_using_workflow.start(
+                prompt,
+                storage={
+                    "$agent": self._agent.worker_request,
+                    "tools_info":self._tools_info,
+                },
+            )["default"]
+            if tool_using_result and len(tool_using_result) > 0:
+                await self._agent.call_event_listeners("tool:response", tool_using_result)            
                 return {
                     "info": {
-                        "tool_using_results": tool_results,
+                        "tool_using_result": tool_using_result,
                     },
-                    "instruct": "Response according {helpful information} provided.\nProvide URL for keywords in markdown format if needed.\nIf error occured or not enough information, response you don't know honestly unless you are very sure about the answer without information support."
+                    "instruct": [
+                        "MUST USE WHAT NATURAL LANGUAGE TONGUE {INPUT} USED TO OUTPUT!",
+                        "Response according {tool_using_result}",
+                        "summarize key points if possible.",                        
+                        "Provide URL for keywords in markdown format if needed.",
+                        "If error occurred or not enough information was given, response you don't know honestly unless you are very sure about the answer without information support.",
+                    ]
                 }
             else:
                 return None
         else:
             return None
-
+    
     def export(self):
         return {
             "prefix": self._prefix,
             "suffix": None,
             "alias": {
                 "register_tool": { "func": self.register_tool },
-                "call_tool": { "func": self.call_tool_func },
-                "set_tool_proxy": { "func": self.set_tool_proxy },
-                "add_public_tools": { "func": self.add_public_tools },
-                "use_public_tools": { "func": self.add_public_tools },
-                "add_public_categories": { "func": self.add_public_categories },
-                "use_public_categories": { "func": self.add_public_categories },
-                "add_all_public_tools": { "func": self.add_all_public_tools },
-                "use_all_public_tools": { "func": self.add_all_public_tools },
+                "call_tool": { "func": self._tool_manager.call_tool_func, "return_value": True },
+                "set_tool_proxy": { "func": self._tool_manager.set_tool_proxy },
+                "add_public_tools": { "func": self.use_public_tools },
+                "use_public_tools": { "func": self.use_public_tools },
+                "add_public_categories": { "func": self.use_public_categories },
+                "use_public_categories": { "func": self.use_public_categories },
+                "add_all_public_tools": { "func": self.use_all_public_tools },
+                "use_all_public_tools": { "func": self.use_all_public_tools },
+                "use_mcp_server": { "func": self.use_mcp_server },
+                "set_tool_using_workflow": { "func": self.set_tool_using_workflow },
+                "remove_tools": { "func": self.remove_tools },
                 "must_call": { "func": self.must_call },
-                "customize_call_plan": { "func": self.customize_call_plan },
-                "on_tool_judgement": { "func": self.on_tool_judgement },
-                "on_tool_response": { "func": self.on_tool_response },
             }
         }
 

@@ -11,6 +11,8 @@ class Web(ToolABC):
         self.tool_manager = tool_manager
 
     def search(self, keywords: str, *, options: dict={}, proxy: str=None, type: int=1, no_sleep: bool=False, timelimit: str=None):
+        if not isinstance(options, dict):
+            options = {}
         if timelimit:
             options.update({ "timelimit": timelimit })
         results = []
