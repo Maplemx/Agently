@@ -120,7 +120,13 @@ class Tool(ComponentABC):
                     return await session.call_tool(tool_name, arguments=kwargs)
         def _call_mcp_tool(**kwargs):
             with Stage() as stage:
-                return stage.get(_call_mcp_tool_async, **kwargs)
+                result = stage.get(_call_mcp_tool_async, **kwargs)
+                if result.isError:
+                    return {
+                        "Error": vars(result.content[0])
+                    }
+                else:
+                    return vars(result.content[0])
         return _call_mcp_tool
     
     def use_mcp_server(
