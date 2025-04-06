@@ -120,7 +120,13 @@ class Tool(ComponentABC):
                     return await session.call_tool(tool_name, arguments=kwargs)
         def _call_mcp_tool(**kwargs):
             with Stage() as stage:
-                return stage.get(_call_mcp_tool_async, **kwargs)
+                result = stage.get(_call_mcp_tool_async, **kwargs)
+                if result.isError:
+                    return {
+                        "Error": vars(result.content[0])
+                    }
+                else:
+                    return vars(result.content[0])
         return _call_mcp_tool
     
     def use_mcp_server(
@@ -153,7 +159,7 @@ class Tool(ComponentABC):
                 config = config["mcpServers"]
             for server_name, server_info in config.items():
                 if "command" in server_info and "args" in server_info:
-                    self._use_mcp_server(
+                    self.use_mcp_server(
                         command=server_info["command"],
                         args=server_info["args"],
                         env=server_info["env"] if "env" in server_info else None,
