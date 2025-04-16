@@ -2,6 +2,7 @@ import json5
 import asyncio
 import threading
 import queue
+import re
 from ..Request import Request
 from ..utils import RuntimeCtx, RuntimeCtxNamespace, StorageDelegate, PluginManager, AliasManager, ToolManager, IdGenerator, DataGenerator, check_version, load_json
 
@@ -262,7 +263,7 @@ class Agent(object):
                         .set_settings("model", self.request.settings.get_trace_back("model"))
                 )
                 reply = await load_json(
-                    self.request.response_cache["reply"],
+                    re.sub(r'<think(?:ing)?>.*?<\\think(?:ing)?>\s*', '', self.request.response_cache["reply"], flags=re.DOTALL),
                     self.request.response_cache["prompt"]["input"],
                     self.request.response_cache["prompt"]["output"],
                     temp_request,
