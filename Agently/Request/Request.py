@@ -3,6 +3,7 @@ import threading
 import queue
 import json
 import json5
+import re
 
 from ..utils import RuntimeCtx, RuntimeCtxNamespace, PluginManager, AliasManager, load_json, DataGenerator
 from .._global import global_plugin_manager, global_settings
@@ -167,7 +168,7 @@ class Request(object):
                             .set_settings("model", self.settings.get_trace_back("model"))
                     )
                     reply = await load_json(
-                        self.response_cache["reply"],
+                        re.sub(r'<think(?:ing)?>.*?<\\think(?:ing)?>\s*', '', self.response_cache["reply"], flags=re.DOTALL),
                         self.response_cache["prompt"]["input"],
                         self.response_cache["prompt"]["output"],
                         temp_request,

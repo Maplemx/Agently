@@ -10,9 +10,11 @@ class ResponseGenerator(ComponentABC):
 
     @contextmanager
     def _create_start_stage(self):
-        stage = Stage(is_daemon=True)
-        yield stage.func(self.agent.start)
-        stage.close()
+        try:
+            stage = Stage(is_daemon=True)
+            yield stage.func(self.agent.start)
+        finally:
+            stage.close()
 
     def put_data_to_generator(self, event, data):
         if (event, data) != (None, None):
@@ -73,19 +75,23 @@ class ResponseGenerator(ComponentABC):
     
     def get_instant_generator(self):
         self.agent.settings.set("use_instant", True)
-        with self._create_start_stage() as stage:
-            stage.go()
-            for item in self._tunnel.get():
-                if item[0] == "instant":
-                    yield item[1]
+        try:
+            with self._create_start_stage() as stage:
+                stage.go()
+                for item in self._tunnel.get():
+                    if item[0] == "instant":
+                        yield item[1]
+        finally:
             self._tunnel = Tunnel()
     
     def get_generator(self):
-        with self._create_start_stage() as stage:
-            stage.go()
-            for item in self._tunnel.get():
-                if not item[0].endswith(("_origin")):
-                    yield item
+        try:
+            with self._create_start_stage() as stage:
+                stage.go()
+                for item in self._tunnel.get():
+                    if not item[0].endswith(("_origin")):
+                        yield item
+        finally:
             self._tunnel = Tunnel()
     
     def get_delta_generator(self):
