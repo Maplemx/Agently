@@ -28,7 +28,9 @@ class Decorator(ComponentABC):
             )
         return wrapper
 
-    def on_event(self, event: str, *, is_await:bool=False):
+    def on_event(self, event: str=None, *, is_await:bool=False):
+        if event is None:
+            event = "*"
         if (
             not event.startswith("response:")
             and not event.startswith("tool:")
@@ -36,6 +38,7 @@ class Decorator(ComponentABC):
             and not event == "realtime"
             and not event.startswith("instant:")
             and not event == "instant"
+            and not event == "*"
         ):
             event = "response:" + event
         def decorator(func: callable):
