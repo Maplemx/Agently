@@ -18,8 +18,9 @@ agent.use_mcp_server(
     env=None,
 )
 
-fast_server.serve(
-    agent,
-    name="coder",
-    desc="Ask any question about code or ask him to write a part of code for you."
-)
+if __name__ == "__main__":
+    fast_server.serve(
+        agent,
+        name="coder",
+        desc="Ask any question about code or ask him to write a part of code for you."
+    )

@@ -24,4 +24,5 @@ For Example:
         .content.decode()
     )
 
-mcp_server.run()
+if __name__ == "__main__":
+    mcp_server.run()

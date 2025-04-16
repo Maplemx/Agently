@@ -20,8 +20,9 @@ def get_weather(inputs, storage):
 
 fast_server = Agently.FastServer("mcp")
 
-fast_server.serve(
-    workflow,
-    name="weather_reporter",
-    desc="Get weather by submit city name to `message`"
-)
+if __name__ == "__main__":
+    fast_server.serve(
+        workflow,
+        name="weather_reporter",
+        desc="Get weather by submit city name to `message`"
+    )
