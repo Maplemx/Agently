@@ -99,6 +99,15 @@ class EventListener(ComponentABC):
     async def call_event_listeners(self, event: str, data: any):
         event = event.replace(".", "->")
         listeners = self.listeners.get_trace_back() or {}
+        if "*" in listeners:
+            for listener_info in listeners["*"]:
+                if asyncio.iscoroutinefunction(listener_info["listener"]):
+                    if listener_info["is_await"]:
+                        await listener_info["listener"](event , data)
+                    else:
+                        self.async_tasks.append(asyncio.create_task(listener_info["listener"](event, data)))
+                else:
+                    listener_info["listener"](event, data)
         if event in listeners:
             for listener_info in listeners[event]:
                 if asyncio.iscoroutinefunction(listener_info["listener"]):

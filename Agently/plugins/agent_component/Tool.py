@@ -22,6 +22,11 @@ class Tool(ComponentABC):
         self._must_call_tools_info = None
         self._tool_using_workflow = self._get_default_tool_using_workflow()
 
+    # put_event
+    async def _put_event(self, event, data):
+        await self._agent.call_event_listeners(event, data)
+        self._agent.put_data_to_generator(event, data)
+
     # Normal Tool
     def register_tool(
         self,
@@ -104,8 +109,16 @@ class Tool(ComponentABC):
                         },
                     })
                     for key, value in tool.inputSchema["properties"].items():
+                        desc_str = ""
+                        if 'title' in value:
+                            desc_str += f"{ value['title'] }\n"
+                        if 'description' in value:
+                            desc_str += f"{ value['description'] }"
                         tools_info[tool.name]["kwargs"].update({
-                            key: (value["type"], value["title"]),
+                            key: (
+                                value["type"],
+                                desc_str,
+                            ),
                         })
         return tools_info
 
@@ -184,7 +197,7 @@ class Tool(ComponentABC):
             return
 
         @tool_using_workflow.chunk()
-        def make_next_plan(inputs, storage):
+        async def make_next_plan(inputs, storage):
             agent = storage.get("$agent")
             user_input = storage.get("user_input", {})
             tools_info = storage.get("tools_info", {})
@@ -219,6 +232,7 @@ class Tool(ComponentABC):
                     })
                     .start()
             )
+            await self._put_event("tool:planning", result["next_step_thinking"])
             return result["next_step_action"]
 
         @tool_using_workflow.chunk()
@@ -231,13 +245,15 @@ class Tool(ComponentABC):
             tool_result = self._tool_manager.call_tool_func(tool_using_info["tool_name"], **tool_using_info["kwargs"])
             if storage.get("print_process"):
                 print("ℹ️ Tool result: ", tool_result[:100], "...")
-            done_plans = storage.get("done_plans", [])
-            done_plans.append({
+            tool_using_result = {
                 "purpose": tool_using_info["purpose"],
                 "tool_name": tool_using_info["tool_name"],
                 "result": tool_result,
-            })
+            }
+            done_plans = storage.get("done_plans", [])
+            done_plans.append(tool_using_result)
             storage.set("done_plans", done_plans)
+            await self._put_event("tool:tool_result", tool_using_result)
             return
     
         @tool_using_workflow.chunk()
@@ -261,7 +277,7 @@ class Tool(ComponentABC):
     
     async def _prefix(self):
         if self._must_call_tools_info:
-            if self.is_debug():
+            if self._is_debug():
                 print(f"[Agent Component] Using Tools: Must call '{ self.must_call_tool_info['tool_name'] }'")
             self.agent.request.request_runtime_ctx.remove("prompt.instruct")
             self.agent.request.request_runtime_ctx.remove("prompt.output")
@@ -293,7 +309,7 @@ class Tool(ComponentABC):
                 },
             )["default"]
             if tool_using_result and len(tool_using_result) > 0:
-                await self._agent.call_event_listeners("tool:response", tool_using_result)            
+                await self._put_event("tool:done", tool_using_result)            
                 return {
                     "info": {
                         "tool_using_result": tool_using_result,
