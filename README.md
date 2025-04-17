@@ -6,11 +6,11 @@
 
 [Showcase Repo]Agently Daily News Collector: [English](https://github.com/AgentEra/Agently-Daily-News-Collector) | [新闻汇总报告生成器开源项目](https://github.com/AgentEra/Agently-Daily-News-Collector/blob/main/README_CN.md)
 
-**`[hot]`** 中文版由浅入深开发文档：[点此访问，一步一步解锁复杂LLMs应用开发技能点](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/Agently_step_by_step_guide.ipynb)
+**`[hot]`** 中文版由浅入深开发文档：[点此访问，一步一步解锁复杂LLMs应用开发技能点](https://github.com/AgentEra/Agently/blob/main/docs/guidebook/Agently_step_by_step_guide.ipynb)
 
 > 📥 How to use: `pip install -U Agently`
 >
-> 💡 Ideas / Bug Report: [Report Issues Here](https://github.com/Maplemx/Agently/issues)
+> 💡 Ideas / Bug Report: [Report Issues Here](https://github.com/AgentEra/Agently/issues)
 >
 > 📧 Email Us: [developer@agently.cn](mailto:developer@agently.tech)
 >
@@ -18,13 +18,13 @@
 >
 > [Click Here to Join](https://discord.gg/4HnarMBpYT) or Scan the QR Code Down Below
 >
-> <img width="120" alt="image" src="https://github.com/Maplemx/Agently/assets/4413155/089c239c-6133-4844-840c-b48c42ccbad1">
+> <img width="120" alt="image" src="https://github.com/AgentEra/Agently/assets/4413155/089c239c-6133-4844-840c-b48c42ccbad1">
 >
 > 💬 WeChat Group（加入微信群）:
 >
 >  [Click Here to Apply](https://doc.weixin.qq.com/forms/AIoA8gcHAFMAScAhgZQABIlW6tV3l7QQf) or Scan the QR Code Down Below
 >
-> <img width="120" alt="image" src="https://github.com/Maplemx/Agently/assets/4413155/7f4bc9bf-a125-4a1e-a0a4-0170b718c1a6">
+> <img width="120" alt="image" src="https://github.com/AgentEra/Agently/assets/4413155/7f4bc9bf-a125-4a1e-a0a4-0170b718c1a6">
 > 
 > If you like this project, please ⭐️, thanks.
 
@@ -32,25 +32,25 @@
 
 **Colab Documents:**
 
-- [Introduction Guidebook](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/introduction.ipynb)
-- [Application Development Handbook](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/application_development_handbook.ipynb)
+- [Introduction Guidebook](https://github.com/AgentEra/Agently/blob/main/docs/guidebook/introduction.ipynb)
+- [Application Development Handbook](https://github.com/AgentEra/Agently/blob/main/docs/guidebook/application_development_handbook.ipynb)
 - Plugin Development Handbook(still working on it)
 
 **Code Examples:**
 
 To build agent in many different fields:
 
-- [Agent Instance Help You to Generate SQL from Natural Language according Meta Data of Database](https://github.com/Maplemx/Agently/blob/main/playground/sql_generator.ipynb)
-- [Survey Agent Asks Questions and Collecting Feedback from Customer According Form](https://github.com/Maplemx/Agently/blob/main/playground/survey_agent_asks_questions_according_form.ipynb)
-- [Teacher Agent for Kids with Search Ability](https://github.com/Maplemx/Agently/blob/main/playground/teacher_with_search_ability_for_kids.ipynb)
+- [Agent Instance Help You to Generate SQL from Natural Language according Meta Data of Database](https://github.com/AgentEra/Agently/blob/main/playground/sql_generator.ipynb)
+- [Survey Agent Asks Questions and Collecting Feedback from Customer According Form](https://github.com/AgentEra/Agently/blob/main/playground/survey_agent_asks_questions_according_form.ipynb)
+- [Teacher Agent for Kids with Search Ability](https://github.com/AgentEra/Agently/blob/main/playground/teacher_with_search_ability_for_kids.ipynb)
 
 Or, to call agent instance abilities in code logic to help:
 
-- [Transform Long Text to Question & Answer Pairs](https://github.com/Maplemx/Agently/blob/main/playground/long_text_to_qa_pairs.ipynb)
-- [Human Review and Maybe Step In before Response is Sent to User](https://github.com/Maplemx/Agently/blob/main/playground/human_step_in_before_reply.ipynb)
-- [Simple Example for How to Call Functions](https://github.com/Maplemx/Agently/blob/main/playground/function_calling.py)
+- [Transform Long Text to Question & Answer Pairs](https://github.com/AgentEra/Agently/blob/main/playground/long_text_to_qa_pairs.ipynb)
+- [Human Review and Maybe Step In before Response is Sent to User](https://github.com/AgentEra/Agently/blob/main/playground/human_step_in_before_reply.ipynb)
+- [Simple Example for How to Call Functions](https://github.com/AgentEra/Agently/blob/main/playground/function_calling.py)
 
-Explore More: [Visit Demostration Playground](https://github.com/Maplemx/Agently/tree/main/playground)
+Explore More: [Visit Demostration Playground](https://github.com/AgentEra/Agently/tree/main/playground)
 
 ## Installation & Preparation
 
@@ -122,7 +122,7 @@ Here down below are two CLI application demos that in two totally different doma
 
 **DEMO VIDEO**
 
-https://github.com/Maplemx/Agently/assets/4413155/b7d16592-5fdc-43c0-a14c-f2272c7900da
+https://github.com/AgentEra/Agently/assets/4413155/b7d16592-5fdc-43c0-a14c-f2272c7900da
 
 **CODE**
 
@@ -283,7 +283,7 @@ We make it happened in Agently 3.0 and when Agently 3.0 in its alpha test, we we
 
 ### Agent Structure that **_<font color = "red">Agent</font><font color = "blue">ly</font>_** Framework Can Help to Build
 
-<img width="883" alt="image" src="https://github.com/Maplemx/Agently/assets/4413155/76cb456f-7025-429c-8b5a-f60789bbacef">
+<img width="883" alt="image" src="https://github.com/AgentEra/Agently/assets/4413155/76cb456f-7025-429c-8b5a-f60789bbacef">
 
 ### EXAMPLE 1: Source Code of Agent Component - Role
 
@@ -407,7 +407,7 @@ install(Agently)
 # Now your agent can use new abilities enhanced by new plugin
 ```
 
-Here's also [a real case](https://github.com/Maplemx/Agently/issues/32) when Agently v3.0.1 had an issue that make Session component unavailable. We use plugin package update can fix the bug without update the whole framework package.
+Here's also [a real case](https://github.com/AgentEra/Agently/issues/32) when Agently v3.0.1 had an issue that make Session component unavailable. We use plugin package update can fix the bug without update the whole framework package.
 
 ## Want to Dive Deeper?
 
@@ -415,9 +415,9 @@ OK. That's the general introduction about Agently AI agent development framework
 
 If you want to dive deeper, you can also visit these documents/links:
 
-- [Agently 3.0 Application Development Handbook](https://github.com/Maplemx/Agently/blob/main/docs/guidebook/application_development_handbook.ipynb)
+- [Agently 3.0 Application Development Handbook](https://github.com/AgentEra/Agently/blob/main/docs/guidebook/application_development_handbook.ipynb)
 - Agently 3.0 Plugin Development Handbook (Working on it)
-- [Agently 3.0 Demostration Playground](https://github.com/Maplemx/Agently/tree/main/playground)
+- [Agently 3.0 Demostration Playground](https://github.com/AgentEra/Agently/tree/main/playground)
 
 ---
 
