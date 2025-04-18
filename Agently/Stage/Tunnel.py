@@ -38,6 +38,7 @@ class Tunnel:
         self._defer_close_stage()
         stage = self._get_stage()
         def queue_consumer():
+            try_count = 0
             while True:
                 try:
                     if self._timeout is not None:
@@ -45,6 +46,9 @@ class Tunnel:
                     else:
                         data = self._data_queue.get()
                 except queue.Empty:
+                    if self._timeout is not None and try_count < 3:
+                        try_count += 1
+                        continue
                     break
                 if data is StopIteration:
                     break
