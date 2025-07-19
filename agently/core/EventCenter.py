@@ -78,7 +78,6 @@ class EventCenter:
             hooker._on_unregister()
         del self._hookers[hooker.name]
 
-    @FunctionShifter.hybrid_func
     async def emit(
         self,
         event: "AgentlyEvent",
@@ -132,6 +131,7 @@ class EventCenterMessenger:
         self,
         content: str,
         *,
+        event: "AgentlyEvent" = "message",
         status: "EventStatus" = "",
         exception: Exception | None = None,
         level: "MessageLevel" = "INFO",
@@ -142,7 +142,7 @@ class EventCenterMessenger:
         final_meta = self._base_meta.copy()
         final_meta.update(meta)
         await self._event_center.emit(
-            "message",
+            event,
             {
                 "module_name": self._module_name,
                 "status": status,
