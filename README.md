@@ -2,7 +2,7 @@
 
 # Agently 4 (v4.0.0.Beta1)
 
-[English Introduction](https://github.com/AgentEra/Agently/README.md) | [中文介绍](https://github.com/AgentEra/Agently/README_CN.md)
+[English Introduction](https://github.com/AgentEra/Agently/blob/main/README.md) | [中文介绍](https://github.com/AgentEra/Agently/blob/main/README_CN.md)
 
 
 > *Speed Up Your GenAI Application Development*
