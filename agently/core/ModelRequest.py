@@ -150,6 +150,50 @@ class ModelRequest:
         self.prompt.set(key, value)
         return self
 
+    # Quick Prompt
+    def system(self, prompt: Any):
+        self.prompt.set("input", prompt)
+        return self
+
+    def rule(self, prompt: Any):
+        self.prompt.set("system", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
+        self.prompt.set("system.rule", prompt)
+        return self
+
+    def role(self, prompt: Any):
+        self.prompt.set("system", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
+        self.prompt.set("system.your_role", prompt)
+        return self
+
+    def user_info(self, prompt: Any):
+        self.prompt.set("system", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
+        self.prompt.set("system.user_info", prompt)
+        return self
+
+    def input(self, prompt: Any):
+        self.prompt.set("input", prompt)
+        return self
+
+    def info(self, prompt: Any):
+        self.prompt.set("info", prompt)
+        return self
+
+    def instruct(self, prompt: Any):
+        self.prompt.set("instruct", prompt)
+        return self
+
+    def output(
+        self,
+        prompt: (
+            dict[str, tuple[type, str | None, str, None] | Any]
+            | list[tuple[type, str | None, str, None] | Any]
+            | tuple[type, str | None, str, None]
+            | Any
+        ),
+    ):
+        self.prompt.set("output", prompt)
+        return self
+
     def get_response(self):
         response = ModelResponse(
             self.plugin_manager,
