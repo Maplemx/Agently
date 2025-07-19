@@ -72,6 +72,7 @@ class AgentlyResponseParser(ResponseParser):
             "result_object": None,
             "errors": [],
         }
+        self._OutputModel = prompt.to_output_model()
         self._prompt_object = prompt.to_prompt_object()
         self._response_consumer: GeneratorConsumer | None = None
         self._consumer_lock = asyncio.Lock()
@@ -200,6 +201,9 @@ class AgentlyResponseParser(ResponseParser):
             )
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
+        print(">>>>>>>>>>>>>>>>", self._OutputModel)
+        print(">>>>>>>>>>>>>>>>", self._result["parsed_result"])
+        self._result["result_object"] = self._OutputModel.model_validate(self._result["parsed_result"])
         return self._result["result_object"]
 
     @FunctionShifter.hybrid_func
