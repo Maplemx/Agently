@@ -116,18 +116,56 @@ class BaseAgent:
     async def get_result_object(self):
         return await self.request.get_response().get_result_object()
 
+    @overload
     def get_generator(
         self,
-        *,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] = "delta",
-    ):
+        content: Literal["instant", "streaming_parse"],
+    ) -> Generator["StreamingData", None, None]: ...
+    @overload
+    def get_generator(
+        self,
+        content: Literal["all"],
+    ) -> Generator[tuple[str, Any], None, None]: ...
+    @overload
+    def get_generator(
+        self,
+        content: Literal["delta", "original"],
+    ) -> Generator[str, None, None]: ...
+    @overload
+    def get_generator(
+        self,
+        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+    ) -> Generator: ...
+    def get_generator(
+        self,
+        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+    ) -> Generator[tuple[str, Any], None, None] | Generator[str, None, None] | Generator["StreamingData", None, None]:
         return self.request.get_response().get_generator(content=content)
 
+    @overload
     def get_async_generator(
         self,
-        *,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] = "delta",
-    ):
+        content: Literal["instant", "streaming_parse"],
+    ) -> AsyncGenerator["StreamingData", None]: ...
+    @overload
+    def get_async_generator(
+        self,
+        content: Literal["all"],
+    ) -> AsyncGenerator[tuple[str, Any], None]: ...
+    @overload
+    def get_async_generator(
+        self,
+        content: Literal["delta", "original"],
+    ) -> AsyncGenerator[str, None]: ...
+    @overload
+    def get_async_generator(
+        self,
+        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+    ) -> AsyncGenerator: ...
+    def get_async_generator(
+        self,
+        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+    ) -> AsyncGenerator:
         return self.request.get_response().get_async_generator(content=content)
 
     # Quick Prompt

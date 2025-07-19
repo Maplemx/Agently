@@ -65,25 +65,26 @@ class ResponseParser(AgentlyPlugin, Protocol):
     @overload
     def get_async_generator(
         self,
-        *,
+        content: Literal["instant", "streaming_parse"],
+    ) -> AsyncGenerator["StreamingData", None]: ...
+    @overload
+    def get_async_generator(
+        self,
         content: Literal["all"],
     ) -> AsyncGenerator[tuple[str, Any], None]: ...
     @overload
     def get_async_generator(
         self,
-        *,
         content: Literal["delta", "original"],
     ) -> AsyncGenerator[str, None]: ...
     @overload
     def get_async_generator(
         self,
-        *,
-        content: Literal["instant", "streaming_parse"],
-    ) -> AsyncGenerator["StreamingData", None]: ...
+        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+    ) -> AsyncGenerator: ...
     def get_async_generator(
         self,
-        *,
-        content="delta",
+        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
     ) -> AsyncGenerator:
         """
         'instant' is Agently v3 compatible for 'streaming_parse'
@@ -93,37 +94,26 @@ class ResponseParser(AgentlyPlugin, Protocol):
     @overload
     def get_generator(
         self,
-        *,
+        content: Literal["instant", "streaming_parse"],
+    ) -> Generator["StreamingData", None, None]: ...
+    @overload
+    def get_generator(
+        self,
         content: Literal["all"],
     ) -> Generator[tuple[str, Any], None, None]: ...
     @overload
     def get_generator(
         self,
-        *,
-        content: Literal["delta"],
+        content: Literal["delta", "original"],
     ) -> Generator[str, None, None]: ...
     @overload
     def get_generator(
         self,
-        *,
-        content: Literal["original"],
-    ) -> Generator[str, None, None]: ...
-    @overload
+        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+    ) -> Generator: ...
     def get_generator(
         self,
-        *,
-        content: Literal["instant"],
-    ) -> Generator["StreamingData", None, None]: ...
-    @overload
-    def get_generator(
-        self,
-        *,
-        content: Literal["streaming_parse"],
-    ) -> Generator["StreamingData", None, None]: ...
-    def get_generator(
-        self,
-        *,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] = "delta",
+        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
     ) -> Generator:
         """
         'instant' is Agently v3 compatible for 'streaming_parse'

@@ -225,8 +225,7 @@ class AgentlyResponseParser(ResponseParser):
 
     async def get_async_generator(
         self,
-        *,
-        content: Literal['all', 'delta', 'original', 'instant', 'streaming_parse'] = "all",
+        content: Literal['all', 'delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
     ) -> AsyncGenerator:
         await self._ensure_consumer()
         parsed_generator = cast(GeneratorConsumer, self._response_consumer).get_async_generator()
@@ -256,8 +255,7 @@ class AgentlyResponseParser(ResponseParser):
 
     def get_generator(
         self,
-        *,
-        content: Literal['all', 'delta', 'original', 'instant', 'streaming_parse'] = "all",
+        content: Literal['all', 'delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
     ) -> Generator:
         asyncio.run(self._ensure_consumer())
         parsed_generator = cast(GeneratorConsumer, self._response_consumer).get_generator()
