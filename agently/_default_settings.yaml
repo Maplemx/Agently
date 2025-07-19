@@ -1,0 +1,15 @@
+storage:
+  db_url: "sqlite+aiosqlite:///localstorage.db"
+prompt:
+  role_mapping:
+    system: system
+    developer: developer
+    assistant: assistant
+    user: user
+    _: assistant
+response:
+  streaming_parse: False
+  streaming_parse_path_style: dot
+runtime:
+  raise_error: True
+  raise_critical: True
