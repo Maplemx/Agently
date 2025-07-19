@@ -14,7 +14,6 @@
 
 from typing import Any, Literal, cast, overload
 
-from sqlalchemy import update
 from agently.types.data.prompt import ChatMessage, PromptStandardSlot
 from agently.types.plugins import PromptGenerator
 from agently.utils import RuntimeData, SerializableRuntimeData

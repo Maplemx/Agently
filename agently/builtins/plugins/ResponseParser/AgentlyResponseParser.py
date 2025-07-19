@@ -14,7 +14,6 @@
 
 import asyncio
 import contextlib
-from email import message
 import warnings
 
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Generator, Literal, Mapping, cast

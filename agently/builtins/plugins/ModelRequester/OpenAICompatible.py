@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import time
-from agently.types.data import SerializableData
 import yaml
 import json
 from typing import (
