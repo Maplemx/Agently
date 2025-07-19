@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Any, TYPE_CHECKING, Literal
-from agently.base import settings, plugin_manager, event_center, logger
+from agently.base import settings, plugin_manager, event_center, logger, print_, async_print
 from agently.core import Prompt, ModelRequest, BaseAgent
 
 if TYPE_CHECKING:
@@ -30,6 +30,8 @@ class AgentlyMain:
         self.plugin_manager = plugin_manager
         self.event_center = event_center
         self.logger = logger
+        self.print = print_
+        self.async_print = async_print
         self.set_debug_console("OFF")
 
     def set_debug_console(self, debug_console_status: Literal["ON", "OFF"]):
@@ -44,14 +46,6 @@ class AgentlyMain:
     def set_log_level(self, log_level: "MessageLevel"):
         self.logger.setLevel(log_level)
         return self
-
-    def print(self, *args):
-        self.event_center.emit(
-            "log",
-            {
-                "content": args,
-            },
-        )
 
     def set_settings(self, key: str, value: "SerializableValue"):
         self.settings.set_settings(key, value)

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from agently.utils import Settings, create_logger
+from typing import Any
+
+from agently.utils import Settings, create_logger, FunctionShifter
 from agently.core import PluginManager, EventCenter
 
 settings = Settings(name="global_settings")
@@ -23,4 +25,26 @@ plugin_manager = PluginManager(
 event_center = EventCenter()
 logger = create_logger()
 
-__all__ = ["settings", "plugin_manager", "event_center"]
+_agently_messenger = event_center.create_messenger("Agently")
+
+
+def print_(content: Any, *args):
+    message_sync = FunctionShifter.ensure_sync(_agently_messenger.message)
+    contents = [str(content)]
+    if args:
+        for arg in args:
+            contents.append(str(arg))
+    content_text = " ".join(contents)
+    message_sync(content_text, event="log")
+
+
+async def async_print(content: Any, *args):
+    contents = [str(content)]
+    if args:
+        for arg in args:
+            contents.append(str(arg))
+    content_text = " ".join(contents)
+    await _agently_messenger.message(content_text, event="log")
+
+
+__all__ = ["settings", "plugin_manager", "event_center", "logger"]

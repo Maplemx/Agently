@@ -14,10 +14,11 @@
 
 from ._entrypoint import AgentlyMain
 from ._default_init import load_default_settings, load_default_plugins, hook_default_event_handlers
+from .base import print_, async_print
 
 Agently = AgentlyMain()
 load_default_plugins(Agently)
 load_default_settings(Agently)
 hook_default_event_handlers(Agently)
 
-__all__ = ["Agently"]
+__all__ = ["Agently", "print_", "async_print"]
