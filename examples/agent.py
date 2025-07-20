@@ -33,7 +33,7 @@ async def run():
             "actions": [("str",)],
             "say": ("str",),
         }
-    ).get_async_generator(content="instant")
+    ).get_async_generator("instant")
 
     thinking_status = False
     actions_status = False

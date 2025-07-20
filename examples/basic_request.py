@@ -26,5 +26,6 @@ request.set_prompt(
         "reply": (str, None, "Markdown Style"),
     },
 )
-result = request.get_result()
+
+result = request.get_result_object()
 Agently.print(result)
