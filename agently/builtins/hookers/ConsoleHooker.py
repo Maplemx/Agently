@@ -14,7 +14,7 @@
 
 from agently.utils import LazyImport
 
-LazyImport.import_package("rich")
+LazyImport.import_package("rich", version_constraint=">=14,<15")
 
 import json
 import threading
