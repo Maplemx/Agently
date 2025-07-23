@@ -201,8 +201,6 @@ class AgentlyResponseParser(ResponseParser):
             )
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
-        print(">>>>>>>>>>>>>>>>", self._OutputModel)
-        print(">>>>>>>>>>>>>>>>", self._result["parsed_result"])
         self._result["result_object"] = self._OutputModel.model_validate(self._result["parsed_result"])
         return self._result["result_object"]
 
