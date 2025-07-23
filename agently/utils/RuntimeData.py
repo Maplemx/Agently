@@ -203,6 +203,7 @@ class RuntimeData:
                         ref.get().append(item)
             elif value not in ref.get():
                 ref.get().append(value)
+            return
         if isinstance(ref.get(), set):
             if not isinstance(value, str) and isinstance(value, Sequence):
                 for item in value:
@@ -210,8 +211,24 @@ class RuntimeData:
                         ref.get().add(item)
             else:
                 ref.get().add(value)
+            return
         else:
-            ref.set(value)
+            existing = ref.get()
+            if existing is None:
+                if isinstance(value, list):
+                    ref.set(value.copy())
+                else:
+                    ref.set([value])
+            elif isinstance(existing, list):
+                if isinstance(value, list):
+                    for item in value:
+                        if item not in existing:
+                            existing.append(item)
+                else:
+                    if value not in existing:
+                        existing.append(value)
+            else:
+                ref.set(value)
 
     def _set_item_by_dot_path(self, dot_path: str, value: Any, *, cover: bool = False):
         current = DictRef(self._data)
@@ -327,6 +344,24 @@ class RuntimeData:
 
     def namespace(self, namespace_path: str):
         return RuntimeDataNamespace(self, namespace_path)
+
+    def append(self, key: str, value: Any):
+        current = self.get(key, default=None, inherit=False)
+        if current is None:
+            current = []
+        elif not isinstance(current, list):
+            current = [current]
+        current.append(value)
+        self._set_item_by_dot_path(key, current, cover=True)
+
+    def extend(self, key: str, values: Sequence[Any]):
+        current = self.get(key, default=None, inherit=False)
+        if current is None:
+            current = []
+        elif not isinstance(current, list):
+            current = [current]
+        current.extend(values)
+        self._set_item_by_dot_path(key, current, cover=True)
 
 
 class RuntimeDataNamespace:
