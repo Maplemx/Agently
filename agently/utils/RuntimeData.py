@@ -218,7 +218,7 @@ class RuntimeData:
                 if isinstance(value, list):
                     ref.set(value.copy())
                 else:
-                    ref.set([value])
+                    ref.set(value)
             elif isinstance(existing, list):
                 if isinstance(value, list):
                     for item in value:
