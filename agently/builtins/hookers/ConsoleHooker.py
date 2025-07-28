@@ -16,7 +16,9 @@ from agently.utils import LazyImport
 
 LazyImport.import_package("rich", version_constraint=">=14,<15")
 
+import time
 import json
+import atexit
 import threading
 from collections import deque
 from datetime import datetime
@@ -46,6 +48,7 @@ class ConsoleManager:
         self._update_event = threading.Event()
         self._lock = threading.Lock()
         self._log_messages = deque(maxlen=20)
+        self._tips: str = "Press Ctrl+C to quit"
 
     def update_table(self, table_name: str, row_id: str | int, update_dict: dict[str, Any]):
         if table_name not in self._table_data:
@@ -76,9 +79,12 @@ class ConsoleManager:
         self._update_event.set()
 
     def append_log(self, message: str):
-
         timestamp = datetime.now().strftime("%H:%M:%S")
         self._log_messages.append(Text(f"[{timestamp}] {message}"))
+        self._update_event.set()
+
+    def set_tips(self, tips: str):
+        self._tips = tips
         self._update_event.set()
 
     def render(self):
@@ -115,7 +121,7 @@ class ConsoleManager:
 
         layout["logs"].update(Panel(Group(*self._log_messages), title="Logs", border_style="dim"))
 
-        layout["footer"].update(Text("Press Ctrl+C to quit", style="bold green", justify="center"))
+        layout["footer"].update(Text(self._tips, style="bold green", justify="center"))
 
         return layout
 
@@ -127,11 +133,18 @@ class ConsoleManager:
                 with self._lock:
                     live.update(self.render())
 
+    def _wait_when_atexit(self):
+        if self._running:
+            self.set_tips("All tasks have been completed. Exiting in 5 seconds...")
+            time.sleep(5)
+        else:
+            pass
+
     def watch(self):
         if self._running:
             return
         self._running = True
-        self._console_thread = threading.Thread(target=self._live, daemon=False)
+        self._console_thread = threading.Thread(target=self._live, daemon=True)
         self._console_thread.start()
 
     def stop(self):
@@ -159,6 +172,7 @@ class ConsoleHooker(EventHooker):
     @staticmethod
     def _on_register():
         ConsoleHooker.console_manager.watch()
+        atexit.register(ConsoleHooker.console_manager._wait_when_atexit)
 
     @staticmethod
     def _on_unregister():
