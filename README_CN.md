@@ -26,6 +26,14 @@
   </a>
 </p>
 
+<hr />
+
+<p align="center">
+    <b><a href = "https://github.com/AgentEra/Agently/discussions">💬 官方Github Discussions讨论区</a> - 来这里讨论任何关于Agently的话题</b>
+</p>
+
+<hr />
+
 ## 使用方法
 
 Agently GenAI应用开发框架目前提供在Python语言中可用的包，开发者可以通过pip等包管理工具安装后，在代码中通过`from agently import Agently`的方式引入使用。
@@ -37,6 +45,9 @@ pip install agently==4.0.0b1
 ```
 
 ⚠️: 公测阶段必须携带版本号参数
+
+> ℹ️ 如果你想要寻找Agently v3版本的代码和文档，可以访问这个历史分支： [`v3-final`](https://github.com/AgentEra/Agently/tree/v3-final)
+
 
 克隆本仓库安装：
 
