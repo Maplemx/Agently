@@ -30,7 +30,7 @@
 <hr />
 
 <p align="center">
-    <b><a href = "https://github.com/AgentEra/Agently/discussions">💬 Offical Github Discussion Forum</a> - Welcome to Share Anything about Agently with Us</b>
+    <b><a href = "https://github.com/AgentEra/Agently/discussions">💬 Official Github Discussion Forum</a> - Welcome to Share Anything about Agently with Us</b>
 </p>
 
 <hr />
