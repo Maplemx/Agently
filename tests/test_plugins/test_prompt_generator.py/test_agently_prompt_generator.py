@@ -13,6 +13,8 @@ def test_to_prompt_object():
         "chat_history": [],
         "system": None,
         "developer": None,
+        "tools": None,
+        "action_results": None,
         "input": "OK",
         "attachment": [],
         "info": None,
@@ -26,6 +28,8 @@ def test_to_prompt_object():
         "chat_history": [],
         "system": None,
         "developer": None,
+        "tools": None,
+        "action_results": None,
         "input": "OK",
         "attachment": [],
         "info": None,
@@ -39,6 +43,8 @@ def test_to_prompt_object():
         "chat_history": [],
         "system": None,
         "developer": None,
+        "tools": None,
+        "action_results": None,
         "input": "OK",
         "attachment": [],
         "info": None,
@@ -52,6 +58,8 @@ def test_to_prompt_object():
         "chat_history": [],
         "system": None,
         "developer": None,
+        "tools": None,
+        "action_results": None,
         "input": "OK",
         "attachment": [],
         "info": None,
@@ -336,10 +344,10 @@ def test_strict_role_orders():
     prompt.set("input", "hi")
     messages = prompt.to_messages(rich_content=True, strict_role_orders=True)
     assert messages == [
-        {'role': 'user', 'content': {'type': 'text', 'text': '[Chat History]'}},
+        {'role': 'user', 'content': [{'type': 'text', 'text': '[Chat History]'}]},
         {'role': 'assistant', 'content': [{'type': 'text', 'text': 'Hi, how can I help you today?'}]},
         {'role': 'user', 'content': [{'type': 'text', 'text': '?'}]},
-        {'role': 'assistant', 'content': {'type': 'text', 'text': '[User continue input]'}},
+        {'role': 'assistant', 'content': [{'type': 'text', 'text': '[User continue input]'}]},
         {'role': 'user', 'content': 'hi'},
     ]
     messages = prompt.to_messages(rich_content=False, strict_role_orders=True)

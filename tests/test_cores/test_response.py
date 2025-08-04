@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 def test_model_request():
     Agently.set_settings("response.streaming_parse", True)
     Agently.set_settings("response.streaming_parse_path_style", "slash")
-    Agently.set_debug_console("ON")
+    Agently.set_debug_console("OFF")
     request = ModelRequest(
         Agently.plugin_manager,
         parent_settings=Agently.settings,
