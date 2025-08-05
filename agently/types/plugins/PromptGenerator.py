@@ -18,7 +18,7 @@ from .base import AgentlyPlugin
 if TYPE_CHECKING:
     from agently.types.data import PromptModel
     from agently.core import Prompt
-    from agently.utils import SerializableRuntimeData
+    from agently.utils import Settings
     from pydantic import BaseModel
 
 
@@ -46,13 +46,13 @@ class PromptGenerator(AgentlyPlugin, Protocol):
 
     name: str
     prompt: "Prompt"
-    settings: "SerializableRuntimeData"
+    settings: "Settings"
     DEFAULT_SETTINGS: dict[str, Any] = {}
 
     def __init__(
         self,
         prompt: "Prompt",
-        settings: "SerializableRuntimeData",
+        settings: "Settings",
     ):
         """
         Initialize the prompt generator plugin.
@@ -60,7 +60,7 @@ class PromptGenerator(AgentlyPlugin, Protocol):
         Args:
             prompt (Prompt):
                 The associated Prompt instance.
-            settings (SerializableRuntimeData):
+            settings (Settings):
                 Settings inherit from upper instances.
         """
         ...

@@ -15,18 +15,17 @@
 from typing import Any, Protocol, AsyncGenerator, Generator, Literal, TYPE_CHECKING, overload
 
 from agently.types.plugins import AgentlyPlugin
-from agently.utils import FunctionShifter
 
 if TYPE_CHECKING:
     from agently.core import Prompt, EventCenterMessenger
     from agently.types.data import AgentlyResponseGenerator, SerializableData, StreamingData
-    from agently.utils import SerializableRuntimeData
+    from agently.utils import Settings
     from pydantic import BaseModel
 
 
 class ResponseParser(AgentlyPlugin, Protocol):
     name: str
-    settings: "SerializableRuntimeData"
+    settings: "Settings"
     messenger: "EventCenterMessenger"
     DEFAULT_SETTINGS: dict[str, Any] = {}
 
@@ -36,7 +35,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         prompt: "Prompt",
         response_generator: "AgentlyResponseGenerator",
-        settings: "SerializableRuntimeData",
+        settings: "Settings",
         messenger: "EventCenterMessenger",
     ): ...
 
@@ -75,21 +74,25 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         content: Literal["instant", "streaming_parse"],
     ) -> AsyncGenerator["StreamingData", None]: ...
+
     @overload
     def get_async_generator(
         self,
         content: Literal["all"],
     ) -> AsyncGenerator[tuple[str, Any], None]: ...
+
     @overload
     def get_async_generator(
         self,
         content: Literal["delta", "original"],
     ) -> AsyncGenerator[str, None]: ...
+
     @overload
     def get_async_generator(
         self,
         content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
     ) -> AsyncGenerator: ...
+
     def get_async_generator(
         self,
         content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
@@ -104,21 +107,25 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         content: Literal["instant", "streaming_parse"],
     ) -> Generator["StreamingData", None, None]: ...
+
     @overload
     def get_generator(
         self,
         content: Literal["all"],
     ) -> Generator[tuple[str, Any], None, None]: ...
+
     @overload
     def get_generator(
         self,
         content: Literal["delta", "original"],
     ) -> Generator[str, None, None]: ...
+
     @overload
     def get_generator(
         self,
         content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
     ) -> Generator: ...
+
     def get_generator(
         self,
         content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",

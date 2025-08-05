@@ -17,7 +17,7 @@ from .base import AgentlyPlugin
 
 if TYPE_CHECKING:
     from agently.core import Prompt
-    from agently.utils import SerializableRuntimeData
+    from agently.utils import Settings
     from agently.types.data import AgentlyResponseGenerator, AgentlyRequestData
 
 
@@ -48,20 +48,20 @@ class ModelRequester(AgentlyPlugin, Protocol):
 
     name: str
     prompt: "Prompt"
-    settings: "SerializableRuntimeData"
+    settings: "Settings"
     DEFAULT_SETTINGS: dict[str, Any] = {}
 
     def __init__(
         self,
         prompt: "Prompt",
-        settings: "SerializableRuntimeData",
+        settings: "Settings",
     ):
         """
         Initialize the ModelRequester plugin.
 
         Args:
             prompt (Prompt): The associated Prompt instance.
-            settings (SerializableRuntimeData): Plugin settings, supporting hierarchical inheritance.
+            settings (Settings): Plugin settings, supporting hierarchical inheritance.
         """
         ...
 
