@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Literal, cast, overload
+from typing import Any, Literal, TYPE_CHECKING, cast, overload
 
-from agently.types.data.prompt import ChatMessage, PromptStandardSlot
-from agently.types.plugins import PromptGenerator
-from agently.utils import RuntimeData, SerializableRuntimeData
-from agently.core import PluginManager
+from agently.utils import RuntimeData, Settings
+
+if TYPE_CHECKING:
+    from agently.types.data.prompt import ChatMessage, PromptStandardSlot
+    from agently.types.plugins import PromptGenerator
+    from agently.core import PluginManager
 
 
 class Prompt(RuntimeData):
@@ -65,20 +67,20 @@ class Prompt(RuntimeData):
 
     def __init__(
         self,
-        plugin_manager: PluginManager,
-        parent_settings: SerializableRuntimeData,
+        plugin_manager: "PluginManager",
+        parent_settings: Settings,
         *,
         prompt_dict: dict[str, Any] | None = None,
         parent_prompt: "Prompt | None" = None,
         name: str | None = None,
     ):
         super().__init__(prompt_dict, parent=parent_prompt, name=name)
-        self.settings = SerializableRuntimeData(
+        self.settings = Settings(
             name="Prompt-Settings",
             parent=parent_settings,
         )
         PromptGeneratorPlugin = cast(
-            type[PromptGenerator],
+            type["PromptGenerator"],
             plugin_manager.get_plugin(
                 "PromptGenerator",
                 str(self.settings["plugins.PromptGenerator.activate"]),
@@ -92,14 +94,14 @@ class Prompt(RuntimeData):
 
     @overload
     def set(
-        self, key: Literal["chat_history"], value: dict[str, str | dict[str, Any]] | list[ChatMessage] | ChatMessage
+        self, key: Literal["chat_history"], value: "dict[str, str | dict[str, Any]] | list[ChatMessage] | ChatMessage"
     ): ...
 
     @overload
-    def set(self, key: PromptStandardSlot | str, value: Any): ...
+    def set(self, key: "PromptStandardSlot | str", value: Any): ...
 
-    def set(self, key: PromptStandardSlot | str, value: Any):
+    def set(self, key: "PromptStandardSlot | str", value: Any):
         super().set(key, value)
 
-    def update(self, new: dict[PromptStandardSlot | str, Any]):
+    def update(self, new: "dict[PromptStandardSlot | str, Any]"):
         super().update(new)
