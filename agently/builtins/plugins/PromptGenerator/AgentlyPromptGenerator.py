@@ -142,6 +142,26 @@ class AgentlyPromptGenerator(PromptGenerator):
 
     def _generate_main_prompt(self, prompt_object: PromptModel):
         prompt_text_list = []
+        # tools
+        if prompt_object.tools and isinstance(prompt_object.tools, list):
+            prompt_text_list.append("[TOOLS]:")
+            for tool_info in prompt_object.tools:
+                if isinstance(tool_info, dict):
+                    prompt_text_list.append("[")
+                    for key, value in tool_info:
+                        if key == "kwargs":
+                            prompt_text_list.append(
+                                f"{ key }: {self._generate_json_output_prompt(DataFormatter.sanitize(value))}"
+                            )
+                        else:
+                            prompt_text_list.append(f"{ key }: { value }")
+                    prompt_text_list.append("]")
+
+        # action_results
+        if prompt_object.action_results:
+            prompt_text_list.extend(self._generate_yaml_prompt_list("ACTION RESULTS", prompt_object.instruct))
+
+        # info
         if prompt_object.info:
             prompt_text_list.append("[INFO]:")
             if isinstance(prompt_object.info, Mapping):
@@ -157,7 +177,7 @@ class AgentlyPromptGenerator(PromptGenerator):
 
         # extra
         if prompt_object.model_extra:
-            for title, content in prompt_object.model_extra:
+            for title, content in prompt_object.model_extra.items():
                 prompt_text_list.extend(self._generate_yaml_prompt_list(title, content))
 
         # instruct
@@ -172,12 +192,14 @@ class AgentlyPromptGenerator(PromptGenerator):
         if prompt_object.output:
             match prompt_object.output_format:
                 case "json":
+                    final_output_dict = {}
+                    final_output_dict.update(prompt_object.output)
                     prompt_text_list.extend(
                         [
                             "[OUTPUT REQUIREMENT]:",
                             "Data Format: JSON",
                             "Data Structure:",
-                            self._generate_json_output_prompt(DataFormatter.sanitize(prompt_object.output)),
+                            self._generate_json_output_prompt(DataFormatter.sanitize(final_output_dict)),
                             "",
                         ]
                     )
@@ -350,20 +372,14 @@ class AgentlyPromptGenerator(PromptGenerator):
                         0,
                         {
                             "role": "user",
-                            "content": (
-                                {"type": "text", "text": "[Chat History]"} if rich_content else "[Chat History]"
-                            ),
+                            "content": [{"type": "text", "text": "[Chat History]"}],
                         },
                     )
                 if chat_history[-1]["role"] != "assistant":
                     chat_history.append(
                         {
                             "role": "assistant",
-                            "content": (
-                                {"type": "text", "text": "[User continue input]"}
-                                if rich_content
-                                else "[User continue input]"
-                            ),
+                            "content": [{"type": "text", "text": "[User continue input]"}],
                         }
                     )
 
@@ -373,15 +389,18 @@ class AgentlyPromptGenerator(PromptGenerator):
                 for message in chat_history:
                     origin_content = message["content"]
                     content = []
-                    for one_content in origin_content:
-                        if "type" in one_content and one_content["type"] == "text":
-                            print(one_content)
-                            content.append(one_content["text"])
-                        else:
-                            self._messenger.warning(
-                                f"Skipped content: unable to convert type '{one_content['type']}' to chat message when `rich_content` == False. "
-                                f"Content: {one_content}",
-                            )
+                    if isinstance(origin_content, str):
+                        content.append(origin_content)
+                    elif isinstance(origin_content, Sequence):
+                        for one_content in origin_content:
+                            if "type" in one_content and one_content["type"] == "text":
+                                content.append(one_content["text"])
+                            elif "type" in one_content:
+                                self._messenger.warning(
+                                    f"Skipped content: unable to convert type '{ one_content['type'] }' to chat message when `rich_content` == False. "
+                                    f"Content: {one_content}",
+                                )
+
                     content = "\n\n".join(content)
                     simplified_chat_history.append(
                         {
@@ -396,6 +415,8 @@ class AgentlyPromptGenerator(PromptGenerator):
         # special occasion: only input
         if (
             prompt_object.input
+            and not prompt_object.tools
+            and not prompt_object.action_results
             and not prompt_object.info
             and not prompt_object.instruct
             and not prompt_object.output
@@ -408,6 +429,8 @@ class AgentlyPromptGenerator(PromptGenerator):
         elif (
             prompt_object.attachment
             and not prompt_object.input
+            and not prompt_object.tools
+            and not prompt_object.action_results
             and not prompt_object.info
             and not prompt_object.instruct
             and not prompt_object.output
@@ -487,7 +510,7 @@ class AgentlyPromptGenerator(PromptGenerator):
             if not isinstance(v, list):
                 v = [v]
             return [
-                (target_type(item) if not isinstance(item, target_type) and target_type is not Any else item)
+                (target_type(item) if target_type is not Any and not isinstance(item, target_type) else item)
                 for item in v
             ]
 
