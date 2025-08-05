@@ -94,9 +94,10 @@ class EventCenter:
 
         if event in self._hooks:
             for callback in self._hooks[event].values():
-                coro_callback = FunctionShifter.to_awaitable(callback)
-                tasks.append(asyncio.ensure_future(coro_callback(message_object)))
-
+                coro = FunctionShifter.asyncify(callback)
+                tasks.append(
+                    asyncio.create_task(coro(message_object)),
+                )
             await asyncio.gather(*tasks)
         if event == "log" and len(tasks) == 0:
             print(*message_object.content if isinstance(message_object.content, list) else message_object.content)
@@ -123,11 +124,19 @@ class EventCenterMessenger:
         self._module_name = module_name
         self._base_meta = base_meta if base_meta is not None else {}
 
+        self.message = FunctionShifter.syncify(self.async_message)
+        self.debug = FunctionShifter.syncify(self.async_debug)
+        self.info = FunctionShifter.syncify(self.async_info)
+        self.warning = FunctionShifter.syncify(self.async_warning)
+        self.error = FunctionShifter.syncify(self.async_error)
+        self.critical = FunctionShifter.syncify(self.async_critical)
+        self.to_console = FunctionShifter.syncify(self.async_to_console)
+        self.to_data = FunctionShifter.syncify(self.async_to_data)
+
     def update_base_meta(self, update_dict: dict[str, Any]):
         self._base_meta.update(update_dict)
 
-    @FunctionShifter.hybrid_func
-    async def message(
+    async def async_message(
         self,
         content: str,
         *,
@@ -153,8 +162,7 @@ class EventCenterMessenger:
             },
         )
 
-    @FunctionShifter.hybrid_func
-    async def debug(
+    async def async_debug(
         self,
         content: str,
         *,
@@ -176,8 +184,7 @@ class EventCenterMessenger:
             },
         )
 
-    @FunctionShifter.hybrid_func
-    async def info(
+    async def async_info(
         self,
         content: str,
         *,
@@ -199,8 +206,7 @@ class EventCenterMessenger:
             },
         )
 
-    @FunctionShifter.hybrid_func
-    async def warning(
+    async def async_warning(
         self,
         content: str,
         *,
@@ -222,8 +228,7 @@ class EventCenterMessenger:
             },
         )
 
-    @FunctionShifter.hybrid_func
-    async def error(
+    async def async_error(
         self,
         error: str | Exception,
         *,
@@ -252,8 +257,7 @@ class EventCenterMessenger:
         if settings.get("runtime.raise_error"):
             raise error
 
-    @FunctionShifter.hybrid_func
-    async def critical(
+    async def async_critical(
         self,
         critical: str | Exception,
         *,
@@ -282,8 +286,7 @@ class EventCenterMessenger:
         if settings.get("runtime.raise_critical"):
             raise critical
 
-    @FunctionShifter.hybrid_func
-    async def to_console(
+    async def async_to_console(
         self,
         content: Any,
         *,
@@ -307,8 +310,7 @@ class EventCenterMessenger:
             },
         )
 
-    @FunctionShifter.hybrid_func
-    async def to_data(
+    async def async_to_data(
         self,
         data: SerializableData,
         *,

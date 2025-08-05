@@ -29,7 +29,7 @@ _agently_messenger = event_center.create_messenger("Agently")
 
 
 def print_(content: Any, *args):
-    message_sync = FunctionShifter.ensure_sync(_agently_messenger.message)
+    message_sync = FunctionShifter.syncify(_agently_messenger.message)
     contents = [str(content)]
     if args:
         for arg in args:
@@ -44,7 +44,7 @@ async def async_print(content: Any, *args):
         for arg in args:
             contents.append(str(arg))
     content_text = " ".join(contents)
-    await _agently_messenger.message(content_text, event="log")
+    await _agently_messenger.async_message(content_text, event="log")
 
 
 __all__ = ["settings", "plugin_manager", "event_center", "logger"]

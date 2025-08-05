@@ -14,14 +14,14 @@
 
 import uuid
 
-from typing import Any, Generator, AsyncGenerator, Literal, TYPE_CHECKING, overload
+from typing import Any, Mapping, Sequence, Generator, AsyncGenerator, Literal, TYPE_CHECKING, overload
 
 from agently.core import Prompt, ModelRequest
 from agently.utils import FunctionShifter, Settings
 
 if TYPE_CHECKING:
     from agently.core import PluginManager
-    from agently.types.data import PromptStandardSlot, ChatMessage, StreamingData, SerializableValue
+    from agently.types.data import PromptStandardSlot, ChatMessage, StreamingData, SerializableValue, ToolMeta
 
 
 class BaseAgent:
@@ -56,6 +56,18 @@ class BaseAgent:
             parent_prompt=self.prompt,
             messenger=self._messenger,
         )
+
+        self.get_response = self.request.get_response
+        self.get_meta = self.request.get_meta
+        self.async_get_meta = self.request.async_get_meta
+        self.get_meta = self.request.get_text
+        self.async_get_meta = self.request.async_get_text
+        self.get_meta = self.request.get_result
+        self.async_get_meta = self.request.async_get_result
+        self.get_meta = self.request.get_result_object
+        self.async_get_meta = self.request.async_get_result_object
+        self.get_generator = self.request.get_generator
+        self.get_async_generator = self.request.get_async_generator
 
     # Basic Methods
     def set_settings(self, key: str, value: "SerializableValue"):
@@ -93,80 +105,17 @@ class BaseAgent:
         self.prompt.set("chat_history", chat_history)
         return self
 
-    def get_response(self):
-        return self.request.get_response()
+    def reset_action_results(self):
+        del self.prompt["action_results"]
+        return self
 
-    @FunctionShifter.hybrid_func
-    async def get_meta(self):
-        return await self.request.get_response().get_meta()
+    def set_action_results(self, action_results: list[dict[str, Any]]):
+        self.prompt.set("action_results", action_results)
+        return self
 
-    @FunctionShifter.hybrid_func
-    async def get_text(self):
-        return await self.request.get_response().get_text()
-
-    @FunctionShifter.hybrid_func
-    async def get_result(
-        self,
-        *,
-        content: Literal['original', 'parsed', 'all'] = "parsed",
-    ):
-        return await self.request.get_response().get_result(content=content)
-
-    @FunctionShifter.hybrid_func
-    async def get_result_object(self):
-        return await self.request.get_response().get_result_object()
-
-    @overload
-    def get_generator(
-        self,
-        content: Literal["instant", "streaming_parse"],
-    ) -> Generator["StreamingData", None, None]: ...
-    @overload
-    def get_generator(
-        self,
-        content: Literal["all"],
-    ) -> Generator[tuple[str, Any], None, None]: ...
-    @overload
-    def get_generator(
-        self,
-        content: Literal["delta", "original"],
-    ) -> Generator[str, None, None]: ...
-    @overload
-    def get_generator(
-        self,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
-    ) -> Generator: ...
-    def get_generator(
-        self,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
-    ) -> Generator[tuple[str, Any], None, None] | Generator[str, None, None] | Generator["StreamingData", None, None]:
-        return self.request.get_response().get_generator(content=content)
-
-    @overload
-    def get_async_generator(
-        self,
-        content: Literal["instant", "streaming_parse"],
-    ) -> AsyncGenerator["StreamingData", None]: ...
-    @overload
-    def get_async_generator(
-        self,
-        content: Literal["all"],
-    ) -> AsyncGenerator[tuple[str, Any], None]: ...
-    @overload
-    def get_async_generator(
-        self,
-        content: Literal["delta", "original"],
-    ) -> AsyncGenerator[str, None]: ...
-    @overload
-    def get_async_generator(
-        self,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
-    ) -> AsyncGenerator: ...
-    def get_async_generator(
-        self,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
-    ) -> AsyncGenerator:
-        return self.request.get_response().get_async_generator(content=content)
+    def add_action_results(self, action: str, result: Any):
+        self.prompt.append("action_results", {action: result})
+        return self
 
     # Quick Prompt
     def system(self, prompt: Any, *, always: bool = False):
@@ -202,6 +151,14 @@ class BaseAgent:
             self.request.prompt.set("system", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
             self.request.prompt.set("system.user_info", prompt)
         return self
+
+    def tools(self, tools: "ToolMeta | list[ToolMeta]", *, always: bool = False):
+        if not isinstance(tools, list):
+            tools = [tools]
+        if always:
+            self.prompt.set("tools", tools)
+        else:
+            self.request.prompt.set("tools", tools)
 
     def input(self, prompt: Any, *, always: bool = False):
         if always:

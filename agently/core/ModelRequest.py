@@ -48,9 +48,13 @@ class ModelResponseResult:
         )
         _response_parser = ResponseParser(prompt, response_generator, self.settings, messenger)
         self.get_meta = _response_parser.get_meta
+        self.async_get_meta = _response_parser.async_get_meta
         self.get_text = _response_parser.get_text
+        self.async_get_text = _response_parser.async_get_text
         self.get_result = _response_parser.get_result
+        self.async_get_result = _response_parser.async_get_result
         self.get_result_object = _response_parser.get_result_object
+        self.async_get_result_object = _response_parser.async_get_result_object
         self.get_generator = _response_parser.get_generator
         self.get_async_generator = _response_parser.get_async_generator
 
@@ -83,9 +87,13 @@ class ModelResponse:
             self._messenger,
         )
         self.get_meta = self.result.get_meta
+        self.async_get_meta = self.result.async_get_meta
         self.get_text = self.result.get_text
+        self.async_get_text = self.result.async_get_text
         self.get_result = self.result.get_result
+        self.async_get_result = self.result.async_get_result
         self.get_result_object = self.result.get_result_object
+        self.async_get_result_object = self.result.async_get_result_object
         self.get_generator = self.result.get_generator
         self.get_async_generator = self.result.get_async_generator
 
@@ -101,7 +109,7 @@ class ModelResponse:
         request_data = model_requester.generate_request_data()
         self._messenger.to_console(
             {
-                "Status": "🛜 Requesting",
+                "Status": "✉️ Requesting",
                 "Request Data": request_data.model_dump(),
             },
         )
@@ -142,6 +150,11 @@ class ModelRequest:
                 self._messenger.update_base_meta(
                     {"table_name": "Direct Request" if request_name is None else request_name}
                 )
+
+        self.get_meta = FunctionShifter.syncify(self.async_get_meta)
+        self.get_text = FunctionShifter.syncify(self.async_get_text)
+        self.get_result = FunctionShifter.syncify(self.async_get_result)
+        self.get_result_object = FunctionShifter.syncify(self.async_get_result_object)
 
     def set_settings(self, key: str, value: "SerializableValue"):
         self.settings.set_settings(key, value)
@@ -204,46 +217,46 @@ class ModelRequest:
         self.prompt.clear()
         return response
 
-    @FunctionShifter.hybrid_func
-    async def get_meta(self):
-        return await self.get_response().get_meta()
+    async def async_get_meta(self):
+        return await self.get_response().async_get_meta()
 
-    @FunctionShifter.hybrid_func
-    async def get_text(self):
-        return await self.get_response().get_text()
+    async def async_get_text(self):
+        return await self.get_response().async_get_text()
 
-    @FunctionShifter.hybrid_func
-    async def get_result(
+    async def async_get_result(
         self,
         *,
         content: Literal['original', 'parsed', 'all'] = "parsed",
     ):
-        return await self.get_response().get_result(content=content)
+        return await self.get_response().async_get_result(content=content)
 
-    @FunctionShifter.hybrid_func
-    async def get_result_object(self):
-        return await self.get_response().get_result_object()
+    async def async_get_result_object(self):
+        return await self.get_response().async_get_result_object()
 
     @overload
     def get_generator(
         self,
         content: Literal["instant", "streaming_parse"],
     ) -> Generator["StreamingData", None, None]: ...
+
     @overload
     def get_generator(
         self,
         content: Literal["all"],
     ) -> Generator[tuple[str, Any], None, None]: ...
+
     @overload
     def get_generator(
         self,
         content: Literal["delta", "original"],
     ) -> Generator[str, None, None]: ...
+
     @overload
     def get_generator(
         self,
         content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
     ) -> Generator: ...
+
     def get_generator(
         self,
         content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
@@ -255,21 +268,25 @@ class ModelRequest:
         self,
         content: Literal["instant", "streaming_parse"],
     ) -> AsyncGenerator["StreamingData", None]: ...
+
     @overload
     def get_async_generator(
         self,
         content: Literal["all"],
     ) -> AsyncGenerator[tuple[str, Any], None]: ...
+
     @overload
     def get_async_generator(
         self,
         content: Literal["delta", "original"],
     ) -> AsyncGenerator[str, None]: ...
+
     @overload
     def get_async_generator(
         self,
         content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
     ) -> AsyncGenerator: ...
+
     def get_async_generator(
         self,
         content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",

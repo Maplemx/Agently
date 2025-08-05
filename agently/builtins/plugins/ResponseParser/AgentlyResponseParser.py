@@ -72,13 +72,18 @@ class AgentlyResponseParser(ResponseParser):
             "result_object": None,
             "errors": [],
         }
-        self._OutputModel = prompt.to_output_model()
         self._prompt_object = prompt.to_prompt_object()
+        self._OutputModel = prompt.to_output_model() if self._prompt_object.output_format == "json" else None
         self._response_consumer: GeneratorConsumer | None = None
         self._consumer_lock = asyncio.Lock()
         self._streaming_json_parser = (
             StreamingJSONParser(self._prompt_object.output) if self._prompt_object.output_format == "json" else None
         )
+
+        self.get_meta = FunctionShifter.syncify(self.async_get_meta)
+        self.get_text = FunctionShifter.syncify(self.async_get_text)
+        self.get_result = FunctionShifter.syncify(self.async_get_result)
+        self.get_result_object = FunctionShifter.syncify(self.async_get_result_object)
 
     @staticmethod
     def _on_register():
@@ -127,8 +132,16 @@ class AgentlyResponseParser(ResponseParser):
                                 completer.reset(cleaned_json)
                                 completed = completer.complete()
                                 parsed = json5.loads(completed)
+                                try:
+                                    if self._OutputModel:
+                                        result_object = self._OutputModel.model_validate(parsed)
+                                    else:
+                                        result_object = None
+                                except:
+                                    result_object = None
                                 self._result["cleaned_result"] = completed
                                 self._result["parsed_result"] = parsed
+                                self._result["result_object"] = result_object
                                 self.messenger.to_console(
                                     {
                                         "Status": "✅ Done",
@@ -168,14 +181,12 @@ class AgentlyResponseParser(ResponseParser):
                 with contextlib.suppress(RuntimeError):
                     await self.response_generator.aclose()
 
-    @FunctionShifter.hybrid_func
-    async def get_meta(self) -> "SerializableData":
+    async def async_get_meta(self) -> "SerializableData":
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
         return self._result["meta"]
 
-    @FunctionShifter.hybrid_func
-    async def get_result(
+    async def async_get_result(
         self,
         *,
         content: Literal['original', 'parsed', "all"] = "parsed",
@@ -191,8 +202,7 @@ class AgentlyResponseParser(ResponseParser):
             case "all":
                 return self._result.copy()
 
-    @FunctionShifter.hybrid_func
-    async def get_result_object(self) -> BaseModel | None:
+    async def async_get_result_object(self) -> BaseModel | None:
         if self._prompt_object.output_format != "json":
             raise TypeError(
                 "Error: Cannot build an output model for a non-structure output.\n"
@@ -201,11 +211,9 @@ class AgentlyResponseParser(ResponseParser):
             )
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
-        self._result["result_object"] = self._OutputModel.model_validate(self._result["parsed_result"])
         return self._result["result_object"]
 
-    @FunctionShifter.hybrid_func
-    async def get_text(self) -> str:
+    async def async_get_text(self) -> str:
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
         return self._result["text_result"]
