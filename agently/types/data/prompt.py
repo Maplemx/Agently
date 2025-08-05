@@ -19,6 +19,7 @@ from typing import (
     Sequence,
     Annotated,
 )
+from typing_extensions import TypedDict
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -114,6 +115,8 @@ PromptStandardSlot = Literal[
     "developer",
     "chat_history",
     "info",
+    "tools",
+    "action_results",
     "instruct",
     "input",
     "attachment",
@@ -122,11 +125,19 @@ PromptStandardSlot = Literal[
 ]
 
 
+class ToolMeta(TypedDict):
+    name: str
+    desc: str
+    kwargs: dict[str, Any]
+
+
 class PromptModel(BaseModel):
     system: Any = None
     developer: Any = None
     chat_history: Annotated[list[ChatMessage], PlainValidator(validate_chat_history)] = []
     info: Any = None
+    tools: list[ToolMeta] | None = None
+    action_results: Any = None
     instruct: Any = None
     input: Any = None
     attachment: Annotated[list[ChatMessageContent], PlainValidator(validate_attachment)] = []
@@ -138,7 +149,7 @@ class PromptModel(BaseModel):
     @model_validator(mode="after")
     def set_output_format(self) -> "PromptModel":
         if self.output_format is None:
-            if isinstance(self.output, (Mapping, Sequence)):
+            if not isinstance(self.output, str) and isinstance(self.output, (Mapping, Sequence)):
                 self.output_format = "json"
             else:
                 self.output_format = "markdown"

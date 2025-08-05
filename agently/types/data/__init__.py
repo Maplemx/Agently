@@ -19,6 +19,7 @@ from .prompt import (
     TextMessageContent,
     PromptModel,
     PromptStandardSlot,
+    ToolMeta,
 )
 from .request import (
     AgentlyRequestData,
