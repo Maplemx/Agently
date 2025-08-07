@@ -17,3 +17,4 @@ from .EventHooker import EventHooker
 from .PromptGenerator import PromptGenerator
 from .ModelRequester import ModelRequester
 from .ResponseParser import ResponseParser
+from .ToolManager import ToolManager

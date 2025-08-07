@@ -14,11 +14,7 @@
 
 from typing import Any, Literal, Protocol, runtime_checkable
 
-AgentlyPluginType = Literal[
-    "PromptGenerator",
-    "ModelRequester",
-    "ResponseParser",
-]
+AgentlyPluginType = Literal["PromptGenerator", "ModelRequester", "ResponseParser", "ToolManager"]
 
 
 @runtime_checkable
