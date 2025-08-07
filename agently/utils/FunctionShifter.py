@@ -45,25 +45,23 @@ class FunctionShifter:
 
     @staticmethod
     def syncify(func: Callable[P, R | Coroutine[Any, Any, R]]) -> Callable[P, R]:
-        if inspect.isfunction(func):
+        if inspect.iscoroutinefunction(func):
+
+            @wraps(func)
+            def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    # No running loop, safe to use asyncio.run
+                    return asyncio.run(func(*args, **kwargs))
+                else:
+                    # Running loop exists, move coroutine to thread
+                    return FunctionShifter.run_async_func_in_thread(func, *args, **kwargs)
+
+            return wrapper
+        else:
+            assert inspect.isfunction(func)
             return func
-
-        @wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            have_running_loop = None
-            try:
-                asyncio.get_running_loop()
-                have_running_loop = True
-            except RuntimeError:
-                have_running_loop = False
-
-            if have_running_loop:
-                return FunctionShifter.run_async_func_in_thread(func, *args, **kwargs)
-            else:
-                assert inspect.iscoroutinefunction(func)
-                return asyncio.run(func(*args, **kwargs))
-
-        return wrapper
 
     @staticmethod
     def asyncify(func: Callable[P, R | Coroutine[Any, Any, R]]) -> Callable[P, Coroutine[Any, Any, R]]:
