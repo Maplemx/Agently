@@ -3,6 +3,7 @@ from agently.types.plugins import AgentlyPlugin
 
 if TYPE_CHECKING:
     from agently.utils import Settings
+    from agently.types.data import KwargsType, ReturnType
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -29,13 +30,15 @@ class ToolManager(AgentlyPlugin, Protocol):
         *,
         name: str,
         desc: str,
-        kwargs: dict[str, tuple[type | str, str]],
+        kwargs: "KwargsType",
         func: Callable,
-        returns: Any | None = None,
+        returns: "ReturnType | None" = None,
         tags: str | list[str] | None = None,
     ): ...
 
-    def tool(
+    def tag(self, tool_names: str | list[str], tags: str | list[str]): ...
+
+    def tool_func(
         self,
         func: Callable[P, R],
     ) -> Callable[P, R]: ...

@@ -42,3 +42,9 @@ from .event import (
     EventMessage,
     EventHook,
 )
+
+from .tool import (
+    ArgumentDesc,
+    KwargsType,
+    ReturnType,
+)
