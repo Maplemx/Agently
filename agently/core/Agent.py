@@ -14,14 +14,14 @@
 
 import uuid
 
-from typing import Any, Mapping, Sequence, Generator, AsyncGenerator, Literal, TYPE_CHECKING, overload
+from typing import Any, TYPE_CHECKING
 
 from agently.core import Prompt, ModelRequest
-from agently.utils import FunctionShifter, Settings
+from agently.utils import RuntimeData, Settings
 
 if TYPE_CHECKING:
     from agently.core import PluginManager
-    from agently.types.data import PromptStandardSlot, ChatMessage, StreamingData, SerializableValue, ToolMeta
+    from agently.types.data import PromptStandardSlot, ChatMessage, SerializableValue, ToolMeta
 
 
 class BaseAgent:
@@ -47,13 +47,22 @@ class BaseAgent:
             parent=parent_settings,
         )
         self.prompt = Prompt(
+            name=f"Agent-{ self.name }-Prompt",
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
+        )
+        self.extension_handlers = RuntimeData(
+            {
+                "prefixes": [],
+                "suffixes": [],
+            },
+            name=f"Agent-{ self.name }-ExtensionHandlers",
         )
         self.request = ModelRequest(
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
             parent_prompt=self.prompt,
+            parent_extension_handlers=self.extension_handlers,
             messenger=self._messenger,
         )
 

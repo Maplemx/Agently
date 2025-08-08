@@ -14,13 +14,14 @@
 
 import uuid
 
+import inspect
 from typing import Any, AsyncGenerator, Literal, TYPE_CHECKING, cast, TypeAlias, overload, Generator
 
 ContentKindTuple: TypeAlias = Literal["all", "delta", "original"]
 ContentKindStreaming: TypeAlias = Literal["instant", "streaming_parse"]
 
 from agently.core import Prompt
-from agently.utils import Settings, FunctionShifter
+from agently.utils import RuntimeData, Settings, FunctionShifter
 
 if TYPE_CHECKING:
     from agently.core import PluginManager, EventCenterMessenger
@@ -65,6 +66,7 @@ class ModelResponse:
         plugin_manager: "PluginManager",
         settings: Settings,
         prompt: Prompt,
+        extension_handlers: RuntimeData,
         messenger: "EventCenterMessenger",
     ):
         self.id = uuid.uuid4().hex
@@ -76,6 +78,10 @@ class ModelResponse:
             self.plugin_manager,
             self.settings,
             prompt_dict=prompt_snapshot if isinstance(prompt_snapshot, dict) else {},
+        )
+        extension_handlers_snapshot = extension_handlers.get()
+        self.extension_handlers = RuntimeData(
+            extension_handlers_snapshot if isinstance(extension_handlers_snapshot, dict) else {}
         )
         self._messenger = messenger
         self._messenger.update_base_meta({"row_id": self.id})
@@ -97,7 +103,7 @@ class ModelResponse:
         self.get_generator = self.result.get_generator
         self.get_async_generator = self.result.get_async_generator
 
-    def _get_response_generator(self) -> AsyncGenerator["AgentlyModelResponseMessage", None]:
+    async def _get_response_generator(self) -> AsyncGenerator["AgentlyModelResponseMessage", None]:
         ModelRequester = cast(
             type["ModelRequester"],
             self.plugin_manager.get_plugin(
@@ -105,6 +111,13 @@ class ModelResponse:
                 str(self.settings["plugins.ModelRequester.activate"]),
             ),
         )
+        prefixes = self.extension_handlers.get("prefixes", [])
+        print("!!!!!!!!!!!!!!!!!!!", prefixes)
+        for prefix in prefixes:
+            if inspect.iscoroutinefunction(prefix):
+                await prefix(self.prompt, self.settings)
+            elif inspect.isfunction(prefix):
+                prefix(self.prompt, self.settings)
         model_requester = ModelRequester(self.prompt, self.settings)
         request_data = model_requester.generate_request_data()
         self._messenger.to_console(
@@ -114,7 +127,25 @@ class ModelResponse:
             },
         )
         response_generator = model_requester.request_model(request_data)
-        return model_requester.broadcast_response(response_generator)
+        broadcast_generator = model_requester.broadcast_response(response_generator)
+        suffixes = self.extension_handlers.get("suffixes", [])
+        async for event, data in broadcast_generator:
+            yield event, data
+            for suffix in suffixes:
+                if inspect.iscoroutinefunction(suffix):
+                    result = await suffix(event, data)
+                    if result is not None:
+                        yield result
+                elif inspect.isgeneratorfunction(suffix):
+                    for result in suffix(event, data):
+                        yield result
+                elif inspect.isasyncgenfunction(suffix):
+                    async for result in suffix(event, data):
+                        yield result
+                elif inspect.isfunction(suffix):
+                    result = suffix(event, data)
+                    if result is not None:
+                        yield result
 
 
 class ModelRequest:
@@ -124,6 +155,7 @@ class ModelRequest:
         *,
         parent_settings: Settings | None = None,
         parent_prompt: Prompt | None = None,
+        parent_extension_handlers: RuntimeData | None = None,
         messenger: "EventCenterMessenger | None" = None,
         request_name: str | None = None,
     ):
@@ -133,9 +165,18 @@ class ModelRequest:
             parent=parent_settings,
         )
         self.prompt = Prompt(
+            name="Request-Prompt",
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
             parent_prompt=parent_prompt,
+        )
+        self.extension_handlers = RuntimeData(
+            {
+                "prefixes": [],
+                "suffixes": [],
+            },
+            name="Request-ExtensionHandlers",
+            parent=parent_extension_handlers,
         )
         if messenger is None:
             from agently.base import event_center
@@ -212,6 +253,7 @@ class ModelRequest:
             self.plugin_manager,
             self.settings,
             self.prompt,
+            self.extension_handlers,
             self._messenger,
         )
         self.prompt.clear()
