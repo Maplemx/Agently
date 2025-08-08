@@ -105,3 +105,6 @@ class Prompt(RuntimeData):
 
     def update(self, new: "dict[PromptStandardSlot | str, Any]"):
         super().update(new)
+
+    def append(self, key: "PromptStandardSlot | str", value: Any):
+        super().append(key, value)
