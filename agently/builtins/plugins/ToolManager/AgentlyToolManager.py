@@ -19,6 +19,7 @@ from agently.utils import SettingsNamespace, DataFormatter, FunctionShifter
 
 if TYPE_CHECKING:
     from agently.utils import Settings
+    from agently.types.data import KwargsType, ReturnType
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -30,8 +31,11 @@ class AgentlyToolManager(ToolManager):
     DEFAULT_SETTINGS = {}
 
     def __init__(self, settings: "Settings"):
+        from agently.base import event_center
+
         self.settings = settings
         self.plugin_settings = SettingsNamespace(self.settings, f"plugins.ToolManager.{ self.name }")
+        self._messenger = event_center.create_messenger(self.name)
 
         self.tool_funcs: dict[str, Callable] = {}
         self.tool_info: dict[str, dict[str, Any]] = {}
@@ -50,9 +54,9 @@ class AgentlyToolManager(ToolManager):
         *,
         name: str,
         desc: str,
-        kwargs: dict[str, tuple[type | str, str]],
+        kwargs: "KwargsType",
         func: Callable[..., Any],
-        returns: Any | None = None,
+        returns: "ReturnType | None" = None,
         tags: str | list[str] | None = None,
     ):
         self.tool_funcs.update({name: func})
@@ -65,6 +69,8 @@ class AgentlyToolManager(ToolManager):
                 }
             }
         )
+        if returns is not None:
+            self.tool_info[name].update({"return": returns})
         if tags is None:
             tags = []
         if isinstance(tags, str):
@@ -74,7 +80,22 @@ class AgentlyToolManager(ToolManager):
                 self.tag_mappings.update({tag: set()})
             self.tag_mappings[tag].add(name)
 
-    def tool(self, func: Callable[P, R]) -> Callable[P, R]:
+    def tag(self, tool_names: str | list[str], tags: str | list[str]):
+        if isinstance(tool_names, str):
+            tool_names = [tool_names]
+        if isinstance(tags, str):
+            tags = [tags]
+
+        for tool_name in tool_names:
+            if tool_name in self.tool_info:
+                for tag in tags:
+                    if tag not in self.tag_mappings:
+                        self.tag_mappings.update({tag: set()})
+                    self.tag_mappings[tag].add(tool_name)
+            else:
+                self._messenger.error(f"Cannot find tool named '{ tool_name }'")
+
+    def tool_func(self, func: Callable[P, R]) -> Callable[P, R]:
         tool_name = func.__name__
         desc = inspect.getdoc(func) or func.__name__
         signature = inspect.signature(func)
