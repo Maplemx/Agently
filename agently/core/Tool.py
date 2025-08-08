@@ -28,7 +28,7 @@ class Tool:
         parent_settings: "Settings",
     ):
         self.settings = Settings(
-            name="Prompt-Settings",
+            name="Tool-Settings",
             parent=parent_settings,
         )
         ToolManagerPlugin = cast(
@@ -40,7 +40,8 @@ class Tool:
         )
         self.tool_manager = ToolManagerPlugin(self.settings)
         self.register = self.tool_manager.register
-        self.tool = self.tool_manager.tool
+        self.tag = self.tool_manager.tag
+        self.tool_func = self.tool_manager.tool_func
         self.get_tool_info = self.tool_manager.get_tool_info
         self.get_tool_func = self.tool_manager.get_tool_func
         self.call_tool = self.tool_manager.call_tool
