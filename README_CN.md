@@ -6,23 +6,23 @@
 
 > *Speed Up Your GenAI Application Development*
 
-[![license](https://img.shields.io/badge/license-Apache2.0-blue.svg?style=flat-square)](https://github.com/AgentEra/Agently/blob/main/LICENSE)
+[![license](https://img.shields.io/badge/证书-Apache2.0-blue.svg?style=flat-square)](https://github.com/AgentEra/Agently/blob/main/LICENSE)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/agently?style=flat-square)](https://pypistats.org/packages/agently)
 [![GitHub star chart](https://img.shields.io/github/stars/agentera/agently?style=flat-square)](https://star-history.com/#agentera/agently)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/AgentlyTech.svg?style=social&label=Follow%20%40AgentlyTech)](https://x.com/AgentlyTech)
 <a href="https://doc.weixin.qq.com/forms/AIoA8gcHAFMAScAhgZQABIlW6tV3l7QQf">
-<img alt="WeChat" src="https://img.shields.io/badge/WeChat%20Group-Apply-brightgreen?logo=wechat&style=flat-square">
+<img alt="WeChat" src="https://img.shields.io/badge/开发者交流微信群-申请加入-brightgreen?logo=wechat&style=flat-square">
 </a>
 
 <p>
   <a href="https://github.com/AgentEra/Agently/discussions/categories/general">
-    <img alt="Discussions" src="https://img.shields.io/badge/Agently%20General%20Discussions-JOIN-brightgreen.svg?style=for-the-badge" />
+    <img alt="Discussions" src="https://img.shields.io/badge/交流讨论区-点击进入-brightgreen.svg?style=for-the-badge" />
   </a>
   <a href="https://github.com/AgentEra/Agently/discussions/categories/contribute-to-agently-4">
-    <img alt="Contribute" src="https://img.shields.io/badge/Contribute%20to%20Agently%204%20-Join-blueviolet.svg?style=for-the-badge">
+    <img alt="Contribute" src="https://img.shields.io/badge/成为贡献者-点击进入-blueviolet.svg?style=for-the-badge">
   </a>
   <a href="https://github.com/AgentEra/Agently/issues">
-    <img alt="Issues" src="https://img.shields.io/badge/Report%20Issues-Report-red.svg?style=for-the-badge">
+    <img alt="Issues" src="https://img.shields.io/badge/报告问题-点击报告-red.svg?style=for-the-badge">
   </a>
 </p>
 
