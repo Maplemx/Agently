@@ -13,23 +13,26 @@
 # limitations under the License.
 
 from pathlib import Path
+
 from typing import TYPE_CHECKING
 
-from ._entrypoint import AgentlyMain
+if TYPE_CHECKING:
+    from agently.core import PluginManager, EventCenter
+    from agently.utils import Settings
 
 
-def load_default_plugins(Agently: AgentlyMain):
+def _load_default_plugins(plugin_manager: "PluginManager"):
     from agently.builtins.plugins.PromptGenerator.AgentlyPromptGenerator import (
         AgentlyPromptGenerator,
     )
 
-    Agently.plugin_manager.register("PromptGenerator", AgentlyPromptGenerator)
+    plugin_manager.register("PromptGenerator", AgentlyPromptGenerator)
 
     from agently.builtins.plugins.ModelRequester.OpenAICompatible import (
         OpenAICompatible,
     )
 
-    Agently.plugin_manager.register(
+    plugin_manager.register(
         "ModelRequester",
         OpenAICompatible,
         activate=True,
@@ -37,18 +40,18 @@ def load_default_plugins(Agently: AgentlyMain):
 
     from agently.builtins.plugins.ResponseParser.AgentlyResponseParser import AgentlyResponseParser
 
-    Agently.plugin_manager.register("ResponseParser", AgentlyResponseParser)
+    plugin_manager.register("ResponseParser", AgentlyResponseParser)
 
     from agently.builtins.plugins.ToolManager.AgentlyToolManager import AgentlyToolManager
 
-    Agently.plugin_manager.register("ToolManager", AgentlyToolManager)
+    plugin_manager.register("ToolManager", AgentlyToolManager)
 
 
-def load_default_settings(Agently: AgentlyMain):
-    Agently.settings.load("yaml_file", f"{str(Path(__file__).resolve().parent)}/_default_settings.yaml")
+def _load_default_settings(settings: "Settings"):
+    settings.load("yaml_file", f"{str(Path(__file__).resolve().parent)}/_default_settings.yaml")
 
 
-def hook_default_event_handlers(Agently: AgentlyMain):
+def _hook_default_event_handlers(event_center: "EventCenter"):
     from agently.builtins.hookers.PureLoggerHooker import PureLoggerHooker
 
-    Agently.event_center.register_hooker_plugin(PureLoggerHooker)
+    event_center.register_hooker_plugin(PureLoggerHooker)

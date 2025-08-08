@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Any, TYPE_CHECKING, Literal
-from agently.base import settings, plugin_manager, event_center, logger, print_, async_print
+from agently.base import settings, plugin_manager, tool, event_center, logger, print_, async_print
 from agently.core import Prompt, ModelRequest, BaseAgent
 
 if TYPE_CHECKING:
@@ -33,6 +33,7 @@ class AgentlyMain:
         self.print = print_
         self.async_print = async_print
         self.set_debug_console("OFF")
+        self.tool = tool
 
     def set_debug_console(self, debug_console_status: Literal["ON", "OFF"]):
         match debug_console_status:

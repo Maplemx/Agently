@@ -15,16 +15,22 @@
 from typing import Any
 
 from agently.utils import Settings, create_logger, FunctionShifter
-from agently.core import PluginManager, EventCenter
+from agently.core import PluginManager, EventCenter, Tool
+from agently._default_init import _load_default_settings, _load_default_plugins, _hook_default_event_handlers
 
-settings = Settings(name="global_settings")
+settings = Settings(
+    name="global_settings",
+)
+_load_default_settings(settings)
 plugin_manager = PluginManager(
     settings,
     name="global_plugin_manager",
 )
+_load_default_plugins(plugin_manager)
 event_center = EventCenter()
+_hook_default_event_handlers(event_center)
 logger = create_logger()
-
+tool = Tool(plugin_manager, settings)
 _agently_messenger = event_center.create_messenger("Agently")
 
 
