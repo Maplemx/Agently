@@ -14,7 +14,6 @@
 
 from typing import TYPE_CHECKING
 
-from agently.base import logger
 from agently.types.plugins import EventHooker
 
 if TYPE_CHECKING:
@@ -45,6 +44,8 @@ class PureLoggerHooker(EventHooker):
 
     @staticmethod
     async def handler(message: "EventMessage"):
+        from agently.base import logger
+
         match message.level:
             case "DEBUG":
                 log = logger.debug

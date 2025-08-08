@@ -28,7 +28,6 @@ from httpx import AsyncClient, ReadError, HTTPStatusError, RequestError
 from httpx_sse import aconnect_sse, SSEError
 from stamina import retry
 
-from agently.base import event_center
 from agently.types.plugins import ModelRequester
 from agently.types.data import AgentlyRequestData, SerializableValue
 from agently.utils import (
@@ -129,6 +128,8 @@ class OpenAICompatible(ModelRequester):
         prompt: "Prompt",
         settings: "Settings",
     ):
+        from agently.base import event_center
+
         self.prompt = prompt
         self.settings = settings
         self.plugin_settings = SettingsNamespace(self.settings, f"plugins.ModelRequester.{ self.name }")

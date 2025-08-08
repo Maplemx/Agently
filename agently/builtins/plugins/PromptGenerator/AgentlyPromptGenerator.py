@@ -32,7 +32,6 @@ from pydantic import (
     create_model,
 )
 
-from agently.base import event_center
 from agently.types.plugins import PromptGenerator
 from agently.types.data import PromptModel, ChatMessageContent, TextMessageContent
 from agently.utils import SettingsNamespace, DataFormatter
@@ -53,6 +52,8 @@ class AgentlyPromptGenerator(PromptGenerator):
         prompt: "Prompt",
         settings: "Settings",
     ):
+        from agently.base import event_center
+
         self.prompt = prompt
         self.settings = settings
         self.plugin_settings = SettingsNamespace(self.settings, f"plugins.PromptGenerator.{ self.name }")
