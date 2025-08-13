@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 class ResponseParser(AgentlyPlugin, Protocol):
     name: str
+    response_id: str
     settings: "Settings"
     messenger: "EventCenterMessenger"
     DEFAULT_SETTINGS: dict[str, Any] = {}
@@ -33,6 +34,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
 
     def __init__(
         self,
+        response_id: str,
         prompt: "Prompt",
         response_generator: "AgentlyResponseGenerator",
         settings: "Settings",
