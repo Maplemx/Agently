@@ -30,10 +30,5 @@ async def add(a: int, b: int) -> int:
     return a + b
 
 
-Agently.set_debug_console("ON")
-
 result = agent.input("34643523+52131231=? Use tool to calculate!").use_tool(add).start()
-Agently.set_debug_console("OFF")
-time.sleep(3)
-print(1111111111111111111111111)
 print(result)
