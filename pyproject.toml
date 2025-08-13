@@ -1,0 +1,36 @@
+[project]
+name = "agently"
+version = "4.0.0b2"
+description = ""
+authors = [
+    {name = "Agently Team",email = "developer@agently.tech"},
+    {name = "Maplemx",email = "maplemx@gmail.com"},
+]
+license = {text = "Apache-2.0"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "sqlmodel (>=0.0.24,<0.0.25)",
+    "pydantic (>=2.11.7,<3.0.0)",
+    "toml (>=0.10.2,<0.11.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "stamina (>=25.1.0,<26.0.0)",
+    "pyyaml (>=6.0.2,<7.0.0)",
+    "httpx-sse (>=0.4.1,<0.5.0)",
+    "json5 (>=0.12.0,<0.13.0)",
+    "aiosqlite (>=0.21.0,<0.22.0)",
+    "greenlet (>=3.2.3,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+pytest-asyncio = "^1.0.0"
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true
