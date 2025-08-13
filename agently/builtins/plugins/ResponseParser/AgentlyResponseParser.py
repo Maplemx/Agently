@@ -52,11 +52,13 @@ class AgentlyResponseParser(ResponseParser):
 
     def __init__(
         self,
+        response_id: str,
         prompt: "Prompt",
         response_generator: "AgentlyResponseGenerator",
         settings: "Settings",
         messenger: "EventCenterMessenger",
     ):
+        self.response_id = response_id
         self.response_generator = response_generator
         self.settings = settings
         self.messenger = messenger
@@ -109,11 +111,12 @@ class AgentlyResponseParser(ResponseParser):
                         self._result["original_delta"].append(data)
                     case "delta":
                         buffer += str(data)
-                        self.messenger.to_console(
+                        await self.messenger.async_to_console(
                             {
                                 "Status": "⏩️ Streaming",
                                 "$Model Output": str(data),
-                            }
+                            },
+                            row_id=self.response_id,
                         )
                     case "original_done":
                         self._result["original_done"] = data
@@ -142,7 +145,7 @@ class AgentlyResponseParser(ResponseParser):
                                 self._result["cleaned_result"] = completed
                                 self._result["parsed_result"] = parsed
                                 self._result["result_object"] = result_object
-                                self.messenger.to_console(
+                                await self.messenger.async_to_console(
                                     {
                                         "Status": "✅ Done",
                                         "Parsed Result": json5.dumps(
@@ -150,24 +153,27 @@ class AgentlyResponseParser(ResponseParser):
                                             indent=2,
                                             ensure_ascii=False,
                                         ),
-                                    }
+                                    },
+                                    row_id=self.response_id,
                                 )
                             else:
                                 self._result["cleaned_result"] = None
                                 self._result["parsed_result"] = None
-                                self.messenger.to_console(
+                                await self.messenger.async_to_console(
                                     {
                                         "Status": "✅ Done",
                                         "Parsed Result": "❌ FAILED",
-                                    }
+                                    },
+                                    row_id=self.response_id,
                                 )
                         else:
                             self._result["parsed_result"] = str(data)
-                            self.messenger.to_console(
+                            await self.messenger.async_to_console(
                                 {
                                     "Status": "✅ Done",
                                     "Parsed Result": "-",
-                                }
+                                },
+                                row_id=self.response_id,
                             )
 
                     case "meta":
