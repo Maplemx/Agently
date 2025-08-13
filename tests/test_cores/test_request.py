@@ -30,10 +30,10 @@ async def test_single_request():
             "plugins.ModelRequester.OpenAICompatible",
         ),
     )
-    # request_settings["base_url"] = os.environ["DEEPSEEK_BASE_URL"]
-    # request_settings["model"] = os.environ["DEEPSEEK_DEFAULT_MODEL"]
-    # request_settings["model_type"] = "chat"
-    # request_settings["auth"] = os.environ["DEEPSEEK_API_KEY"]
+    request_settings["base_url"] = os.environ["DEEPSEEK_BASE_URL"]
+    request_settings["model"] = os.environ["DEEPSEEK_DEFAULT_MODEL"]
+    request_settings["model_type"] = "chat"
+    request_settings["auth"] = os.environ["DEEPSEEK_API_KEY"]
 
     request.prompt["input"] = "你是谁"
 
@@ -55,10 +55,10 @@ async def test_multiple_responses_independent_consumption():
         ),
     )
 
-    # request_settings["base_url"] = os.environ["DEEPSEEK_BASE_URL"]
-    # request_settings["model"] = os.environ["DEEPSEEK_DEFAULT_MODEL"]
-    # request_settings["model_type"] = "chat"
-    # request_settings["auth"] = os.environ["DEEPSEEK_API_KEY"]
+    request_settings["base_url"] = os.environ["DEEPSEEK_BASE_URL"]
+    request_settings["model"] = os.environ["DEEPSEEK_DEFAULT_MODEL"]
+    request_settings["model_type"] = "chat"
+    request_settings["auth"] = os.environ["DEEPSEEK_API_KEY"]
 
     prompts = ["Hello, how are you?", "Hello again!", "Who are you?"]
     responses = []

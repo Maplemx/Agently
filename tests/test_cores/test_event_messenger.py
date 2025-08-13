@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 import pytest
 from agently import Agently
 
+from agently.core import EventCenter
+
 if TYPE_CHECKING:
     from agently.types.data.event import EventMessage
 
@@ -43,3 +45,28 @@ def test_sync_event_messenger():
     with pytest.raises(RuntimeError):
         module_messenger.critical("Something Really Bad", status="❗️")
         assert saved_message == "Something Really Bad"
+
+
+@pytest.mark.asyncio
+async def test_messenger():
+    ec = EventCenter()
+
+    # 注册一个简单的 console hook，用来打印内容
+    def console_hook(message: "EventMessage"):
+        print(
+            f"[Console Hook] table={message.meta.get('table_name')}, "
+            f"row={message.meta.get('row_id')}, content={message.content}"
+        )
+
+    ec.register_hook("console", console_hook)
+
+    messenger = ec.create_messenger("TestModule", base_meta={"source": "unit-test"})
+
+    # 同 table，多行输出
+    table_name = "TestTable"
+    messenger.update_base_meta({"row_id": 1})
+    await messenger.async_to_console("第一行数据", table_name=table_name)
+    messenger.update_base_meta({"row_id": 2})
+    await messenger.async_to_console("第二行数据", table_name=table_name)
+    messenger.update_base_meta({"row_id": 3})
+    await messenger.async_to_console("第三行数据", table_name=table_name)
