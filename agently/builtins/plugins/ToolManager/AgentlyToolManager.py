@@ -135,6 +135,10 @@ class AgentlyToolManager(ToolManager):
                     tool_info.update({name: self.tool_info[name]})
         return tool_info
 
+    def get_tool_list(self, tags: str | list[str] | None = None) -> list[dict[str, Any]]:
+        tool_info = self.get_tool_info(tags)
+        return list(tool_info.values())
+
     def get_tool_func(
         self,
         name: str,
