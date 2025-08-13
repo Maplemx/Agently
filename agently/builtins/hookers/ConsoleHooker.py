@@ -27,7 +27,6 @@ from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 from rich.text import Text
-from rich.layout import Layout
 from rich.panel import Panel
 from rich.table import Table
 from rich.console import Group
@@ -52,8 +51,8 @@ class ConsoleManager:
         self._tips: str = "Press Ctrl+C to quit"
         self._print_lock = threading.Lock()
         self._print_buffer = ""
-        self._startup_buffer = []  # 用于存储启动时的输出
-        self._live_started = False  # 标记Live是否已启动
+        self._startup_buffer = []
+        self._live_started = False
 
     def update_table(self, table_name: str, row_id: str | int, update_dict: dict[str, Any]):
         if table_name not in self._table_data:
@@ -144,10 +143,8 @@ class ConsoleManager:
 
     def _live(self):
         with Live(self.render(), console=self._console, refresh_per_second=4.0, screen=True) as live:
-            # 标记Live已启动
             self._live_started = True
 
-            # 将启动缓冲区的内容移到日志消息中
             with self._lock:
                 for msg in self._startup_buffer:
                     self._log_messages.append(msg)
@@ -205,10 +202,8 @@ class ConsoleHooker(EventHooker):
             return
         ConsoleHooker._has_registered = True
 
-        # 立即启动watch，避免启动前的输出问题
         ConsoleHooker.console_manager.watch()
 
-        # 给Live一点时间启动
         time.sleep(0.1)
 
         atexit.register(ConsoleHooker.console_manager._wait_when_atexit)
