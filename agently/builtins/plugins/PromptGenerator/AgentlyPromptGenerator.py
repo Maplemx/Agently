@@ -149,7 +149,7 @@ class AgentlyPromptGenerator(PromptGenerator):
             for tool_info in prompt_object.tools:
                 if isinstance(tool_info, dict):
                     prompt_text_list.append("[")
-                    for key, value in tool_info:
+                    for key, value in tool_info.items():
                         if key == "kwargs":
                             prompt_text_list.append(
                                 f"{ key }: {self._generate_json_output_prompt(DataFormatter.sanitize(value))}"
