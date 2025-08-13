@@ -14,13 +14,13 @@
 
 import uuid
 
-from typing import Any, TYPE_CHECKING
+from typing import Any, Protocol, TYPE_CHECKING
 
-from agently.core import Prompt, ModelRequest
-from agently.utils import RuntimeData, Settings
+from agently.core import Prompt, ExtensionHandlers, ModelRequest
+from agently.utils import Settings
 
 if TYPE_CHECKING:
-    from agently.core import PluginManager
+    from agently.core import PluginManager, EventCenterMessenger
     from agently.types.data import PromptStandardSlot, ChatMessage, SerializableValue, ToolMeta
 
 
@@ -51,7 +51,7 @@ class BaseAgent:
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
         )
-        self.extension_handlers = RuntimeData(
+        self.extension_handlers = ExtensionHandlers(
             {
                 "prefixes": [],
                 "suffixes": [],
@@ -69,25 +69,28 @@ class BaseAgent:
         self.get_response = self.request.get_response
         self.get_meta = self.request.get_meta
         self.async_get_meta = self.request.async_get_meta
-        self.get_meta = self.request.get_text
-        self.async_get_meta = self.request.async_get_text
-        self.get_meta = self.request.get_result
-        self.async_get_meta = self.request.async_get_result
-        self.get_meta = self.request.get_result_object
-        self.async_get_meta = self.request.async_get_result_object
+        self.get_text = self.request.get_text
+        self.async_get_text = self.request.async_get_text
+        self.get_result = self.request.get_result
+        self.async_get_result = self.request.async_get_result
+        self.get_result_object = self.request.get_result_object
+        self.async_get_result_object = self.request.async_get_result_object
         self.get_generator = self.request.get_generator
         self.get_async_generator = self.request.get_async_generator
+
+        self.start = self.get_result
+        self.async_start = self.async_get_result
 
     # Basic Methods
     def set_settings(self, key: str, value: "SerializableValue"):
         self.settings.set_settings(key, value)
         return self
 
-    def set_agent_prompt(self, key: "PromptStandardSlot | str", value: tuple[type, str | None, str | None] | Any):
+    def set_agent_prompt(self, key: "PromptStandardSlot | str", value: Any):
         self.prompt.set(key, value)
         return self
 
-    def set_request_prompt(self, key: "PromptStandardSlot | str", value: tuple[type, str | None, str | None] | Any):
+    def set_request_prompt(self, key: "PromptStandardSlot | str", value: Any):
         self.request.prompt.set(key, value)
         return self
 

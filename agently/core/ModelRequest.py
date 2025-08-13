@@ -20,8 +20,8 @@ from typing import Any, AsyncGenerator, Literal, TYPE_CHECKING, cast, TypeAlias,
 ContentKindTuple: TypeAlias = Literal["all", "delta", "original"]
 ContentKindStreaming: TypeAlias = Literal["instant", "streaming_parse"]
 
-from agently.core import Prompt
-from agently.utils import RuntimeData, Settings, FunctionShifter
+from agently.core import Prompt, ExtensionHandlers
+from agently.utils import Settings, FunctionShifter
 
 if TYPE_CHECKING:
     from agently.core import PluginManager, EventCenterMessenger
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 class ModelResponseResult:
     def __init__(
         self,
+        response_id: str,
         prompt: Prompt,
         response_generator: AsyncGenerator["AgentlyModelResponseMessage", None],
         plugin_manager: "PluginManager",
@@ -47,7 +48,7 @@ class ModelResponseResult:
                 str(self.settings["plugins.ResponseParser.activate"]),
             ),
         )
-        _response_parser = ResponseParser(prompt, response_generator, self.settings, messenger)
+        _response_parser = ResponseParser(response_id, prompt, response_generator, self.settings, messenger)
         self.get_meta = _response_parser.get_meta
         self.async_get_meta = _response_parser.async_get_meta
         self.get_text = _response_parser.get_text
@@ -61,12 +62,13 @@ class ModelResponseResult:
 
 
 class ModelResponse:
+
     def __init__(
         self,
         plugin_manager: "PluginManager",
         settings: Settings,
         prompt: Prompt,
-        extension_handlers: RuntimeData,
+        extension_handlers: ExtensionHandlers,
         messenger: "EventCenterMessenger",
     ):
         self.id = uuid.uuid4().hex
@@ -80,12 +82,12 @@ class ModelResponse:
             prompt_dict=prompt_snapshot if isinstance(prompt_snapshot, dict) else {},
         )
         extension_handlers_snapshot = extension_handlers.get()
-        self.extension_handlers = RuntimeData(
+        self.extension_handlers = ExtensionHandlers(
             extension_handlers_snapshot if isinstance(extension_handlers_snapshot, dict) else {}
         )
         self._messenger = messenger
-        self._messenger.update_base_meta({"row_id": self.id})
         self.result = ModelResponseResult(
+            self.id,
             self.prompt,
             self._get_response_generator(),
             self.plugin_manager,
@@ -112,37 +114,45 @@ class ModelResponse:
             ),
         )
         prefixes = self.extension_handlers.get("prefixes", [])
-        print("!!!!!!!!!!!!!!!!!!!", prefixes)
-        for prefix in prefixes:
-            if inspect.iscoroutinefunction(prefix):
+        for _, prefix in prefixes:
+            if inspect.ismethod(prefix):
+                prefix_func = prefix.__func__
+            else:
+                prefix_func = prefix
+            if inspect.iscoroutinefunction(prefix_func):
                 await prefix(self.prompt, self.settings)
-            elif inspect.isfunction(prefix):
+            elif inspect.isfunction(prefix_func):
                 prefix(self.prompt, self.settings)
         model_requester = ModelRequester(self.prompt, self.settings)
         request_data = model_requester.generate_request_data()
-        self._messenger.to_console(
+        await self._messenger.async_to_console(
             {
                 "Status": "✉️ Requesting",
                 "Request Data": request_data.model_dump(),
             },
+            row_id=self.id,
         )
         response_generator = model_requester.request_model(request_data)
         broadcast_generator = model_requester.broadcast_response(response_generator)
         suffixes = self.extension_handlers.get("suffixes", [])
         async for event, data in broadcast_generator:
             yield event, data
-            for suffix in suffixes:
-                if inspect.iscoroutinefunction(suffix):
+            for _, suffix in suffixes:
+                if inspect.ismethod(suffix):
+                    suffix_func = suffix.__func__
+                else:
+                    suffix_func = suffix
+                if inspect.iscoroutinefunction(suffix_func):
                     result = await suffix(event, data)
                     if result is not None:
                         yield result
-                elif inspect.isgeneratorfunction(suffix):
+                elif inspect.isgeneratorfunction(suffix_func):
                     for result in suffix(event, data):
                         yield result
-                elif inspect.isasyncgenfunction(suffix):
+                elif inspect.isasyncgenfunction(suffix_func):
                     async for result in suffix(event, data):
                         yield result
-                elif inspect.isfunction(suffix):
+                elif inspect.isfunction(suffix_func):
                     result = suffix(event, data)
                     if result is not None:
                         yield result
@@ -155,7 +165,7 @@ class ModelRequest:
         *,
         parent_settings: Settings | None = None,
         parent_prompt: Prompt | None = None,
-        parent_extension_handlers: RuntimeData | None = None,
+        parent_extension_handlers: ExtensionHandlers | None = None,
         messenger: "EventCenterMessenger | None" = None,
         request_name: str | None = None,
     ):
@@ -170,7 +180,7 @@ class ModelRequest:
             parent_settings=self.settings,
             parent_prompt=parent_prompt,
         )
-        self.extension_handlers = RuntimeData(
+        self.extension_handlers = ExtensionHandlers(
             {
                 "prefixes": [],
                 "suffixes": [],
