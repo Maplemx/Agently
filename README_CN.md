@@ -2,29 +2,37 @@
 
 # Agently 4 (v4.0.0.Beta1) 
 
-[English Introduction](https://github.com/AgentEra/Agently/README.md) | [中文介绍](https://github.com/AgentEra/Agently/README_CN.md)
+[English Introduction](https://github.com/AgentEra/Agently/blob/main/README.md) | [中文介绍](https://github.com/AgentEra/Agently/blob/main/README_CN.md)
 
 > *Speed Up Your GenAI Application Development*
 
-[![license](https://img.shields.io/badge/license-Apache2.0-blue.svg?style=flat-square)](https://github.com/AgentEra/Agently/blob/main/LICENSE)
+[![license](https://img.shields.io/badge/证书-Apache2.0-blue.svg?style=flat-square)](https://github.com/AgentEra/Agently/blob/main/LICENSE)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/agently?style=flat-square)](https://pypistats.org/packages/agently)
 [![GitHub star chart](https://img.shields.io/github/stars/agentera/agently?style=flat-square)](https://star-history.com/#agentera/agently)
 [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/AgentlyTech.svg?style=social&label=Follow%20%40AgentlyTech)](https://x.com/AgentlyTech)
 <a href="https://doc.weixin.qq.com/forms/AIoA8gcHAFMAScAhgZQABIlW6tV3l7QQf">
-<img alt="WeChat" src="https://img.shields.io/badge/WeChat%20Group-Apply-brightgreen?logo=wechat&style=flat-square">
+<img alt="WeChat" src="https://img.shields.io/badge/开发者交流微信群-申请加入-brightgreen?logo=wechat&style=flat-square">
 </a>
 
 <p>
   <a href="https://github.com/AgentEra/Agently/discussions/categories/general">
-    <img alt="Discussions" src="https://img.shields.io/badge/Agently%20General%20Discussions-JOIN-brightgreen.svg?style=for-the-badge" />
+    <img alt="Discussions" src="https://img.shields.io/badge/交流讨论区-点击进入-brightgreen.svg?style=for-the-badge" />
   </a>
   <a href="https://github.com/AgentEra/Agently/discussions/categories/contribute-to-agently-4">
-    <img alt="Contribute" src="https://img.shields.io/badge/Contribute%20to%20Agently%204%20-Join-blueviolet.svg?style=for-the-badge">
+    <img alt="Contribute" src="https://img.shields.io/badge/成为贡献者-点击进入-blueviolet.svg?style=for-the-badge">
   </a>
   <a href="https://github.com/AgentEra/Agently/issues">
-    <img alt="Issues" src="https://img.shields.io/badge/Report%20Issues-Report-red.svg?style=for-the-badge">
+    <img alt="Issues" src="https://img.shields.io/badge/报告问题-点击报告-red.svg?style=for-the-badge">
   </a>
 </p>
+
+<hr />
+
+<p align="center">
+    <b><a href = "https://github.com/AgentEra/Agently/discussions">💬 官方Github Discussions讨论区</a> - 来这里讨论任何关于Agently的话题</b>
+</p>
+
+<hr />
 
 ## 使用方法
 
@@ -37,6 +45,9 @@ pip install agently==4.0.0b1
 ```
 
 ⚠️: 公测阶段必须携带版本号参数
+
+> ℹ️ 如果你想要寻找Agently v3版本的代码和文档，可以访问这个历史分支： [`v3-final`](https://github.com/AgentEra/Agently/tree/v3-final)
+
 
 克隆本仓库安装：
 
