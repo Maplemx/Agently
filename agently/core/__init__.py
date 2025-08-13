@@ -15,6 +15,7 @@
 from .PluginManager import PluginManager
 from .EventCenter import EventCenter, EventCenterMessenger
 from .Prompt import Prompt
+from .ExtensionHandlers import ExtensionHandlers
 from .ModelRequest import ModelRequest
 from .Agent import BaseAgent
 from .Tool import Tool

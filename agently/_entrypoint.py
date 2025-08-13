@@ -19,9 +19,12 @@ from agently.core import Prompt, ModelRequest, BaseAgent
 if TYPE_CHECKING:
     from agently.types.data import MessageLevel, SerializableValue
 
-
+# Extensions Installation
 # BaseAgent + Extensions = Agent
-class Agent(BaseAgent): ...
+from agently.builtins.agent_extensions import ToolExtension
+
+
+class Agent(ToolExtension, BaseAgent): ...
 
 
 class AgentlyMain:

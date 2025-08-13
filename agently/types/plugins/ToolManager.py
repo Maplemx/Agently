@@ -45,6 +45,8 @@ class ToolManager(AgentlyPlugin, Protocol):
 
     def get_tool_info(self, tags: str | list[str] | None = None) -> dict[str, dict[str, Any]]: ...
 
+    def get_tool_list(self, tags: str | list[str] | None = None) -> list[dict[str, Any]]: ...
+
     def get_tool_func(
         self,
         name: str,

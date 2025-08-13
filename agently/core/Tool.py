@@ -43,6 +43,7 @@ class Tool:
         self.tag = self.tool_manager.tag
         self.tool_func = self.tool_manager.tool_func
         self.get_tool_info = self.tool_manager.get_tool_info
+        self.get_tool_list = self.tool_manager.get_tool_list
         self.get_tool_func = self.tool_manager.get_tool_func
         self.call_tool = self.tool_manager.call_tool
         self.async_call_tool = self.tool_manager.async_call_tool
