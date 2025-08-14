@@ -47,4 +47,6 @@ from .tool import (
     ArgumentDesc,
     KwargsType,
     ReturnType,
+    MCPConfig,
+    MCPConfigs,
 )

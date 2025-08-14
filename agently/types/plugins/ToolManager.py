@@ -1,9 +1,18 @@
-from typing import Any, Literal, Callable, Coroutine, TYPE_CHECKING, Protocol, TypeVar, ParamSpec
+from typing import (
+    Any,
+    Literal,
+    Callable,
+    Coroutine,
+    TYPE_CHECKING,
+    Protocol,
+    TypeVar,
+    ParamSpec,
+)
 from agently.types.plugins import AgentlyPlugin
 
 if TYPE_CHECKING:
     from agently.utils import Settings
-    from agently.types.data import KwargsType, ReturnType
+    from agently.types.data import KwargsType, ReturnType, MCPConfigs
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -29,8 +38,8 @@ class ToolManager(AgentlyPlugin, Protocol):
         self,
         *,
         name: str,
-        desc: str,
-        kwargs: "KwargsType",
+        desc: str | None,
+        kwargs: "KwargsType | None",
         func: Callable,
         returns: "ReturnType | None" = None,
         tags: str | list[str] | None = None,
@@ -57,3 +66,7 @@ class ToolManager(AgentlyPlugin, Protocol):
     def call_tool(self, name: str, kwargs: dict[str, Any]) -> Any: ...
 
     async def async_call_tool(self, name: str, kwargs: dict[str, Any]) -> Any: ...
+
+    async def async_use_mcp(self, transport: "MCPConfigs | str | Any", *, tags: str | list[str] | None = None): ...
+
+    def use_mcp(self, transport: "MCPConfigs | str | Any", *, tags: str | list[str] | None = None): ...

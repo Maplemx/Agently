@@ -14,13 +14,13 @@
 
 import uuid
 
-from typing import Any, Protocol, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from agently.core import Prompt, ExtensionHandlers, ModelRequest
 from agently.utils import Settings
 
 if TYPE_CHECKING:
-    from agently.core import PluginManager, EventCenterMessenger
+    from agently.core import PluginManager
     from agently.types.data import PromptStandardSlot, ChatMessage, SerializableValue, ToolMeta
 
 
@@ -163,14 +163,6 @@ class BaseAgent:
             self.request.prompt.set("system", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
             self.request.prompt.set("system.user_info", prompt)
         return self
-
-    def tools(self, tools: "ToolMeta | list[ToolMeta]", *, always: bool = False):
-        if not isinstance(tools, list):
-            tools = [tools]
-        if always:
-            self.prompt.set("tools", tools)
-        else:
-            self.request.prompt.set("tools", tools)
 
     def input(self, prompt: Any, *, always: bool = False):
         if always:

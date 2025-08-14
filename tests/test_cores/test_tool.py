@@ -1,3 +1,5 @@
+import pytest
+
 import asyncio
 from agently import Agently
 
@@ -28,7 +30,7 @@ def test_tool():
                 "a": (int, ""),
                 "b": (int, ""),
             },
-            "return": int,
+            "returns": int,
         },
         "test": {
             "desc": "test func",
@@ -40,3 +42,15 @@ def test_tool():
     if add_tool:
         result = add_tool(1, 2)
         assert result == 3
+
+
+def test_use_mcp():
+    tool = Agently.tool
+
+    tool.use_mcp("./cal_mcp_server.py")
+
+    result = tool.call_tool("add", kwargs={"first_number": 1, "second_number": 2})
+    assert result["result"] == 3
+
+    result = tool.call_tool("add", kwargs={"a": 1, "b": 2})
+    assert "Input validation error" in result["error"]

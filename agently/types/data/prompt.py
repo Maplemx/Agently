@@ -129,6 +129,7 @@ class ToolMeta(TypedDict):
     name: str
     desc: str
     kwargs: dict[str, Any]
+    returns: Any
 
 
 class PromptModel(BaseModel):

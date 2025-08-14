@@ -15,11 +15,16 @@ from typing import (
 )
 from agently.types.plugins import ToolManager
 
-from agently.utils import SettingsNamespace, DataFormatter, FunctionShifter
+from agently.utils import (
+    SettingsNamespace,
+    DataFormatter,
+    FunctionShifter,
+    LazyImport,
+)
 
 if TYPE_CHECKING:
     from agently.utils import Settings
-    from agently.types.data import KwargsType, ReturnType
+    from agently.types.data import KwargsType, ReturnType, MCPConfigs
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -41,6 +46,8 @@ class AgentlyToolManager(ToolManager):
         self.tool_info: dict[str, dict[str, Any]] = {}
         self.tag_mappings: dict[str, set[str]] = {}
 
+        self.use_mcp = FunctionShifter.syncify(self.async_use_mcp)
+
     @staticmethod
     def _on_register():
         pass
@@ -53,8 +60,8 @@ class AgentlyToolManager(ToolManager):
         self,
         *,
         name: str,
-        desc: str,
-        kwargs: "KwargsType",
+        desc: str | None,
+        kwargs: "KwargsType | None",
         func: Callable[..., Any],
         returns: "ReturnType | None" = None,
         tags: str | list[str] | None = None,
@@ -64,13 +71,13 @@ class AgentlyToolManager(ToolManager):
             {
                 name: {
                     "name": name,
-                    "desc": desc,
-                    "kwargs": kwargs,
+                    "desc": desc if desc is not None else "",
+                    "kwargs": kwargs if kwargs is not None else {},
                 }
             }
         )
         if returns is not None:
-            self.tool_info[name].update({"return": returns})
+            self.tool_info[name].update({"returns": returns})
         if tags is None:
             tags = []
         if isinstance(tags, str):
@@ -130,9 +137,10 @@ class AgentlyToolManager(ToolManager):
             tags = [tags]
         tool_info: dict[str, dict[str, Any]] = {}
         for tag in tags:
-            for name in self.tag_mappings[tag]:
-                if name not in tool_info:
-                    tool_info.update({name: self.tool_info[name]})
+            if tag in self.tag_mappings:
+                for name in self.tag_mappings[tag]:
+                    if name not in tool_info:
+                        tool_info.update({name: self.tool_info[name]})
         return tool_info
 
     def get_tool_list(self, tags: str | list[str] | None = None) -> list[dict[str, Any]]:
@@ -169,3 +177,54 @@ class AgentlyToolManager(ToolManager):
             return f"Can not find tool named '{ name }'"
         func = FunctionShifter.asyncify(func)
         return await func(**kwargs)
+
+    def _mcp_tool_func(
+        self,
+        mcp_tool_name: str,
+        transport: "MCPConfigs | str | Any",
+    ):
+        async def _call_mcp_tool(**kwargs):
+            from fastmcp import Client
+
+            async with Client(transport) as client:  # type: ignore
+                mcp_result = await client.call_tool(
+                    name=mcp_tool_name,
+                    arguments=kwargs,
+                    raise_on_error=False,
+                )
+                if mcp_result.is_error:
+                    return {"error": mcp_result.content[0].text}  # type: ignore
+                else:
+                    return mcp_result.structured_content
+
+        return _call_mcp_tool
+
+    async def async_use_mcp(
+        self,
+        transport: "MCPConfigs | str | Any",
+        *,
+        tags: str | list[str] | None = None,
+    ):
+        LazyImport.import_package("fastmcp", version_constraint=">=2.10")
+        from fastmcp import Client
+
+        if tags is None:
+            tags = []
+        if isinstance(tags, str):
+            tags = [tags]
+
+        async with Client(transport) as client:  # type: ignore
+            tool_list = await client.list_tools()
+            for tool in tool_list:
+                tool_tags = []
+                if hasattr(tool, "_meta") and tool._meta:  # type: ignore
+                    tool_tags = tool._meta.get("_fastmcp", {}).get("tags", [])  # type: ignore
+                tool_tags.extend(tags)
+                self.register(
+                    name=tool.name,
+                    desc=tool.description,
+                    kwargs=DataFormatter.from_schema_to_kwargs_format(tool.inputSchema),
+                    returns=DataFormatter.from_schema_to_kwargs_format(tool.outputSchema),
+                    func=self._mcp_tool_func(tool.name, transport),
+                    tags=tool_tags,
+                )

@@ -1,10 +1,4 @@
-from dotenv import load_dotenv, find_dotenv
-
-load_dotenv(find_dotenv())
-
-import os
 import asyncio
-import time
 
 from agently import Agently
 
