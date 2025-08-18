@@ -237,21 +237,6 @@ class AgentlyResponseParser(ResponseParser):
         await cast(GeneratorConsumer, self._response_consumer).get_result()
         return self._result["text_result"]
 
-    def _syncify_async_generator(self, async_gen):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        async def consume():
-            result = []
-            async for item in async_gen:
-                result.append(item)
-            return result
-
-        try:
-            return loop.run_until_complete(consume())
-        finally:
-            loop.close()
-
     async def get_async_generator(
         self,
         content: Literal['all', 'delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
@@ -304,7 +289,7 @@ class AgentlyResponseParser(ResponseParser):
                         elif event == "done":
                             streaming_parsed = self._streaming_json_parser.finalize()
                         if streaming_parsed:
-                            for streaming_data in self._syncify_async_generator(streaming_parsed):
+                            for streaming_data in FunctionShifter.syncify_async_generator(streaming_parsed):
                                 if _streaming_parse_path_style == "slash":
                                     streaming_data.path = DataPathBuilder.convert_dot_to_slash(streaming_data.path)
                                 yield streaming_data
