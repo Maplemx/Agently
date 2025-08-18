@@ -22,7 +22,7 @@ class ToolExtension(BaseAgent):
 
         self.use_tool = self.use_tools
         self.use_mcp = FunctionShifter.syncify(self.async_use_mcp)
-        self.extension_handlers.append("prefixes", ("tool_prefix", self._prefix))
+        self.extension_handlers.append("prefixes", self.__prefix)
 
     def register_tool(
         self,
@@ -65,7 +65,7 @@ class ToolExtension(BaseAgent):
         await self.tool.async_use_mcp(transport, tags=[f"agent-{ self.name }"])
         return self
 
-    async def _prefix(self, prompt: "Prompt", settings: "Settings"):
+    async def __prefix(self, prompt: "Prompt", settings: "Settings"):
         tool_list = self.tool.get_tool_list(tags=[f"agent-{ self.name }"])
         if tool_list:
             tool_judgement_request = ModelRequest(

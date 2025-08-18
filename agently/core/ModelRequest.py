@@ -118,7 +118,7 @@ class ModelResponse:
             ),
         )
         prefixes = self.extension_handlers.get("prefixes", [])
-        for _, prefix in prefixes:
+        for prefix in prefixes:
             if inspect.ismethod(prefix):
                 prefix_func = prefix.__func__
             else:
@@ -145,7 +145,7 @@ class ModelResponse:
         suffixes = self.extension_handlers.get("suffixes", [])
         async for event, data in broadcast_generator:
             yield event, data
-            for _, suffix in suffixes:
+            for suffix in suffixes:
                 if inspect.ismethod(suffix):
                     suffix_func = suffix.__func__
                 else:
