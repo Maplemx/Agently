@@ -293,11 +293,14 @@ class OpenAICompatible(ModelRequester):
                 headers.update({"Last-Event-ID": last_event_id})
 
             async with aconnect_sse(client, method, url, headers=headers, json=json) as event_source:
-                async for sse in event_source.aiter_sse():
-                    last_event_id = sse.id
-                    if sse.retry is not None:
-                        reconnection_delay = sse.retry / 1000
-                    yield sse
+                try:
+                    async for sse in event_source.aiter_sse():
+                        last_event_id = sse.id
+                        if sse.retry is not None:
+                            reconnection_delay = sse.retry / 1000
+                        yield sse
+                except GeneratorExit:
+                    pass
 
         return _aiter_sse()
 
