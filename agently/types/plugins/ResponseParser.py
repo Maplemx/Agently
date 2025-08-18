@@ -17,8 +17,8 @@ from typing import Any, Protocol, AsyncGenerator, Generator, Literal, TYPE_CHECK
 from agently.types.plugins import AgentlyPlugin
 
 if TYPE_CHECKING:
-    from agently.core import Prompt, EventCenterMessenger
-    from agently.types.data import AgentlyResponseGenerator, SerializableData, StreamingData
+    from agently.core import Prompt
+    from agently.types.data import AgentlyResponseGenerator, SerializableData, StreamingData, AgentlyModelResult
     from agently.utils import Settings
     from pydantic import BaseModel
 
@@ -29,6 +29,8 @@ class ResponseParser(AgentlyPlugin, Protocol):
     response_id: str
     settings: "Settings"
     DEFAULT_SETTINGS: dict[str, Any] = {}
+
+    full_result_data: "AgentlyModelResult"
 
     response_generator: "AgentlyResponseGenerator"
 

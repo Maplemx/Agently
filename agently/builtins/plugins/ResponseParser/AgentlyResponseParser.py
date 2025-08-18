@@ -62,7 +62,7 @@ class AgentlyResponseParser(ResponseParser):
         self.response_generator = response_generator
         self.settings = settings
         self.plugin_settings = RuntimeDataNamespace(self.settings, f"plugins.ResponseParser.{ self.name }")
-        self._result: AgentlyModelResult = {
+        self.full_result_data: AgentlyModelResult = {
             "result_consumer": None,
             "meta": {},
             "original_delta": [],
@@ -72,6 +72,7 @@ class AgentlyResponseParser(ResponseParser):
             "parsed_result": None,
             "result_object": None,
             "errors": [],
+            "extra": {},
         }
         self._prompt_object = prompt.to_prompt_object()
         self._OutputModel = prompt.to_output_model() if self._prompt_object.output_format == "json" else None
@@ -109,7 +110,7 @@ class AgentlyResponseParser(ResponseParser):
                 yield event, data
                 match event:
                     case "original_delta":
-                        self._result["original_delta"].append(data)
+                        self.full_result_data["original_delta"].append(data)
                     case "delta":
                         buffer += str(data)
                         await async_system_message(
@@ -125,14 +126,14 @@ class AgentlyResponseParser(ResponseParser):
                             },
                         )
                     case "original_done":
-                        self._result["original_done"] = data
+                        self.full_result_data["original_done"] = data
                     case "done":
-                        self._result["text_result"] = str(data)
-                        if buffer != self._result["text_result"]:
+                        self.full_result_data["text_result"] = str(data)
+                        if buffer != self.full_result_data["text_result"]:
                             warnings.warn(
                                 "Buffered streaming result is not exactly the same as final result.\n"
                                 f"Buffered Result: { buffer }\n"
-                                f"Final Result: { self._result['text_result'] }\n"
+                                f"Final Result: { self.full_result_data['text_result'] }\n"
                             )
                         if self._prompt_object.output_format == "json":
                             cleaned_json = DataLocator.locate_output_json(str(data), self._prompt_object.output)
@@ -148,9 +149,9 @@ class AgentlyResponseParser(ResponseParser):
                                         result_object = None
                                 except:
                                     result_object = None
-                                self._result["cleaned_result"] = completed
-                                self._result["parsed_result"] = parsed
-                                self._result["result_object"] = result_object
+                                self.full_result_data["cleaned_result"] = completed
+                                self.full_result_data["parsed_result"] = parsed
+                                self.full_result_data["result_object"] = result_object
                                 await async_system_message(
                                     "MODEL_REQUEST",
                                     {
@@ -163,8 +164,8 @@ class AgentlyResponseParser(ResponseParser):
                                     },
                                 )
                             else:
-                                self._result["cleaned_result"] = None
-                                self._result["parsed_result"] = None
+                                self.full_result_data["cleaned_result"] = None
+                                self.full_result_data["parsed_result"] = None
                                 await async_system_message(
                                     "MODEL_REQUEST",
                                     {
@@ -177,7 +178,7 @@ class AgentlyResponseParser(ResponseParser):
                                     },
                                 )
                         else:
-                            self._result["parsed_result"] = str(data)
+                            self.full_result_data["parsed_result"] = str(data)
                             await async_system_message(
                                 "MODEL_REQUEST",
                                 {
@@ -191,10 +192,10 @@ class AgentlyResponseParser(ResponseParser):
                             )
                     case "meta":
                         if isinstance(data, Mapping):
-                            self._result["meta"].update(dict(data))
+                            self.full_result_data["meta"].update(dict(data))
                     case "error":
                         if isinstance(data, Exception):
-                            self._result["errors"].append(data)
+                            self.full_result_data["errors"].append(data)
         finally:
             if hasattr(self.response_generator, "aclose"):
                 with contextlib.suppress(RuntimeError):
@@ -203,7 +204,7 @@ class AgentlyResponseParser(ResponseParser):
     async def async_get_meta(self) -> "SerializableData":
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
-        return self._result["meta"]
+        return self.full_result_data["meta"]
 
     async def async_get_result(
         self,
@@ -214,12 +215,12 @@ class AgentlyResponseParser(ResponseParser):
         await cast(GeneratorConsumer, self._response_consumer).get_result()
         match content:
             case "original":
-                return self._result["original_done"].copy()
+                return self.full_result_data["original_done"].copy()
             case "parsed":
-                parsed = self._result["parsed_result"]
+                parsed = self.full_result_data["parsed_result"]
                 return parsed.copy() if hasattr(parsed, "copy") else parsed  # type: ignore
             case "all":
-                return self._result.copy()
+                return self.full_result_data.copy()
 
     async def async_get_result_object(self) -> BaseModel | None:
         if self._prompt_object.output_format != "json":
@@ -230,12 +231,12 @@ class AgentlyResponseParser(ResponseParser):
             )
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
-        return self._result["result_object"]
+        return self.full_result_data["result_object"]
 
     async def async_get_text(self) -> str:
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
-        return self._result["text_result"]
+        return self.full_result_data["text_result"]
 
     async def get_async_generator(
         self,
