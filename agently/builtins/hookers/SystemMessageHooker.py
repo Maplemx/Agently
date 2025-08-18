@@ -27,7 +27,7 @@ class SystemMessageHooker(EventHooker):
 
     @staticmethod
     async def handler(message: "EventMessage"):
-        from agently.base import event_center
+        from agently.base import event_center, settings
 
         message_type: "AgentlySystemEvent" = message.content["type"]
         match message_type:
@@ -49,22 +49,23 @@ class SystemMessageHooker(EventHooker):
                             },
                         },
                     )
-                    if (
-                        SystemMessageHooker._current_meta["table_name"] == message_data["agent_name"]
-                        and SystemMessageHooker._current_meta["row_id"] == message_data["response_id"]
-                        and SystemMessageHooker._current_meta["stage"] == content["stage"]
-                    ):
-                        print(content["detail"], end="")
-                    else:
-                        print(
-                            f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
-                            end="",
-                        )
-                        SystemMessageHooker._current_meta["table_name"] = message_data["agent_name"]
-                        SystemMessageHooker._current_meta["row_id"] = message_data["response_id"]
-                        SystemMessageHooker._current_meta["stage"] = content["stage"]
+                    if settings["runtime.show_log"]:
+                        if (
+                            SystemMessageHooker._current_meta["table_name"] == message_data["agent_name"]
+                            and SystemMessageHooker._current_meta["row_id"] == message_data["response_id"]
+                            and SystemMessageHooker._current_meta["stage"] == content["stage"]
+                        ):
+                            print(content["detail"], end="")
+                        else:
+                            print(
+                                f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
+                                end="",
+                            )
+                            SystemMessageHooker._current_meta["table_name"] = message_data["agent_name"]
+                            SystemMessageHooker._current_meta["row_id"] = message_data["response_id"]
+                            SystemMessageHooker._current_meta["stage"] = content["stage"]
                 else:
-                    if SystemMessageHooker._streaming is True:
+                    if SystemMessageHooker._streaming is True and settings["runtime.show_log"]:
                         print()
                         SystemMessageHooker._streaming = False
                     await event_center.async_emit(
@@ -80,10 +81,11 @@ class SystemMessageHooker(EventHooker):
                             },
                         },
                     )
-                    await event_center.async_emit(
-                        "log",
-                        {
-                            "level": "INFO",
-                            "content": f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
-                        },
-                    )
+                    if settings["runtime.show_log"]:
+                        await event_center.async_emit(
+                            "log",
+                            {
+                                "level": "INFO",
+                                "content": f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
+                            },
+                        )

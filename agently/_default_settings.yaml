@@ -13,6 +13,7 @@ response:
 runtime:
   raise_error: True
   raise_critical: True
+  show_log: False
 plugins:
   ToolManager:
     activate: AgentlyToolManager

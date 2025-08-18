@@ -19,12 +19,24 @@ from agently.core import Prompt, ModelRequest, BaseAgent
 if TYPE_CHECKING:
     from agently.types.data import MessageLevel, SerializableValue
 
+settings.update_mappings(
+    {
+        "path_mappings": {
+            "debug": "runtime.show_log",
+        }
+    }
+)
+
 # Extensions Installation
 # BaseAgent + Extensions = Agent
-from agently.builtins.agent_extensions import ToolExtension
+from agently.builtins.agent_extensions import ToolExtension, KeyWaiterExtension
 
 
-class Agent(ToolExtension, BaseAgent): ...
+class Agent(
+    ToolExtension,
+    KeyWaiterExtension,
+    BaseAgent,
+): ...
 
 
 class AgentlyMain:
