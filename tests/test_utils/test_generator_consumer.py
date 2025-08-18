@@ -5,6 +5,31 @@ from agently.utils import GeneratorConsumer
 
 
 @pytest.mark.asyncio
+async def test_async_generator_multi_subscribe():
+    async def async_gen():
+        yield "a", 1
+        yield "b", 2
+        yield "c", 3
+
+    consumer = GeneratorConsumer(async_gen())
+
+    # First subscription
+    gen1 = consumer.get_async_generator()
+    collected1 = []
+    async for value in gen1:
+        collected1.append(value)
+
+    # Second subscription should replay the same history
+    gen2 = consumer.get_async_generator()
+    collected2 = []
+    async for value in gen2:
+        collected2.append(value)
+
+    assert collected1 == [("a", 1), ("b", 2), ("c", 3)]
+    assert collected2 == collected1
+
+
+@pytest.mark.asyncio
 async def test_generator_consumer():
     async def original_gen():
         for i in range(0, 10):
