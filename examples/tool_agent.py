@@ -9,7 +9,7 @@ Agently.set_settings(
         "model": "qwen2.5:7b",
         "model_type": "chat",
     },
-)
+).set_settings("debug", True)
 
 agent = Agently.create_agent()
 
@@ -20,7 +20,7 @@ async def add(a: int, b: int) -> int:
     Get result of `a(int)` add `b(int)`
     """
     await asyncio.sleep(1)
-    print(a, b, a + b)
+    print(a, "+", b, "=", a + b)
     return a + b
 
 
