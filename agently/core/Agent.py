@@ -14,14 +14,14 @@
 
 import uuid
 
-from typing import Any, Protocol, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from agently.core import Prompt, ExtensionHandlers, ModelRequest
 from agently.utils import Settings
 
 if TYPE_CHECKING:
-    from agently.core import PluginManager, EventCenterMessenger
-    from agently.types.data import PromptStandardSlot, ChatMessage, SerializableValue, ToolMeta
+    from agently.core import PluginManager
+    from agently.types.data import PromptStandardSlot, ChatMessage, SerializableValue
 
 
 class BaseAgent:
@@ -34,12 +34,6 @@ class BaseAgent:
     ):
         self.id = uuid.uuid4().hex
         self.name = name if name is not None else self.id[:7]
-
-        from agently.base import event_center
-
-        self._messenger = event_center.create_messenger(
-            f"Agent-{ self.name }", base_meta={"table_name": f"Agent-{ self.name }"}
-        )
 
         self.plugin_manager = plugin_manager
         self.settings = Settings(
@@ -59,11 +53,11 @@ class BaseAgent:
             name=f"Agent-{ self.name }-ExtensionHandlers",
         )
         self.request = ModelRequest(
+            agent_name=self.name,
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
             parent_prompt=self.prompt,
             parent_extension_handlers=self.extension_handlers,
-            messenger=self._messenger,
         )
 
         self.get_response = self.request.get_response
@@ -163,14 +157,6 @@ class BaseAgent:
             self.request.prompt.set("system", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
             self.request.prompt.set("system.user_info", prompt)
         return self
-
-    def tools(self, tools: "ToolMeta | list[ToolMeta]", *, always: bool = False):
-        if not isinstance(tools, list):
-            tools = [tools]
-        if always:
-            self.prompt.set("tools", tools)
-        else:
-            self.request.prompt.set("tools", tools)
 
     def input(self, prompt: Any, *, always: bool = False):
         if always:

@@ -29,6 +29,8 @@ plugin_manager = PluginManager(
 _load_default_plugins(plugin_manager)
 event_center = EventCenter()
 _hook_default_event_handlers(event_center)
+async_system_message = event_center.async_system_message
+system_message = event_center.system_message
 logger = create_logger()
 tool = Tool(plugin_manager, settings)
 _agently_messenger = event_center.create_messenger("Agently")
@@ -53,4 +55,4 @@ async def async_print(content: Any, *args):
     await _agently_messenger.async_message(content_text, event="log")
 
 
-__all__ = ["settings", "plugin_manager", "event_center", "logger"]
+__all__ = ["settings", "plugin_manager", "event_center", "async_system_message", "system_message", "logger"]

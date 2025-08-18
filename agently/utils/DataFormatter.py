@@ -27,7 +27,7 @@ from typing import (
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from agently.types.data import SerializableValue
+    from agently.types.data import SerializableValue, KwargsType
 
 
 class DataFormatter:
@@ -149,3 +149,29 @@ class DataFormatter:
     @staticmethod
     def to_str(value: Any) -> str:
         return str(DataFormatter.sanitize(value))
+
+    @staticmethod
+    def from_schema_to_kwargs_format(input_schema: dict[str, Any] | None) -> "KwargsType | None":
+        if input_schema and len(input_schema.keys()) > 0:
+            if "type" not in input_schema:
+                raise KeyError(f"Cannot find key 'type' in input schema: { input_schema }")
+            if input_schema["type"] != "object":
+                raise TypeError(f"Input schema type is not 'object' but: { input_schema['type'] }")
+            if "properties" not in input_schema:
+                raise KeyError(f"Cannot find key 'properties' in input schema: { input_schema }")
+            properties = input_schema["properties"]
+            kwargs_format: "KwargsType" = {}
+            for kwarg_name, kwarg_schema in properties.items():
+                if "type" in kwarg_schema:
+                    kwarg_type = kwarg_schema["type"]
+                    del kwarg_schema["type"]
+                else:
+                    kwarg_type = any
+                if "title" in kwarg_schema:
+                    del kwarg_schema["title"]
+                kwarg_desc = None
+                if kwarg_schema.keys():
+                    kwarg_desc = ";".join([f"{ key }: { value }" for key, value in kwarg_schema.items()])
+                kwargs_format.update({kwarg_name: (kwarg_type, kwarg_desc)})
+            return kwargs_format if len(kwargs_format.keys()) > 0 else None
+        return None

@@ -47,3 +47,5 @@ class Tool:
         self.get_tool_func = self.tool_manager.get_tool_func
         self.call_tool = self.tool_manager.call_tool
         self.async_call_tool = self.tool_manager.async_call_tool
+        self.use_mcp = self.tool_manager.use_mcp
+        self.async_use_mcp = self.tool_manager.async_use_mcp

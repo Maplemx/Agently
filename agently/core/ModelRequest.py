@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import uuid
 
 import inspect
@@ -21,7 +22,7 @@ ContentKindTuple: TypeAlias = Literal["all", "delta", "original"]
 ContentKindStreaming: TypeAlias = Literal["instant", "streaming_parse"]
 
 from agently.core import Prompt, ExtensionHandlers
-from agently.utils import Settings, FunctionShifter
+from agently.utils import Settings, FunctionShifter, DataFormatter
 
 if TYPE_CHECKING:
     from agently.core import PluginManager, EventCenterMessenger
@@ -32,13 +33,14 @@ if TYPE_CHECKING:
 class ModelResponseResult:
     def __init__(
         self,
+        agent_name: str,
         response_id: str,
         prompt: Prompt,
         response_generator: AsyncGenerator["AgentlyModelResponseMessage", None],
         plugin_manager: "PluginManager",
         settings: Settings,
-        messenger: "EventCenterMessenger",
     ):
+        self.agent_name = agent_name
         self.plugin_manager = plugin_manager
         self.settings = settings
         ResponseParser = cast(
@@ -48,7 +50,8 @@ class ModelResponseResult:
                 str(self.settings["plugins.ResponseParser.activate"]),
             ),
         )
-        _response_parser = ResponseParser(response_id, prompt, response_generator, self.settings, messenger)
+        _response_parser = ResponseParser(agent_name, response_id, prompt, response_generator, self.settings)
+        self.full_result_data = _response_parser.full_result_data
         self.get_meta = _response_parser.get_meta
         self.async_get_meta = _response_parser.async_get_meta
         self.get_text = _response_parser.get_text
@@ -65,12 +68,13 @@ class ModelResponse:
 
     def __init__(
         self,
+        agent_name: str,
         plugin_manager: "PluginManager",
         settings: Settings,
         prompt: Prompt,
         extension_handlers: ExtensionHandlers,
-        messenger: "EventCenterMessenger",
     ):
+        self.agent_name = agent_name
         self.id = uuid.uuid4().hex
         self.plugin_manager = plugin_manager
         settings_snapshot = settings.get()
@@ -85,14 +89,13 @@ class ModelResponse:
         self.extension_handlers = ExtensionHandlers(
             extension_handlers_snapshot if isinstance(extension_handlers_snapshot, dict) else {}
         )
-        self._messenger = messenger
         self.result = ModelResponseResult(
+            self.agent_name,
             self.id,
             self.prompt,
             self._get_response_generator(),
             self.plugin_manager,
             self.settings,
-            self._messenger,
         )
         self.get_meta = self.result.get_meta
         self.async_get_meta = self.result.async_get_meta
@@ -106,6 +109,8 @@ class ModelResponse:
         self.get_async_generator = self.result.get_async_generator
 
     async def _get_response_generator(self) -> AsyncGenerator["AgentlyModelResponseMessage", None]:
+        from agently.base import async_system_message
+
         ModelRequester = cast(
             type["ModelRequester"],
             self.plugin_manager.get_plugin(
@@ -114,7 +119,7 @@ class ModelResponse:
             ),
         )
         prefixes = self.extension_handlers.get("prefixes", [])
-        for _, prefix in prefixes:
+        for prefix in prefixes:
             if inspect.ismethod(prefix):
                 prefix_func = prefix.__func__
             else:
@@ -125,35 +130,60 @@ class ModelResponse:
                 prefix(self.prompt, self.settings)
         model_requester = ModelRequester(self.prompt, self.settings)
         request_data = model_requester.generate_request_data()
-        await self._messenger.async_to_console(
+        await async_system_message(
+            "MODEL_REQUEST",
             {
-                "Status": "✉️ Requesting",
-                "Request Data": request_data.model_dump(),
+                "agent_name": self.agent_name,
+                "response_id": self.id,
+                "content": {
+                    "stage": "Requesting",
+                    "detail": json.dumps(DataFormatter.sanitize(request_data.model_dump()), indent=2),
+                },
             },
-            row_id=self.id,
         )
         response_generator = model_requester.request_model(request_data)
         broadcast_generator = model_requester.broadcast_response(response_generator)
-        suffixes = self.extension_handlers.get("suffixes", [])
+        base_suffixes = self.extension_handlers.get("base_suffixes", [])
+        broadcast_suffixes = self.extension_handlers.get("broadcast_suffixes", {})
+        for suffix in base_suffixes:
+            if inspect.ismethod(suffix):
+                suffix_func = suffix.__func__
+            else:
+                suffix_func = suffix
+            if inspect.iscoroutinefunction(suffix_func):
+                result = await suffix(self.result.full_result_data)
+                if result is not None:
+                    yield result
+            elif inspect.isgeneratorfunction(suffix_func):
+                for result in suffix(self.result.full_result_data):
+                    yield result
+            elif inspect.isasyncgenfunction(suffix_func):
+                async for result in suffix(self.result.full_result_data):
+                    yield result
+            elif inspect.isfunction(suffix_func):
+                result = suffix(self.result.full_result_data)
+                if result is not None:
+                    yield result
         async for event, data in broadcast_generator:
             yield event, data
-            for _, suffix in suffixes:
+            suffixes = broadcast_suffixes[event] if event in broadcast_suffixes else []
+            for suffix in suffixes:
                 if inspect.ismethod(suffix):
                     suffix_func = suffix.__func__
                 else:
                     suffix_func = suffix
                 if inspect.iscoroutinefunction(suffix_func):
-                    result = await suffix(event, data)
+                    result = await suffix(event, data, self.result.full_result_data)
                     if result is not None:
                         yield result
                 elif inspect.isgeneratorfunction(suffix_func):
-                    for result in suffix(event, data):
+                    for result in suffix(event, data, self.result.full_result_data):
                         yield result
                 elif inspect.isasyncgenfunction(suffix_func):
-                    async for result in suffix(event, data):
+                    async for result in suffix(event, data, self.result.full_result_data):
                         yield result
                 elif inspect.isfunction(suffix_func):
-                    result = suffix(event, data)
+                    result = suffix(event, data, self.result.full_result_data)
                     if result is not None:
                         yield result
 
@@ -163,12 +193,12 @@ class ModelRequest:
         self,
         plugin_manager: "PluginManager",
         *,
+        agent_name: str | None = None,
         parent_settings: Settings | None = None,
         parent_prompt: Prompt | None = None,
         parent_extension_handlers: ExtensionHandlers | None = None,
-        messenger: "EventCenterMessenger | None" = None,
-        request_name: str | None = None,
     ):
+        self.agent_name = agent_name if agent_name is not None else "Directly Request"
         self.plugin_manager = plugin_manager
         self.settings = Settings(
             name="Request-Settings",
@@ -188,19 +218,6 @@ class ModelRequest:
             name="Request-ExtensionHandlers",
             parent=parent_extension_handlers,
         )
-        if messenger is None:
-            from agently.base import event_center
-
-            self._messenger = event_center.create_messenger(
-                "ModelRequest",
-                base_meta={"table_name": "Direct Request" if request_name is None else request_name},
-            )
-        else:
-            self._messenger = messenger
-            if "table_name" not in self._messenger._base_meta or not self._messenger._base_meta["table_name"]:
-                self._messenger.update_base_meta(
-                    {"table_name": "Direct Request" if request_name is None else request_name}
-                )
 
         self.get_meta = FunctionShifter.syncify(self.async_get_meta)
         self.get_text = FunctionShifter.syncify(self.async_get_text)
@@ -260,11 +277,11 @@ class ModelRequest:
 
     def get_response(self):
         response = ModelResponse(
+            self.agent_name,
             self.plugin_manager,
             self.settings,
             self.prompt,
             self.extension_handlers,
-            self._messenger,
         )
         self.prompt.clear()
         return response

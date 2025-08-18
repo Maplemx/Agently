@@ -150,7 +150,7 @@ class AgentlyPromptGenerator(PromptGenerator):
                 if isinstance(tool_info, dict):
                     prompt_text_list.append("[")
                     for key, value in tool_info.items():
-                        if key == "kwargs":
+                        if key in ("kwargs", "returns"):
                             prompt_text_list.append(
                                 f"{ key }: {self._generate_json_output_prompt(DataFormatter.sanitize(value))}"
                             )
@@ -160,7 +160,7 @@ class AgentlyPromptGenerator(PromptGenerator):
 
         # action_results
         if prompt_object.action_results:
-            prompt_text_list.extend(self._generate_yaml_prompt_list("ACTION RESULTS", prompt_object.instruct))
+            prompt_text_list.extend(self._generate_yaml_prompt_list("ACTION RESULTS", prompt_object.action_results))
 
         # info
         if prompt_object.info:

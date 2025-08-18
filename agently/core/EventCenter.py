@@ -17,13 +17,13 @@ import asyncio
 import json
 from typing import TYPE_CHECKING, Any, cast
 
-from agently.types.data.serializable import SerializableData
-from agently.types.data.event import EventMessage
+from agently.types.data import SerializableData, EventMessage
 from agently.utils import FunctionShifter
 
 if TYPE_CHECKING:
-    from agently.types.data.event import (
+    from agently.types.data import (
         AgentlyEvent,
+        AgentlySystemEvent,
         EventMessageDict,
         EventMessage,
         MessageLevel,
@@ -37,6 +37,8 @@ class EventCenter:
     def __init__(self):
         self._hooks: dict[AgentlyEvent, dict[str, "EventHook"]] = {}
         self._hookers: dict[str, type[EventHooker]] = {}
+        self.emit = FunctionShifter.syncify(self.async_emit)
+        self.system_message = FunctionShifter.syncify(self.async_system_message)
 
     def register_hook(
         self,
@@ -78,7 +80,7 @@ class EventCenter:
             hooker._on_unregister()
         del self._hookers[hooker.name]
 
-    async def emit(
+    async def async_emit(
         self,
         event: "AgentlyEvent",
         message: "EventMessageDict | EventMessage",
@@ -101,6 +103,18 @@ class EventCenter:
             await asyncio.gather(*tasks)
         if event == "log" and len(tasks) == 0:
             print(*message_object.content if isinstance(message_object.content, list) else message_object.content)
+
+    async def async_system_message(self, message_type: "AgentlySystemEvent", message_data: Any):
+        await self.async_emit(
+            "AGENTLY_SYS",
+            {
+                "module_name": "Agently",
+                "content": {
+                    "type": message_type,
+                    "data": message_data,
+                },
+            },
+        )
 
     def create_messenger(self, module_name: str, *, base_meta: dict[str, Any] | None = None):
         if base_meta is None:
@@ -150,7 +164,7 @@ class EventCenterMessenger:
             meta = {}
         final_meta = self._base_meta.copy()
         final_meta.update(meta)
-        await self._event_center.emit(
+        await self._event_center.async_emit(
             event,
             {
                 "module_name": self._module_name,
@@ -173,7 +187,7 @@ class EventCenterMessenger:
             meta = {}
         final_meta = self._base_meta.copy()
         final_meta.update(meta)
-        await self._event_center.emit(
+        await self._event_center.async_emit(
             "log",
             {
                 "module_name": self._module_name,
@@ -195,7 +209,7 @@ class EventCenterMessenger:
             meta = {}
         final_meta = self._base_meta.copy()
         final_meta.update(meta)
-        await self._event_center.emit(
+        await self._event_center.async_emit(
             "log",
             {
                 "module_name": self._module_name,
@@ -217,7 +231,7 @@ class EventCenterMessenger:
             meta = {}
         final_meta = self._base_meta.copy()
         final_meta.update(meta)
-        await self._event_center.emit(
+        await self._event_center.async_emit(
             "log",
             {
                 "module_name": self._module_name,
@@ -240,7 +254,7 @@ class EventCenterMessenger:
         final_meta = self._base_meta.copy()
         final_meta.update(meta)
         error = error if isinstance(error, Exception) else RuntimeError(error)
-        await self._event_center.emit(
+        await self._event_center.async_emit(
             "log",
             {
                 "module_name": self._module_name,
@@ -269,7 +283,7 @@ class EventCenterMessenger:
         final_meta = self._base_meta.copy()
         final_meta.update(meta)
         critical = critical if isinstance(critical, Exception) else RuntimeError(critical)
-        await self._event_center.emit(
+        await self._event_center.async_emit(
             "log",
             {
                 "module_name": self._module_name,
@@ -300,7 +314,7 @@ class EventCenterMessenger:
             final_meta.update({"table_name": table_name})
         if row_id is not None:
             final_meta.update({"row_id": row_id})
-        await self._event_center.emit(
+        await self._event_center.async_emit(
             "console",
             {
                 "module_name": self._module_name,
@@ -319,7 +333,7 @@ class EventCenterMessenger:
     ):
         final_meta = self._base_meta
         final_meta.update(meta)
-        await self._event_center.emit(
+        await self._event_center.async_emit(
             "data",
             {
                 "module_name": self._module_name,

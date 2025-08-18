@@ -36,6 +36,7 @@ from .response import (
 
 from .event import (
     AgentlyEvent,
+    AgentlySystemEvent,
     MessageLevel,
     EventStatus,
     EventMessageDict,
@@ -47,4 +48,6 @@ from .tool import (
     ArgumentDesc,
     KwargsType,
     ReturnType,
+    MCPConfig,
+    MCPConfigs,
 )

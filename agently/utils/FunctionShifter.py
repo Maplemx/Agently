@@ -74,3 +74,18 @@ class FunctionShifter:
             return await asyncio.to_thread(func, *args, **kwargs)
 
         return wrapper
+
+    @staticmethod
+    def syncify_async_generator(async_gen):
+        loop = asyncio.new_event_loop()
+
+        async def consume():
+            result = []
+            async for item in async_gen:
+                result.append(item)
+            return result
+
+        try:
+            return loop.run_until_complete(consume())
+        finally:
+            loop.close()

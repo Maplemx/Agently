@@ -17,7 +17,9 @@ from typing import Any, Awaitable, Callable, Literal, TypeAlias
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 
-AgentlyEvent: TypeAlias = Literal["message", "error", "data", "log", "console"]
+AgentlyEvent: TypeAlias = Literal["message", "error", "data", "log", "console", "AGENTLY_SYS"]
+
+AgentlySystemEvent: TypeAlias = Literal["MODEL_REQUEST"]
 
 MessageLevel: TypeAlias = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 

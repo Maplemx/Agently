@@ -37,6 +37,7 @@ class AgentlyModelResult(TypedDict):
     parsed_result: "SerializableValue"
     result_object: BaseModel | None
     errors: list[Exception]
+    extra: dict[str, Any] | None
 
 
 class StreamingData(BaseModel):

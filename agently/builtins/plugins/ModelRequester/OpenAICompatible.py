@@ -24,7 +24,7 @@ from typing import (
 )
 from typing_extensions import TypedDict
 
-from httpx import AsyncClient, ReadError, HTTPStatusError, RequestError
+from httpx import AsyncClient, ReadError, HTTPStatusError, RequestError, Timeout
 from httpx_sse import aconnect_sse, SSEError
 from stamina import retry
 
@@ -121,6 +121,12 @@ class OpenAICompatible(ModelRequester):
             "extra_done": None,
         },
         "content_mapping_style": "dot",
+        "timeout": {
+            "connect": 30.0,
+            "read": 600.0,
+            "write": 30.0,
+            "pool": 30.0,
+        },
     }
 
     def __init__(
@@ -209,6 +215,20 @@ class OpenAICompatible(ModelRequester):
         proxy = self.plugin_settings.get("proxy", None)
         if proxy:
             client_options.update({"proxy": proxy})
+        ## timeout
+        timeout_configs = DataFormatter.to_str_key_dict(
+            self.plugin_settings.get(
+                "timeout",
+                {
+                    "connect": 30.0,
+                    "read": 120.0,
+                    "write": 30.0,
+                    "pool": 30.0,
+                },
+            )
+        )
+        timeout = Timeout(**timeout_configs)
+        client_options.update({"timeout": timeout})
         ## set
         agently_request_dict["client_options"] = client_options
 
@@ -273,11 +293,14 @@ class OpenAICompatible(ModelRequester):
                 headers.update({"Last-Event-ID": last_event_id})
 
             async with aconnect_sse(client, method, url, headers=headers, json=json) as event_source:
-                async for sse in event_source.aiter_sse():
-                    last_event_id = sse.id
-                    if sse.retry is not None:
-                        reconnection_delay = sse.retry / 1000
-                    yield sse
+                try:
+                    async for sse in event_source.aiter_sse():
+                        last_event_id = sse.id
+                        if sse.retry is not None:
+                            reconnection_delay = sse.retry / 1000
+                        yield sse
+                except GeneratorExit:
+                    pass
 
         return _aiter_sse()
 
