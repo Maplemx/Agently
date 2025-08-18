@@ -51,6 +51,7 @@ class ModelResponseResult:
             ),
         )
         _response_parser = ResponseParser(agent_name, response_id, prompt, response_generator, self.settings)
+        self.full_result_data = _response_parser.full_result_data
         self.get_meta = _response_parser.get_meta
         self.async_get_meta = _response_parser.async_get_meta
         self.get_text = _response_parser.get_text
@@ -142,26 +143,47 @@ class ModelResponse:
         )
         response_generator = model_requester.request_model(request_data)
         broadcast_generator = model_requester.broadcast_response(response_generator)
-        suffixes = self.extension_handlers.get("suffixes", [])
+        base_suffixes = self.extension_handlers.get("base_suffixes", [])
+        broadcast_suffixes = self.extension_handlers.get("broadcast_suffixes", {})
+        for suffix in base_suffixes:
+            if inspect.ismethod(suffix):
+                suffix_func = suffix.__func__
+            else:
+                suffix_func = suffix
+            if inspect.iscoroutinefunction(suffix_func):
+                result = await suffix(self.result.full_result_data)
+                if result is not None:
+                    yield result
+            elif inspect.isgeneratorfunction(suffix_func):
+                for result in suffix(self.result.full_result_data):
+                    yield result
+            elif inspect.isasyncgenfunction(suffix_func):
+                async for result in suffix(self.result.full_result_data):
+                    yield result
+            elif inspect.isfunction(suffix_func):
+                result = suffix(self.result.full_result_data)
+                if result is not None:
+                    yield result
         async for event, data in broadcast_generator:
             yield event, data
+            suffixes = broadcast_suffixes[event] if event in broadcast_suffixes else []
             for suffix in suffixes:
                 if inspect.ismethod(suffix):
                     suffix_func = suffix.__func__
                 else:
                     suffix_func = suffix
                 if inspect.iscoroutinefunction(suffix_func):
-                    result = await suffix(event, data)
+                    result = await suffix(event, data, self.result.full_result_data)
                     if result is not None:
                         yield result
                 elif inspect.isgeneratorfunction(suffix_func):
-                    for result in suffix(event, data):
+                    for result in suffix(event, data, self.result.full_result_data):
                         yield result
                 elif inspect.isasyncgenfunction(suffix_func):
-                    async for result in suffix(event, data):
+                    async for result in suffix(event, data, self.result.full_result_data):
                         yield result
                 elif inspect.isfunction(suffix_func):
-                    result = suffix(event, data)
+                    result = suffix(event, data, self.result.full_result_data)
                     if result is not None:
                         yield result
 
