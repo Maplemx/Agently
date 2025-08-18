@@ -19,7 +19,7 @@ from typing import (
     Sequence,
     Annotated,
 )
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, NotRequired
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -129,7 +129,7 @@ class ToolMeta(TypedDict):
     name: str
     desc: str
     kwargs: dict[str, Any]
-    returns: Any
+    returns: NotRequired[Any]
 
 
 class PromptModel(BaseModel):
