@@ -25,20 +25,20 @@ if TYPE_CHECKING:
 
 class ResponseParser(AgentlyPlugin, Protocol):
     name: str
+    agent_name: str
     response_id: str
     settings: "Settings"
-    messenger: "EventCenterMessenger"
     DEFAULT_SETTINGS: dict[str, Any] = {}
 
     response_generator: "AgentlyResponseGenerator"
 
     def __init__(
         self,
+        agent_name: str,
         response_id: str,
         prompt: "Prompt",
         response_generator: "AgentlyResponseGenerator",
         settings: "Settings",
-        messenger: "EventCenterMessenger",
     ): ...
 
     @staticmethod

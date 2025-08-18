@@ -21,7 +21,6 @@ from pydantic import BaseModel
 
 import json5
 
-from agently.core.EventCenter import EventCenterMessenger
 from agently.types.plugins import ResponseParser
 from agently.utils import (
     DataPathBuilder,
@@ -52,16 +51,16 @@ class AgentlyResponseParser(ResponseParser):
 
     def __init__(
         self,
+        agent_name: str,
         response_id: str,
         prompt: "Prompt",
         response_generator: "AgentlyResponseGenerator",
         settings: "Settings",
-        messenger: "EventCenterMessenger",
     ):
+        self.agent_name = agent_name
         self.response_id = response_id
         self.response_generator = response_generator
         self.settings = settings
-        self.messenger = messenger
         self.plugin_settings = RuntimeDataNamespace(self.settings, f"plugins.ResponseParser.{ self.name }")
         self._result: AgentlyModelResult = {
             "result_consumer": None,
@@ -102,6 +101,8 @@ class AgentlyResponseParser(ResponseParser):
                     self._response_consumer = GeneratorConsumer(self._extract())
 
     async def _extract(self):
+        from agently.base import async_system_message
+
         buffer = ""
         try:
             async for event, data in self.response_generator:
@@ -111,12 +112,17 @@ class AgentlyResponseParser(ResponseParser):
                         self._result["original_delta"].append(data)
                     case "delta":
                         buffer += str(data)
-                        await self.messenger.async_to_console(
+                        await async_system_message(
+                            "MODEL_REQUEST",
                             {
-                                "Status": "⏩️ Streaming",
-                                "$Model Output": str(data),
+                                "agent_name": self.agent_name,
+                                "response_id": self.response_id,
+                                "content": {
+                                    "stage": "Streaming",
+                                    "detail": str(data),
+                                    "delta": True,
+                                },
                             },
-                            row_id=self.response_id,
                         )
                     case "original_done":
                         self._result["original_done"] = data
@@ -145,37 +151,44 @@ class AgentlyResponseParser(ResponseParser):
                                 self._result["cleaned_result"] = completed
                                 self._result["parsed_result"] = parsed
                                 self._result["result_object"] = result_object
-                                await self.messenger.async_to_console(
+                                await async_system_message(
+                                    "MODEL_REQUEST",
                                     {
-                                        "Status": "✅ Done",
-                                        "Parsed Result": json5.dumps(
-                                            parsed,
-                                            indent=2,
-                                            ensure_ascii=False,
-                                        ),
+                                        "agent_name": self.agent_name,
+                                        "response_id": self.response_id,
+                                        "content": {
+                                            "stage": "Done",
+                                            "detail": str(data),
+                                        },
                                     },
-                                    row_id=self.response_id,
                                 )
                             else:
                                 self._result["cleaned_result"] = None
                                 self._result["parsed_result"] = None
-                                await self.messenger.async_to_console(
+                                await async_system_message(
+                                    "MODEL_REQUEST",
                                     {
-                                        "Status": "✅ Done",
-                                        "Parsed Result": "❌ FAILED",
+                                        "agent_name": self.agent_name,
+                                        "response_id": self.response_id,
+                                        "content": {
+                                            "stage": "Done",
+                                            "detail": "❌ Can not parse this result!",
+                                        },
                                     },
-                                    row_id=self.response_id,
                                 )
                         else:
                             self._result["parsed_result"] = str(data)
-                            await self.messenger.async_to_console(
+                            await async_system_message(
+                                "MODEL_REQUEST",
                                 {
-                                    "Status": "✅ Done",
-                                    "Parsed Result": "-",
+                                    "agent_name": self.agent_name,
+                                    "response_id": self.response_id,
+                                    "content": {
+                                        "stage": "Done",
+                                        "detail": str(data),
+                                    },
                                 },
-                                row_id=self.response_id,
                             )
-
                     case "meta":
                         if isinstance(data, Mapping):
                             self._result["meta"].update(dict(data))

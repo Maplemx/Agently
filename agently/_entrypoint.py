@@ -66,7 +66,7 @@ class AgentlyMain:
         return ModelRequest(
             self.plugin_manager,
             parent_settings=self.settings,
-            request_name=name,
+            agent_name=name,
         )
 
     def create_agent(self, name: str | None = None) -> Agent:

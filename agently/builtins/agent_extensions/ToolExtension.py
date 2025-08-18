@@ -71,7 +71,7 @@ class ToolExtension(BaseAgent):
             tool_judgement_request = ModelRequest(
                 self.plugin_manager,
                 parent_settings=self.settings,
-                request_name="Tool Judgement",
+                agent_name=self.name,
             )
             tool_judgement_request.set_prompt("input", prompt.get("input"))
             tool_judgement_request.set_prompt("tools", tool_list)

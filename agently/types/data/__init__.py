@@ -36,6 +36,7 @@ from .response import (
 
 from .event import (
     AgentlyEvent,
+    AgentlySystemEvent,
     MessageLevel,
     EventStatus,
     EventMessageDict,
