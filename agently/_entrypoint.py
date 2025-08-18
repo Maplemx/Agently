@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, TYPE_CHECKING, Literal
+from typing import Any, TYPE_CHECKING, Literal, overload
 from agently.base import settings, plugin_manager, tool, event_center, logger, print_, async_print
 from agently.core import Prompt, ModelRequest, BaseAgent
 
@@ -21,20 +21,38 @@ if TYPE_CHECKING:
 
 settings.update_mappings(
     {
-        "path_mappings": {
-            "debug": "runtime.show_log",
+        "key_value_mappings": {
+            "debug": {
+                True: {
+                    "runtime.show_model_logs": True,
+                    "runtime.show_tool_logs": False,
+                },
+                False: {
+                    "runtime.show_model_logs": False,
+                    "runtime.show_tool_logs": True,
+                },
+                "silent": {
+                    "runtime.show_model_logs": False,
+                    "runtime.show_tool_logs": False,
+                },
+            }
         }
     }
 )
 
 # Extensions Installation
 # BaseAgent + Extensions = Agent
-from agently.builtins.agent_extensions import ToolExtension, KeyWaiterExtension
+from agently.builtins.agent_extensions import (
+    ToolExtension,
+    KeyWaiterExtension,
+    AutoFuncExtension,
+)
 
 
 class Agent(
     ToolExtension,
     KeyWaiterExtension,
+    AutoFuncExtension,
     BaseAgent,
 ): ...
 
@@ -63,6 +81,10 @@ class AgentlyMain:
         self.logger.setLevel(log_level)
         return self
 
+    @overload
+    def set_settings(self, key: Literal["debug"], value: Literal[True, False, "silent"]): ...
+    @overload
+    def set_settings(self, key: str, value: "SerializableValue"): ...
     def set_settings(self, key: str, value: "SerializableValue"):
         self.settings.set_settings(key, value)
         return self
