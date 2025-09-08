@@ -133,28 +133,28 @@ class BaseAgent:
 
     def rule(self, prompt: Any, *, always: bool = False):
         if always:
-            self.prompt.set("system", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
+            self.prompt.set("instruct", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
             self.prompt.set("system.rule", prompt)
         else:
-            self.request.prompt.set("system", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
+            self.request.prompt.set("instruct", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
             self.request.prompt.set("system.rule", prompt)
         return self
 
     def role(self, prompt: Any, *, always: bool = False):
         if always:
-            self.prompt.set("system", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
+            self.prompt.set("instruct", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
             self.prompt.set("system.your_role", prompt)
         else:
-            self.request.prompt.set("system", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
+            self.request.prompt.set("instruct", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
             self.request.prompt.set("system.your_role", prompt)
         return self
 
     def user_info(self, prompt: Any, *, always: bool = False):
         if always:
-            self.prompt.set("system", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
+            self.prompt.set("instruct", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
             self.prompt.set("system.user_info", prompt)
         else:
-            self.request.prompt.set("system", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
+            self.request.prompt.set("instruct", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
             self.request.prompt.set("system.user_info", prompt)
         return self
 
