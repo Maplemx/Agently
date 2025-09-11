@@ -25,7 +25,7 @@ from agently.core import Prompt, ExtensionHandlers
 from agently.utils import Settings, FunctionShifter, DataFormatter
 
 if TYPE_CHECKING:
-    from agently.core import PluginManager, EventCenterMessenger
+    from agently.core import PluginManager
     from agently.types.data import AgentlyModelResponseMessage, PromptStandardSlot, StreamingData, SerializableValue
     from agently.types.plugins import ModelRequester, ResponseParser
 
