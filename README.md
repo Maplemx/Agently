@@ -1,6 +1,6 @@
 <img width="640" alt="image" src="https://github.com/user-attachments/assets/c645d031-c8b0-4dba-a515-9d7a4b0a6881" />
 
-# Agently 4 (v4.0.0.Beta3)
+# Agently 4
 
 [English Introduction](https://github.com/AgentEra/Agently/blob/main/README.md) | [中文介绍](https://github.com/AgentEra/Agently/blob/main/README_CN.md)
 
@@ -39,13 +39,11 @@
 
 Agently is a Python-based framework for building GenAI applications. You can install it via pip and import features using `from agently import Agently`.
 
-Install via pip:
+Install the latest version via pip:
 
 ```shell
-pip install agently==4.0.0b3
+pip install -U agently
 ```
-
-⚠️: Version specifier is required during beta testing.
 
 > ℹ️ If you're looking for Agently v3's code and documents, please visit branch [`v3-final`](https://github.com/AgentEra/Agently/tree/v3-final)
 
