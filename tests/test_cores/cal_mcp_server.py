@@ -12,4 +12,4 @@ def add(first_number: float, second_number: float) -> float:
 
 
 if __name__ == "__main__":
-    app.run(show_banner=False)
+    app.run(transport="stdio", show_banner=False)
