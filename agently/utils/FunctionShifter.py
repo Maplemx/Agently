@@ -18,6 +18,7 @@ from functools import wraps
 
 import inspect
 from typing import Any, Callable, Coroutine, TypeVar, ParamSpec
+from asyncio import Future
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -25,6 +26,10 @@ P = ParamSpec("P")
 
 
 class FunctionShifter:
+    _future_loop = None
+    _future_thread = None
+    _future_lock = threading.Lock()
+
     @staticmethod
     def run_async_func_in_thread(func, *args, **kwargs):
         result: dict[str, Any] = {}
@@ -72,6 +77,32 @@ class FunctionShifter:
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             assert inspect.isfunction(func)
             return await asyncio.to_thread(func, *args, **kwargs)
+
+        return wrapper
+
+    @staticmethod
+    def future(func: Callable[P, R | Coroutine[Any, Any, R]]) -> Callable[P, Future[R]]:
+        async_func = FunctionShifter.asyncify(func)
+
+        @wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> Future[R]:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                if FunctionShifter._future_thread is None or FunctionShifter._future_loop is None:
+                    with FunctionShifter._future_lock:
+                        if FunctionShifter._future_thread is None or FunctionShifter._future_loop is None:
+                            FunctionShifter._future_loop = asyncio.new_event_loop()
+                            FunctionShifter._future_thread = threading.Thread(
+                                target=FunctionShifter._future_loop.run_forever, daemon=True
+                            ).start()
+                loop = FunctionShifter._future_loop
+
+            future = asyncio.ensure_future(async_func(*args, **kwargs), loop=loop)
+            exception = future.add_done_callback(lambda t: t.exception())
+            if exception:
+                raise exception
+            return future
 
         return wrapper
 

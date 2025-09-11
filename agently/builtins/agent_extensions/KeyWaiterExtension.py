@@ -15,14 +15,9 @@
 
 import asyncio
 
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable
 from agently.core import BaseAgent
 from agently.utils import FunctionShifter, GeneratorConsumer
-
-if TYPE_CHECKING:
-    from agently.core.ModelRequest import ModelResponse
-    from agently.types.data import AgentlyModelResponseEvent
-
 
 class KeyWaiterExtension(BaseAgent):
     def __init__(self, *args, **kwargs):
@@ -30,6 +25,7 @@ class KeyWaiterExtension(BaseAgent):
         self.__when_handlers = {}
 
         self.get_key_result = FunctionShifter.syncify(self.async_get_key_result)
+        self.when_key = self.on_key
 
     def __check_keys_in_output(
         self,
@@ -102,7 +98,7 @@ class KeyWaiterExtension(BaseAgent):
             if data.path in keys and data.is_complete:
                 yield data.path, data.value
 
-    def when_key(self, key: str, handler: Callable[[Any], Any]):
+    def on_key(self, key: str, handler: Callable[[Any], Any]):
         if key not in self.__when_handlers:
             self.__when_handlers.update({key: []})
         self.__when_handlers[key].append(handler)

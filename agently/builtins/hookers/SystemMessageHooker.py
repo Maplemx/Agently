@@ -104,3 +104,13 @@ class SystemMessageHooker(EventHooker):
                                 "content": f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
                             },
                         )
+            case "TRIGGER_FLOW":
+                if settings["runtime.show_trigger_flow_log"]:
+                    await event_center.async_emit(
+                        "log",
+                        {
+                            "level": "INFO",
+                            "content": f"[TriggerFlow] { message.content['data'] }",
+                        },
+                    )
+

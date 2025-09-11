@@ -453,3 +453,9 @@ class TestRuntimeData:
         assert isinstance(loaded_data["custom_obj"], str)
         assert isinstance(loaded_data["function"], str)
         assert isinstance(loaded_data["nested"]["custom_obj"], str)
+
+
+def test_set_with_dot_path():
+    runtime_data = RuntimeData()
+    runtime_data.set("prompt.system.your_role", "Your Character")
+    assert runtime_data["prompt"]["system"]["your_role"] == "Your Character"

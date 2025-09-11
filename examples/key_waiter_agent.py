@@ -15,7 +15,8 @@ agent = Agently.create_agent()
 
 # Get specific key before all generation completed
 (
-    agent.input("34643523+52131231=? Use tool to calculate!").output(
+
+    agent.input("34643523+52131231=?").output(
         {
             "thinking": (str,),
             "result": (float,),
@@ -29,7 +30,7 @@ print(reply)
 
 # Get specific keys from generator before generation completed
 (
-    agent.input("34643523+52131231=? Use tool to calculate!").output(
+    agent.input("34643523+52131231=?").output(
         {
             "thinking": (str,),
             "result": (float,),
@@ -44,7 +45,7 @@ for event, data in gen:
 
 # Use handlers to handle different specific keys
 (
-    agent.input("34643523+52131231=? Use tool to calculate!")
+    agent.input("34643523+52131231=?")
     .output(
         {
             "thinking": (str,),

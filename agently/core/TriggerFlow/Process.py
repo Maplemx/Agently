@@ -12,11 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ._entrypoint import AgentlyMain
-from .base import print_, async_print
-from .core import TriggerFlow, TriggerFlowBluePrint
-from .types.trigger_flow import TriggerFlowEventData
 
-Agently = AgentlyMain()
+from .process import (
+    TriggerFlowBaseProcess,
+    TriggerFlowForEachProcess,
+    TriggerFlowMatchCaseProcess,
+)
 
-__all__ = ["Agently", "TriggerFlow", "TriggerFlowEventData", "TriggerFlowBluePrint", "print_", "async_print"]
+
+class TriggerFlowProcess(
+    TriggerFlowForEachProcess,
+    TriggerFlowMatchCaseProcess,
+    TriggerFlowBaseProcess,
+): ...
