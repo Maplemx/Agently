@@ -113,3 +113,4 @@ class SystemMessageHooker(EventHooker):
                             "content": f"[TriggerFlow] { message.content['data'] }",
                         },
                     )
+

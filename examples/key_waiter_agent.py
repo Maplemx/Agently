@@ -15,6 +15,7 @@ agent = Agently.create_agent()
 
 # Get specific key before all generation completed
 (
+
     agent.input("34643523+52131231=?").output(
         {
             "thinking": (str,),

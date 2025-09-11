@@ -19,14 +19,12 @@ from typing import Any, Callable
 from agently.core import BaseAgent
 from agently.utils import FunctionShifter, GeneratorConsumer
 
-
 class KeyWaiterExtension(BaseAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__when_handlers = {}
 
         self.get_key_result = FunctionShifter.syncify(self.async_get_key_result)
-
         self.when_key = self.on_key
 
     def __check_keys_in_output(
