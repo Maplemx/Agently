@@ -100,7 +100,7 @@ class EventCenter:
                 tasks.append(
                     asyncio.create_task(coro(message_object)),
                 )
-            await asyncio.gather(*tasks)
+            await asyncio.gather(*tasks, return_exceptions=True)
         if event == "log" and len(tasks) == 0:
             print(*message_object.content if isinstance(message_object.content, list) else message_object.content)
 
