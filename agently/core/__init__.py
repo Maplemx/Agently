@@ -19,3 +19,19 @@ from .ExtensionHandlers import ExtensionHandlers
 from .ModelRequest import ModelRequest
 from .Agent import BaseAgent
 from .Tool import Tool
+from .TriggerFlow import (
+    TriggerFlow,
+    TriggerFlowBluePrint,
+    TriggerFlowExecution,
+    TriggerFlowChunk,
+)
+
+# from .TriggerFlow_old import (
+#     TriggerFlow,
+#     TriggerFlowEventEmitter,
+#     TriggerFlowEventData,
+#     TriggerFlowEventHandler,
+#     TriggerFlowChunk,
+#     TriggerFlowMainProcess,
+#     TriggerFlowExecutionResult,
+# )

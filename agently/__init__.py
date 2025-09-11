@@ -14,7 +14,9 @@
 
 from ._entrypoint import AgentlyMain
 from .base import print_, async_print
+from .core import TriggerFlow, TriggerFlowBluePrint
+from .types.trigger_flow import TriggerFlowEventData
 
 Agently = AgentlyMain()
 
-__all__ = ["Agently", "print_", "async_print"]
+__all__ = ["Agently", "TriggerFlow", "TriggerFlowEventData", "TriggerFlowBluePrint", "print_", "async_print"]

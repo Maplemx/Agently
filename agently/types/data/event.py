@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 AgentlyEvent: TypeAlias = Literal["message", "error", "data", "log", "console", "AGENTLY_SYS"]
 
-AgentlySystemEvent: TypeAlias = Literal["MODEL_REQUEST"]
+AgentlySystemEvent: TypeAlias = Literal["MODEL_REQUEST", "TRIGGER_FLOW"]
 
 MessageLevel: TypeAlias = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
