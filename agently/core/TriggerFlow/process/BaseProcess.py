@@ -17,6 +17,7 @@ import uuid
 
 from typing import Literal, TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from agently.core.TriggerFlow import TriggerFlowBluePrint
     from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowEventData, TriggerFlowBlockData

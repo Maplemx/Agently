@@ -143,7 +143,6 @@ class TriggerFlowExecution:
                     value = None
                 else:
                     return
-
         if emit:
             if key in handlers:
                 for handler in handlers[key].values():
