@@ -119,6 +119,7 @@ class TriggerFlowBluePrint:
         trigger_flow: "TriggerFlow",
         *,
         execution_id: str | None = None,
+        skip_exceptions: bool = False,
     ):
         handlers_snapshot: TriggerFlowAllHandlers = {
             "event": {k: v.copy() for k, v in self._handlers["event"].items()},
@@ -129,4 +130,5 @@ class TriggerFlowBluePrint:
             handlers=handlers_snapshot,
             trigger_flow=trigger_flow,
             id=execution_id,
+            skip_exceptions=skip_exceptions,
         )

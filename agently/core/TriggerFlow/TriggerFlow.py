@@ -31,9 +31,12 @@ class TriggerFlow:
     def __init__(
         self,
         blue_print: TriggerFlowBluePrint | None = None,
+        *,
+        skip_exceptions: bool = False,
     ):
         self._flow_data = RuntimeData()
         self._blue_print = blue_print if blue_print is not None else TriggerFlowBluePrint()
+        self._skip_exceptions = skip_exceptions
         self._executions: dict[str, "TriggerFlowExecution"] = {}
         self._start_process = TriggerFlowProcess(
             trigger_event="START",
@@ -80,9 +83,14 @@ class TriggerFlow:
     def when_flow_data(self, key: str):
         return self.when(key, type="flow_data")
 
-    def create_execution(self):
+    def create_execution(self, *, skip_exceptions: bool | None = None):
         execution_id = uuid.uuid4().hex
-        execution = self._blue_print.create_execution(self, execution_id=execution_id)
+        skip_exceptions = skip_exceptions if skip_exceptions is not None else self._skip_exceptions
+        execution = self._blue_print.create_execution(
+            self,
+            execution_id=execution_id,
+            skip_exceptions=skip_exceptions,
+        )
         self._executions[execution_id] = execution
         return execution
 

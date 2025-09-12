@@ -34,12 +34,14 @@ class TriggerFlowExecution:
         handlers: "TriggerFlowAllHandlers",
         trigger_flow: "TriggerFlow",
         id: str | None = None,
+        skip_exceptions: bool = False,
     ):
         # Basic Attributions
         self.id = id if id is not None else uuid.uuid4().hex
         self._handlers = handlers
         self._trigger_flow = trigger_flow
         self._runtime_data = RuntimeData()
+        self._skip_exceptions = skip_exceptions
 
         # Emit
         self.emit = FunctionShifter.syncify(self.async_emit)
@@ -116,7 +118,7 @@ class TriggerFlowExecution:
                 )
 
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*tasks, return_exceptions=self._skip_exceptions)
 
     # Change Runtime Data
     async def _async_change_runtime_data(
@@ -157,7 +159,7 @@ class TriggerFlowExecution:
                     )
 
             if futures:
-                await asyncio.gather(*futures, return_exceptions=True)
+                await asyncio.gather(*futures, return_exceptions=self._skip_exceptions)
 
     async def async_set_runtime_data(
         self,
