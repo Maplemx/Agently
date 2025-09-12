@@ -57,7 +57,12 @@ class TriggerFlowBaseProcess:
             **options,
         )
 
-    def to(self, chunk: "TriggerFlowChunk | TriggerFlowHandler", side_branch: bool = False):
+    def to(self, chunk: "TriggerFlowChunk | TriggerFlowHandler | str", side_branch: bool = False):
+        if isinstance(chunk, str):
+            if chunk in self._blue_print.chunks:
+                chunk = self._blue_print.chunks[chunk]
+            else:
+                raise NotImplementedError(f"Cannot find chunk named '{ chunk }'")
         chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
         self._blue_print.add_handler(
             self.trigger_type,
@@ -116,7 +121,7 @@ class TriggerFlowBaseProcess:
                 data.set_runtime_data("$TF.result", data.value)
             data.get_runtime_data("$TF.result_ready").set()
 
-        self.to(set_default_result)
+        return self.to(set_default_result)
 
     def ____(self, *args, **kwargs):
         """
