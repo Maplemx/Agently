@@ -31,6 +31,8 @@ TriggerFlowCaseHandler = Callable[["TriggerFlowEventData"], bool]
 
 class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
     def match(self):
+        from agently.core.TriggerFlow import TriggerFlowChunk
+
         case_block_data = TriggerFlowBlockData(
             outer_block=self._block_data,
         )
@@ -43,15 +45,24 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                 "is_first_case": True,
                 "branch_ends": [],
                 "cases": [],
+                "has_else": False,
             }
         )
 
         if "branch_trigger_event" not in case_block_data.data:
             case_block_data.data["branch_trigger_event"] = self.trigger_event
 
+        async def get_trigger_data(data: "TriggerFlowEventData"):
+            data.set_runtime_data(f"$TF.match-{ match_id }", data.value, emit=False)
+            return data.value
+
+        match_chunk = TriggerFlowChunk(get_trigger_data)
+
+        self.to(match_chunk)
+
         return self._new(
-            trigger_event=self.trigger_event,
-            trigger_type=self.trigger_type,
+            trigger_event=match_chunk.trigger,
+            trigger_type="event",
             blue_print=self._blue_print,
             block_data=case_block_data,
         )
@@ -72,6 +83,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
         self._block_data.data["cases"].append(case_trigger)
 
         async def check_condition(data: "TriggerFlowEventData"):
+            data.value = data.get_runtime_data(f"$TF.match-{ match_id }")
             if callable(condition):
                 result = await FunctionShifter.asyncify(condition)(data)
                 if result:
@@ -120,7 +132,9 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
         else_trigger = self._block_data.data["else_trigger"]
 
         async def wait_else(data: "TriggerFlowEventData"):
+            match_value = data.get_runtime_data(f"$FT.match-{ match_id }")
             if len(data.value) >= len(self._block_data.data["cases"]):
+                data.value = match_value
                 await data.async_emit(
                     else_trigger,
                     data.value,
@@ -131,6 +145,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             f"$TF.{ match_id }.failed_cases",
             wait_else,
         )
+        self._block_data.data["has_else"] = True
 
         return self._new(
             trigger_event=else_trigger,
@@ -140,17 +155,26 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
         )
 
     def end_match(self):
+        from agently.core.TriggerFlow import TriggerFlowChunk
+
         if "match_id" not in self._block_data.data:
             raise NotImplementedError(f"Cannot use .end_match() before .match().")
+        match_id = self._block_data.data["match_id"]
         end_trigger = self._block_data.data["end_trigger"]
         branch_ends = self._block_data.data["branch_ends"]
         branch_ends.append(self.trigger_event)
+
+        if self._block_data.data["has_else"] is False:
+            else_chunk = TriggerFlowChunk(lambda data: data.get_runtime_data(f"$TF.match-{ match_id }"))
+            self.else_case().to(else_chunk)
+            branch_ends.append(else_chunk.trigger)
 
         async def collect_branch_result(data: "TriggerFlowEventData"):
             await data.async_emit(
                 end_trigger,
                 data.value,
             )
+            data.del_runtime_data(f"$TF.match-{ match_id }", emit=False)
 
         for event in branch_ends:
             self._blue_print.add_event_handler(event, collect_branch_result)
@@ -173,10 +197,8 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
 
     # If Condition
     def if_condition(self, condition: "TriggerFlowCaseHandler | SerializableValue"):
-        match_process = self.match()
-        case_process = match_process.case(condition)
-        return case_process
+        return self.match().case(condition)
 
-    elif_condition = case
+    or_condition = case
     else_condition = else_case
     end_condition = end_match
