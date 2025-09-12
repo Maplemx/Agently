@@ -64,3 +64,4 @@ TriggerFlowHandlers = dict[str, dict[str, TriggerFlowHandler]]
 TriggerFlowAllHandlers = dict[Literal["event", "flow_data", "runtime_data"], TriggerFlowHandlers]
 
 RUNTIME_STREAM_STOP = object()
+EMPTY_RESULT = object()
