@@ -2,6 +2,7 @@ from agently import Agently, TriggerFlow
 
 Agently.set_settings("runtime.show_trigger_flow_log", False)
 
+# Match Case
 flow_1 = TriggerFlow()
 
 (
@@ -20,6 +21,7 @@ flow_1 = TriggerFlow()
 execution_1 = flow_1.create_execution()
 execution_1.start()
 
+# For Each - Match Case
 flow_2 = TriggerFlow()
 
 (
@@ -37,3 +39,33 @@ flow_2 = TriggerFlow()
 
 execution_2 = flow_2.create_execution()
 execution_2.start()
+
+# If Condition (Simplify)
+flow_3 = TriggerFlow()
+
+(
+    flow_3.to(lambda _: 1)
+    .if_condition(1)
+    .to(lambda _: 2)
+    # .____() will do nothing but return self
+    # You can use it to beautify your chain expression
+    # You can also use arguments to comment or mark
+    .____("nested if condition start")
+    # nested if condition
+    .if_condition(1)
+    .to(lambda _: "1.OK 2.OK")
+    .else_condition()
+    .to(lambda _: "1.OK 2.Not OK")
+    .end_condition()
+    # end nested if condition
+    .____("nested if condition end")
+    .elif_condition(2)
+    .to(lambda _: "Emm...")
+    .else_condition()
+    .to(lambda _: "Not OK")
+    .end_condition()
+    .to(lambda data: print(data.value))
+)
+
+execution_3 = flow_3.create_execution()
+execution_3.start()
