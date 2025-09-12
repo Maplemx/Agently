@@ -18,8 +18,7 @@ flow_1 = TriggerFlow()
     .to(lambda data: print(data.value))
 )
 
-execution_1 = flow_1.create_execution()
-execution_1.start()
+flow_1.start(wait_for_result=False)
 
 # For Each - Match Case
 flow_2 = TriggerFlow()
@@ -37,8 +36,7 @@ flow_2 = TriggerFlow()
     .to(lambda data: print(data.value))
 )
 
-execution_2 = flow_2.create_execution()
-execution_2.start()
+flow_2.start(wait_for_result=False)
 
 # If Condition (Simplify)
 flow_3 = TriggerFlow()
@@ -59,7 +57,7 @@ flow_3 = TriggerFlow()
     .end_condition()
     # end nested if condition
     .____("nested if condition end")
-    .elif_condition(2)
+    .or_condition(2)
     .to(lambda _: "Emm...")
     .else_condition()
     .to(lambda _: "Not OK")
@@ -67,5 +65,33 @@ flow_3 = TriggerFlow()
     .to(lambda data: print(data.value))
 )
 
-execution_3 = flow_3.create_execution()
-execution_3.start()
+flow_3.start(wait_for_result=False)
+
+# No Else
+flow_4 = TriggerFlow()
+
+(
+    flow_4.to(lambda _: 1)
+    .match()
+    .case(2)
+    .to(lambda _: 2)
+    .case(3)
+    .to(lambda _: 3)
+    .end_match()
+    .to(lambda data: print(data.value))
+)
+
+flow_4.start(wait_for_result=False)
+
+flow_5 = TriggerFlow()
+
+(
+    flow_5.to(lambda _: 1)
+    .if_condition(2)
+    .to(lambda _: print("Got 2"))
+    .end_condition()
+    .to(lambda data: print(data.value))
+    .end()
+)
+
+flow_5.start(wait_for_result=False)
