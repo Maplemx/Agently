@@ -16,15 +16,17 @@
 import uuid
 import asyncio
 
-from typing import Any, Literal, TYPE_CHECKING
+from typing import Callable, Any, Literal, TYPE_CHECKING, overload
 
 if TYPE_CHECKING:
     from .Execution import TriggerFlowExecution
+    from .Chunk import TriggerFlowHandler
 
 from agently.types.trigger_flow import TriggerFlowBlockData, TriggerFlowEventData
 from agently.utils import RuntimeData, FunctionShifter
 from .BluePrint import TriggerFlowBluePrint
 from .Process import TriggerFlowProcess, TriggerFlowProcess
+from .Chunk import TriggerFlowChunk
 
 
 class TriggerFlow:
@@ -45,6 +47,8 @@ class TriggerFlow:
                 outer_block=None,
             ),
         )
+
+        self.chunks = self._blue_print.chunks
 
         self.get_flow_data = self._flow_data.get
         self.set_flow_data = FunctionShifter.syncify(self.async_set_flow_data)
@@ -82,6 +86,26 @@ class TriggerFlow:
 
     def when_flow_data(self, key: str):
         return self.when(key, type="flow_data")
+
+    @overload
+    def chunk(self, handler: "TriggerFlowHandler") -> TriggerFlowChunk: ...
+    @overload
+    def chunk(self, handler: str) -> "Callable[[TriggerFlowHandler], TriggerFlowChunk]": ...
+    def chunk(
+        self, handler: "TriggerFlowHandler | str"
+    ) -> "TriggerFlowChunk | Callable[[TriggerFlowHandler], TriggerFlowChunk]":
+        if isinstance(handler, str):
+
+            def wrapper(func: "TriggerFlowHandler"):
+                chunk = TriggerFlowChunk(func, name=handler)
+                self._blue_print.chunks[handler] = chunk
+                return chunk
+
+            return wrapper
+        else:
+            chunk = TriggerFlowChunk(handler, name=handler.__name__)
+            self._blue_print.chunks[handler.__name__] = chunk
+            return chunk
 
     def create_execution(self, *, skip_exceptions: bool | None = None):
         execution_id = uuid.uuid4().hex

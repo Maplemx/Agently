@@ -18,6 +18,7 @@ from typing import Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agently.types.trigger_flow import TriggerFlowAllHandlers, TriggerFlowHandler
+    from .Chunk import TriggerFlowChunk
     from .TriggerFlow import TriggerFlow
 
 from .Execution import TriggerFlowExecution
@@ -31,6 +32,7 @@ class TriggerFlowBluePrint:
             "flow_data": {},
             "runtime_data": {},
         }
+        self.chunks: dict[str, TriggerFlowChunk] = {}
 
     def add_handler(
         self,
