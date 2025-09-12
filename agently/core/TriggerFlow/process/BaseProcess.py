@@ -15,13 +15,14 @@
 
 import uuid
 
-from typing import TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agently.core.TriggerFlow import TriggerFlowBluePrint
     from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowEventData, TriggerFlowBlockData
 
-from ..Chunk import TriggerFlowChunk
+from agently.core.TriggerFlow.Chunk import TriggerFlowChunk
+from agently.types.trigger_flow import EMPTY_RESULT
 
 
 class TriggerFlowBaseProcess:
@@ -31,15 +32,22 @@ class TriggerFlowBaseProcess:
         trigger_event: str,
         blue_print: "TriggerFlowBluePrint",
         block_data: "TriggerFlowBlockData",
+        trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
         **options,
     ):
         self.trigger_event = trigger_event
+        self.trigger_type: Literal["event", "runtime_data", "flow_data"] = trigger_type
         self._blue_print = blue_print
         self._block_data = block_data
         self._options = options
 
     def _new(
-        self, trigger_event: str, blue_print: "TriggerFlowBluePrint", block_data: "TriggerFlowBlockData", **options
+        self,
+        trigger_event: str,
+        blue_print: "TriggerFlowBluePrint",
+        block_data: "TriggerFlowBlockData",
+        trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
+        **options,
     ):
         return type(self)(
             trigger_event=trigger_event,
@@ -50,9 +58,14 @@ class TriggerFlowBaseProcess:
 
     def to(self, chunk: "TriggerFlowChunk | TriggerFlowHandler", side_branch: bool = False):
         chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
-        self._blue_print.add_event_handler(self.trigger_event, chunk.async_call)
+        self._blue_print.add_handler(
+            self.trigger_type,
+            self.trigger_event,
+            chunk.async_call,
+        )
         return self._new(
             trigger_event=chunk.trigger if not side_branch else self.trigger_event,
+            trigger_type=self.trigger_type,
             blue_print=self._blue_print,
             block_data=self._block_data,
             **self._options,
@@ -82,7 +95,11 @@ class TriggerFlowBaseProcess:
         for chunk in chunks:
             chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
             chunks_to_wait[chunk.name] = False
-            self._blue_print.add_event_handler(self.trigger_event, chunk.async_call)
+            self._blue_print.add_handler(
+                self.trigger_type,
+                self.trigger_event,
+                chunk.async_call,
+            )
             self._blue_print.add_event_handler(chunk.trigger, wait_all_chunks)
 
         return self._new(
@@ -91,3 +108,18 @@ class TriggerFlowBaseProcess:
             block_data=self._block_data,
             **self._options,
         )
+
+    def end(self):
+        async def set_default_result(data: "TriggerFlowEventData"):
+            if data.get_runtime_data("$TF.result") is EMPTY_RESULT:
+                data.set_runtime_data("$TF.result", data.value)
+            data.get_runtime_data("$TF.result_ready").set()
+
+        self.to(set_default_result)
+
+    def ____(self, *args, **kwargs):
+        """
+        Separator for chain expression.
+        Do nothing but return self.
+        """
+        return self

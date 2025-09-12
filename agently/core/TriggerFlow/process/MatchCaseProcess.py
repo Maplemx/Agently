@@ -51,6 +51,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
 
         return self._new(
             trigger_event=self.trigger_event,
+            trigger_type=self.trigger_type,
             blue_print=self._blue_print,
             block_data=case_block_data,
         )
@@ -102,6 +103,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
 
         return self._new(
             trigger_event=case_trigger,
+            trigger_type="event",
             blue_print=self._blue_print,
             block_data=self._block_data,
         )
@@ -123,6 +125,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                     else_trigger,
                     data.value,
                 )
+                data.del_runtime_data(data.event, emit=False)
 
         self._blue_print.add_runtime_data_handler(
             f"$TF.{ match_id }.failed_cases",
@@ -131,6 +134,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
 
         return self._new(
             trigger_event=else_trigger,
+            trigger_type="event",
             blue_print=self._blue_print,
             block_data=self._block_data,
         )
@@ -162,6 +166,17 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
 
         return self._new(
             trigger_event=end_trigger,
+            trigger_type="event",
             blue_print=self._blue_print,
             block_data=block_data,
         )
+
+    # If Condition
+    def if_condition(self, condition: "TriggerFlowCaseHandler | SerializableValue"):
+        match_process = self.match()
+        case_process = match_process.case(condition)
+        return case_process
+
+    elif_condition = case
+    else_condition = else_case
+    end_condition = end_match

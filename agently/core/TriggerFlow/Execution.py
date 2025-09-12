@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from agently.types.trigger_flow import TriggerFlowAllHandlers
 
 from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer
-from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP
+from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP, EMPTY_RESULT
 
 
 class TriggerFlowExecution:
@@ -40,13 +40,6 @@ class TriggerFlowExecution:
         self._handlers = handlers
         self._trigger_flow = trigger_flow
         self._runtime_data = RuntimeData()
-
-        # Execution Status
-        self._started = False
-        self._result = None
-        self._result_ready = asyncio.Event()
-        self._runtime_stream_queue = asyncio.Queue()
-        self._runtime_stream_consumer: GeneratorConsumer | None = None
 
         # Emit
         self.emit = FunctionShifter.syncify(self.async_emit)
@@ -72,6 +65,16 @@ class TriggerFlowExecution:
         # Runtime Stream
         self.put_into_stream = FunctionShifter.syncify(self.async_put_into_stream)
         self.stop_stream = FunctionShifter.syncify(self.async_stop_stream)
+
+        # Result
+        self.get_result = FunctionShifter.syncify(self.async_get_result)
+
+        # Execution Status
+        self._started = False
+        self.set_runtime_data("$TF.result", EMPTY_RESULT, emit=False)
+        self.set_runtime_data("$TF.result_ready", asyncio.Event(), emit=False)
+        self._runtime_stream_queue = asyncio.Queue()
+        self._runtime_stream_consumer: GeneratorConsumer | None = None
 
     # Emit Event
     async def async_emit(
@@ -121,6 +124,8 @@ class TriggerFlowExecution:
         operation: Literal["set", "append", "del"],
         key: str,
         value: Any,
+        *,
+        emit: bool = True,
     ):
         futures = []
         handlers = self._handlers["runtime_data"]
@@ -139,29 +144,47 @@ class TriggerFlowExecution:
                 else:
                     return
 
-        if key in handlers:
-            for handler in handlers[key].values():
-                futures.append(
-                    FunctionShifter.future(handler)(
-                        TriggerFlowEventData(
-                            event=key,
-                            value=value,
-                            execution=self,
+        if emit:
+            if key in handlers:
+                for handler in handlers[key].values():
+                    futures.append(
+                        FunctionShifter.future(handler)(
+                            TriggerFlowEventData(
+                                event=key,
+                                value=value,
+                                execution=self,
+                            )
                         )
                     )
-                )
 
-        if futures:
-            await asyncio.gather(*futures, return_exceptions=True)
+            if futures:
+                await asyncio.gather(*futures, return_exceptions=True)
 
-    async def async_set_runtime_data(self, key: str, value: Any):
-        return await self._async_change_runtime_data("set", key, value)
+    async def async_set_runtime_data(
+        self,
+        key: str,
+        value: Any,
+        *,
+        emit: bool = True,
+    ):
+        return await self._async_change_runtime_data("set", key, value, emit=emit)
 
-    async def async_append_runtime_data(self, key: str, value: Any):
-        return await self._async_change_runtime_data("append", key, value)
+    async def async_append_runtime_data(
+        self,
+        key: str,
+        value: Any,
+        *,
+        emit: bool = True,
+    ):
+        return await self._async_change_runtime_data("append", key, value, emit=emit)
 
-    async def async_del_runtime_data(self, key: str):
-        return await self._async_change_runtime_data("del", key, None)
+    async def async_del_runtime_data(
+        self,
+        key: str,
+        *,
+        emit: bool = True,
+    ):
+        return await self._async_change_runtime_data("del", key, None, emit=emit)
 
     # Start
     async def async_start(self, initial_value: Any = None):
@@ -237,3 +260,27 @@ class TriggerFlowExecution:
                 )
             )
         return self._runtime_stream_consumer.get_generator()
+
+    # Result
+    def set_result(self, result: Any):
+        self.set_runtime_data("$TF.result", result, emit=False)
+        self.get_runtime_data("$TF.result_ready").set()
+
+    async def async_get_result(self, *, timeout: int | None = None):
+        if timeout is None:
+            await self.get_runtime_data("$TF.result_ready").wait()
+            self._result = self.get_runtime_data("$TF.result")
+            return self._result
+        else:
+            try:
+                await asyncio.wait_for(self.get_runtime_data("$TF.result_ready").wait(), timeout=timeout)
+                self._result = self.get_runtime_data("$TF.result")
+                return self._result
+            except asyncio.TimeoutError:
+                warnings.warn(
+                    f"Can not get the result of trigger flow { self.id } for it took too long and timeout.\n"
+                    "You can check if you forget to use flow.set_result() to set a result for this trigger flow. Or you can set parameter 'timeout' to a bigger number to wait longer or to None to wait forever."
+                    f"Timeout: { timeout }"
+                )
+                self._result = None
+                return self._result

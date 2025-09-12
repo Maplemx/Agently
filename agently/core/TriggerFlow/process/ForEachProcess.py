@@ -54,6 +54,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
 
         return self._new(
             trigger_event=send_items_trigger,
+            trigger_type="event",
             blue_print=self._blue_print,
             block_data=for_each_block_data,
         )
@@ -99,6 +100,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
 
         return self._new(
             trigger_event=end_task_trigger,
+            trigger_type="event",
             blue_print=self._blue_print,
             block_data=block_data,
         )
