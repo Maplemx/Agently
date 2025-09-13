@@ -30,11 +30,16 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
         for_each_block_data = TriggerFlowBlockData(
             outer_block=self._block_data,
         )
-        send_items_trigger = f"ForEachSend-{ uuid.uuid4().hex }"
+        for_each_id = uuid.uuid4().hex
+        for_each_block_data.data["for_each_id"] = for_each_id
+        send_items_trigger = f"ForEach-{ for_each_id }-Send"
 
         async def send_for_each_items(data: "TriggerFlowEventData"):
             if not isinstance(data.value, str) and isinstance(data.value, Sequence):
-                for_each_block_data.data["len"] = len(data.value)
+                data._system_runtime_data.set(
+                    f"ForEach-{ for_each_id }.len",
+                    len(data.value),
+                )
                 await asyncio.gather(
                     *(
                         [
@@ -47,7 +52,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                     )
                 )
             else:
-                for_each_block_data.data["len"] = 1
+                data._system_runtime_data.set(f"ForEach-{ for_each_id }.len", 1)
                 await data.async_emit(send_items_trigger, data.value)
 
         self.to(send_for_each_items)
@@ -60,8 +65,11 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
         )
 
     def end_for_each(self, *, sort_by_index: bool = False):
+        if "for_each_id" not in self._block_data.data:
+            raise NotImplementedError(f"Cannot use .case() before .match().")
+        for_each_id = self._block_data.data["for_each_id"]
         self._results = []
-        end_task_trigger = f"ForEachEnd-{ uuid.uuid4().hex }"
+        end_task_trigger = f"ForEach-{ for_each_id }-End"
 
         async def collect_for_each_results(data: "TriggerFlowEventData"):
             if sort_by_index:
@@ -76,16 +84,17 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                 result = data.value
                 self._results.append(result)
 
-            if len(self._results) >= self._block_data.data["len"]:
+            if len(self._results) == data._system_runtime_data[f"ForEach-{ for_each_id }.len"]:
                 if sort_by_index:
                     self._results = [
                         value
-                        for index, value in sorted(
+                        for _, value in sorted(
                             self._results,
                             key=lambda results: results[0],
                         )
                     ]
                 await data.async_emit(end_task_trigger, self._results)
+                del data._system_runtime_data[f"ForEach-{ for_each_id }"]
 
         self.to(collect_for_each_results)
 
