@@ -24,7 +24,8 @@ if TYPE_CHECKING:
     from agently.types.trigger_flow import TriggerFlowAllHandlers
 
 from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer
-from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP, EMPTY_RESULT
+from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP
+from agently.types.data import EMPTY
 
 
 class TriggerFlowExecution:
@@ -41,6 +42,7 @@ class TriggerFlowExecution:
         self._handlers = handlers
         self._trigger_flow = trigger_flow
         self._runtime_data = RuntimeData()
+        self._system_runtime_data = RuntimeData()
         self._skip_exceptions = skip_exceptions
 
         # Emit
@@ -73,7 +75,7 @@ class TriggerFlowExecution:
 
         # Execution Status
         self._started = False
-        self.set_runtime_data("$TF.result", EMPTY_RESULT, emit=False)
+        self.set_runtime_data("$TF.result", EMPTY, emit=False)
         self.set_runtime_data("$TF.result_ready", asyncio.Event(), emit=False)
         self._runtime_stream_queue = asyncio.Queue()
         self._runtime_stream_consumer: GeneratorConsumer | None = None
