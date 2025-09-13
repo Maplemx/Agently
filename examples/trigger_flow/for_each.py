@@ -39,7 +39,13 @@ async def handle(data: TriggerFlowEventData):
     return data.value
 
 
-flow_2.to(send_list).for_each().to(handle).end_for_each().to(lambda data: print(data.value))
+(
+    flow_2.to(send_list)
+    .for_each(with_index=True)  # Turn on/off to send item index in event data
+    .to(handle)
+    .end_for_each(sort_by_index=True)  # Turn on/off sort
+    .to(lambda data: print(data.value))
+)
 
 execution_2 = flow_2.create_execution()
 execution_2.start()
