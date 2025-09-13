@@ -12,14 +12,13 @@ flow_1 = TriggerFlow()
     .to(lambda _: "It is One!")
     .case(lambda data: data.value == 2)
     .to(lambda _: "It is Two!")
-    .else_case()
+    .case_else()
     .to(lambda _: "I don't know!")
     .end_match()
     .to(lambda data: print(data.value))
 )
 
-execution_1 = flow_1.create_execution()
-execution_1.start()
+flow_1.start(wait_for_result=False)
 
 # For Each - Match Case
 flow_2 = TriggerFlow()
@@ -30,15 +29,14 @@ flow_2 = TriggerFlow()
     .match()
     .case(lambda data: data.value[1] == 1)
     .to(lambda _: "OK")
-    .else_case()
+    .case_else()
     .to(lambda _: "Not OK")
     .end_match()
     .end_for_each()
     .to(lambda data: print(data.value))
 )
 
-execution_2 = flow_2.create_execution()
-execution_2.start()
+flow_2.start(wait_for_result=False)
 
 # If Condition (Simplify)
 flow_3 = TriggerFlow()
@@ -67,5 +65,48 @@ flow_3 = TriggerFlow()
     .to(lambda data: print(data.value))
 )
 
-execution_3 = flow_3.create_execution()
-execution_3.start()
+flow_3.start(wait_for_result=False)
+
+# No Else
+flow_4 = TriggerFlow()
+
+(
+    flow_4.to(lambda _: 1)
+    .match()
+    .case(2)
+    .to(lambda _: 2)
+    .case(3)
+    .to(lambda _: 3)
+    .end_match()
+    .to(lambda data: print(data.value))
+)
+
+flow_4.start(wait_for_result=False)
+
+flow_5 = TriggerFlow()
+
+(
+    flow_5.to(lambda _: 1)
+    .if_condition(2)
+    .to(lambda _: print("Got 2"))
+    .end_condition()
+    .to(lambda data: print(data.value))
+    .end()
+)
+
+flow_5.start(wait_for_result=False)
+
+# Hit All
+flow_6 = TriggerFlow()
+
+(
+    flow_6.to(lambda _: 1)
+    .match(mode="hit_all")
+    .case(1)
+    .to(lambda _: print("here"))
+    .case(lambda data: data.value < 2)
+    .to(lambda _: print("also here"))
+    .end_match()
+)
+
+flow_6.start(wait_for_result=False)

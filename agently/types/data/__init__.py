@@ -12,6 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+class AVOID_COPY:
+    __slots__ = ("id",)
+
+    def __init__(self):
+        import uuid
+
+        self.id = uuid.uuid4().hex
+
+    def __copy__(self):
+        return self
+
+    def __deepcopy__(self, memo):
+        return self
+
+    def __reduce__(self):
+        return (self.__class__, (), {"id": self.id})
+
+
+EMPTY = AVOID_COPY()
+
 from .serializable import SerializableData, SerializableValue
 from .prompt import (
     ChatMessage,

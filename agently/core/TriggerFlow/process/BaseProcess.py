@@ -20,10 +20,11 @@ from typing import Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agently.core.TriggerFlow import TriggerFlowBluePrint
-    from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowEventData, TriggerFlowBlockData
+    from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowEventData
 
 from agently.core.TriggerFlow.Chunk import TriggerFlowChunk
-from agently.types.trigger_flow import EMPTY_RESULT
+from agently.types.data import EMPTY
+from agently.types.trigger_flow import TriggerFlowBlockData
 
 
 class TriggerFlowBaseProcess:
@@ -52,12 +53,42 @@ class TriggerFlowBaseProcess:
     ):
         return type(self)(
             trigger_event=trigger_event,
+            trigger_type=trigger_type,
             blue_print=blue_print,
             block_data=block_data,
             **options,
         )
 
-    def to(self, chunk: "TriggerFlowChunk | TriggerFlowHandler", side_branch: bool = False):
+    def when(
+        self,
+        target: str,
+        *,
+        type: Literal["event", "runtime_data", "flow_data"] = "event",
+    ):
+        return self._new(
+            trigger_event=target,
+            trigger_type=type,
+            blue_print=self._blue_print,
+            block_data=TriggerFlowBlockData(
+                outer_block=None,
+            ),
+        )
+
+    def when_event(self, event: str):
+        return self.when(event, type="event")
+
+    def when_runtime_data(self, key: str):
+        return self.when(key, type="runtime_data")
+
+    def when_flow_data(self, key: str):
+        return self.when(key, type="flow_data")
+
+    def to(self, chunk: "TriggerFlowChunk | TriggerFlowHandler | str", side_branch: bool = False):
+        if isinstance(chunk, str):
+            if chunk in self._blue_print.chunks:
+                chunk = self._blue_print.chunks[chunk]
+            else:
+                raise NotImplementedError(f"Cannot find chunk named '{ chunk }'")
         chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
         self._blue_print.add_handler(
             self.trigger_type,
@@ -112,11 +143,12 @@ class TriggerFlowBaseProcess:
 
     def end(self):
         async def set_default_result(data: "TriggerFlowEventData"):
-            if data.get_runtime_data("$TF.result") is EMPTY_RESULT:
+            result = data.get_runtime_data("$TF.result")
+            if result is EMPTY:
                 data.set_runtime_data("$TF.result", data.value)
             data.get_runtime_data("$TF.result_ready").set()
 
-        self.to(set_default_result)
+        return self.to(set_default_result)
 
     def ____(self, *args, **kwargs):
         """

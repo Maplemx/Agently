@@ -18,6 +18,7 @@ from typing import Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agently.types.trigger_flow import TriggerFlowAllHandlers, TriggerFlowHandler
+    from .Chunk import TriggerFlowChunk
     from .TriggerFlow import TriggerFlow
 
 from .Execution import TriggerFlowExecution
@@ -31,6 +32,7 @@ class TriggerFlowBluePrint:
             "flow_data": {},
             "runtime_data": {},
         }
+        self.chunks: dict[str, TriggerFlowChunk] = {}
 
     def add_handler(
         self,
@@ -65,6 +67,15 @@ class TriggerFlowBluePrint:
                     if handler == stored_handler:
                         del handlers[target][id]
                         return
+
+    def remove_all(
+        self,
+        type: Literal["event", "flow_data", "runtime_data"],
+        target: str,
+    ):
+        handlers = self._handlers[type]
+        if target in handlers:
+            handlers[target] = {}
 
     def add_event_handler(
         self,
@@ -119,6 +130,7 @@ class TriggerFlowBluePrint:
         trigger_flow: "TriggerFlow",
         *,
         execution_id: str | None = None,
+        skip_exceptions: bool = False,
     ):
         handlers_snapshot: TriggerFlowAllHandlers = {
             "event": {k: v.copy() for k, v in self._handlers["event"].items()},
@@ -129,4 +141,5 @@ class TriggerFlowBluePrint:
             handlers=handlers_snapshot,
             trigger_flow=trigger_flow,
             id=execution_id,
+            skip_exceptions=skip_exceptions,
         )

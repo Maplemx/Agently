@@ -24,7 +24,8 @@ if TYPE_CHECKING:
     from agently.types.trigger_flow import TriggerFlowAllHandlers
 
 from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer
-from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP, EMPTY_RESULT
+from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP
+from agently.types.data import EMPTY
 
 
 class TriggerFlowExecution:
@@ -34,12 +35,15 @@ class TriggerFlowExecution:
         handlers: "TriggerFlowAllHandlers",
         trigger_flow: "TriggerFlow",
         id: str | None = None,
+        skip_exceptions: bool = False,
     ):
         # Basic Attributions
         self.id = id if id is not None else uuid.uuid4().hex
         self._handlers = handlers
         self._trigger_flow = trigger_flow
         self._runtime_data = RuntimeData()
+        self._system_runtime_data = RuntimeData()
+        self._skip_exceptions = skip_exceptions
 
         # Emit
         self.emit = FunctionShifter.syncify(self.async_emit)
@@ -71,7 +75,7 @@ class TriggerFlowExecution:
 
         # Execution Status
         self._started = False
-        self.set_runtime_data("$TF.result", EMPTY_RESULT, emit=False)
+        self.set_runtime_data("$TF.result", EMPTY, emit=False)
         self.set_runtime_data("$TF.result_ready", asyncio.Event(), emit=False)
         self._runtime_stream_queue = asyncio.Queue()
         self._runtime_stream_consumer: GeneratorConsumer | None = None
@@ -116,7 +120,7 @@ class TriggerFlowExecution:
                 )
 
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*tasks, return_exceptions=self._skip_exceptions)
 
     # Change Runtime Data
     async def _async_change_runtime_data(
@@ -157,7 +161,7 @@ class TriggerFlowExecution:
                     )
 
             if futures:
-                await asyncio.gather(*futures, return_exceptions=True)
+                await asyncio.gather(*futures, return_exceptions=self._skip_exceptions)
 
     async def async_set_runtime_data(
         self,
