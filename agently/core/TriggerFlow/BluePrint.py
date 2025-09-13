@@ -68,6 +68,15 @@ class TriggerFlowBluePrint:
                         del handlers[target][id]
                         return
 
+    def remove_all(
+        self,
+        type: Literal["event", "flow_data", "runtime_data"],
+        target: str,
+    ):
+        handlers = self._handlers[type]
+        if target in handlers:
+            handlers[target] = {}
+
     def add_event_handler(
         self,
         event: str,
