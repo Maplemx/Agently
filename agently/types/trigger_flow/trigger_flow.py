@@ -15,6 +15,7 @@
 
 from typing import Any, Callable, Literal, TYPE_CHECKING
 from pydantic import BaseModel
+from agently.types.data import AVOID_COPY
 
 if TYPE_CHECKING:
     from agently.core import TriggerFlowExecution
@@ -58,10 +59,11 @@ class TriggerFlowEventData:
         self.stop_stream = execution.stop_stream
         self.async_stop_stream = execution.async_stop_stream
 
+        self._system_runtime_data = execution._system_runtime_data
+
 
 TriggerFlowHandler = Callable[[TriggerFlowEventData], Any]
 TriggerFlowHandlers = dict[str, dict[str, TriggerFlowHandler]]
 TriggerFlowAllHandlers = dict[Literal["event", "flow_data", "runtime_data"], TriggerFlowHandlers]
 
-RUNTIME_STREAM_STOP = object()
-EMPTY_RESULT = object()
+RUNTIME_STREAM_STOP = AVOID_COPY()
