@@ -43,7 +43,7 @@ class SerializableRuntimeData(RuntimeData):
     ) -> SerializableValue:
         return super().get(key, default, inherit)
 
-    def pop(self, key: str, default: SerializableValue) -> SerializableValue:
+    def pop(self, key: str, default: SerializableValue = None) -> SerializableValue:
         return super().pop(key, default)
 
     def __contains__(self, key: str) -> bool:
@@ -81,7 +81,7 @@ class SerializableRuntimeDataNamespace(RuntimeDataNamespace):
     ) -> SerializableValue:
         return super().get(key, default, inherit)
 
-    def pop(self, key: str, default: SerializableValue) -> SerializableValue:
+    def pop(self, key: str, default: SerializableValue = None) -> SerializableValue:
         return super().get(key, default)
 
     def __contains__(self, key: str) -> bool:

@@ -211,9 +211,8 @@ class TestRuntimeData:
         with pytest.raises(TypeError):
             data["test.invalid.path"] = "value"
 
-        # Del Non-existed Key
-        with pytest.raises(KeyError):
-            del data["non_exist"]
+        # Del Non-existed Key will raise nothing
+        del data["non_exist"]
 
     def test_advanced_namespace(self):
         data = RuntimeData({"ns1": {"a": 1, "b": {"deep": "value"}}, "ns2": {"x": [1, 2, 3]}})
