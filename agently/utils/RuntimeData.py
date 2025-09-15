@@ -39,7 +39,11 @@ class DictRef:
         if self.key is not None:
             self.container[self.key] = value
         else:
-            self.container = value
+            if isinstance(self.container, dict) and isinstance(value, dict):
+                self.container.clear()
+                self.container.update(value)
+            else:
+                raise TypeError("Setting root container to non-dict is not supported.")
 
     def update(self, new: dict[Any, Any]):
         ref = self.get()
@@ -179,8 +183,17 @@ class RuntimeData:
     def items(self):
         return self.data.items()
 
-    def pop(self, key: Any, default: Any) -> Any:
-        return self.data.pop(key, default)
+    def pop(self, key: Any, default: Any = None) -> Any:
+        if isinstance(key, str) and "." in key:
+            val = self.get(key, default=None, inherit=False)
+            if val is None:
+                return default
+            del self[key]
+            return val
+        else:
+            if key in self._data:
+                return self._data.pop(key)
+            return default
 
     def clear(self):
         return self._data.clear()
@@ -205,12 +218,16 @@ class RuntimeData:
                 ref.get().append(value)
             return
         if isinstance(ref.get(), set):
-            if not isinstance(value, str) and isinstance(value, Sequence):
+            current_set = ref.get()
+            from collections.abc import Iterable
+
+            if not isinstance(value, (str, bytes)) and isinstance(value, Iterable):
                 for item in value:
-                    if isinstance(ref.get(), Sequence) and item not in ref.get():
-                        ref.get().add(item)
+                    if item not in current_set:
+                        current_set.add(item)
             else:
-                ref.get().add(value)
+                if value not in current_set:
+                    current_set.add(value)
             return
         else:
             existing = ref.get()
@@ -335,10 +352,18 @@ class RuntimeData:
         if isinstance(key, str):
             path_list = key.split(".")
             current = DictRef(self._data)
-            for path in path_list:
-                if path in current.get():
+            for path in path_list[:-1]:
+                cur = current.get()
+                if not isinstance(cur, dict):
+                    return
+                if path in cur:
                     current = current.move_in(path)
-            del current.container[current.key]
+                else:
+                    return
+            last_key = path_list[-1]
+            cur = current.get()
+            if isinstance(cur, dict) and last_key in cur:
+                del cur[last_key]
         else:
             del self._data[key]
 
@@ -404,31 +429,62 @@ class RuntimeDataNamespace:
         return result if result is not None else default
 
     def keys(self):
-        return self.data.keys()
+        ns = self.data
+        if isinstance(ns, dict):
+            return ns.keys()
+        return {}.keys()
 
     def values(self):
-        return self.data.values()
+        ns = self.data
+        if isinstance(ns, dict):
+            return ns.values()
+        return {}.values()
 
     def items(self):
-        return self.data.items()
-
-    def pop(self, key: Any, default: Any) -> Any:
-        return self.data.pop(key, default)
-
-    def clear(self):
-        return self.data.clear()
-
-    def __contains__(self, key: Any) -> bool:
-        return key in self.keys()
+        ns = self.data
+        if isinstance(ns, dict):
+            return ns.items()
+        return {}.items()
 
     def __setitem__(self, key: Any, value: Any):
         if isinstance(key, str):
-            return self.root.set(f"{ self.namespace }.{ key }", value)
+            return self.root.set(f"{self.namespace}.{key}", value)
         else:
-            if hasattr(self.root._data[self.namespace], "set"):
-                return self.root._data[self.namespace].update({key: value})
-            else:
-                raise TypeError(f"Can not set item to namespace '{ self.namespace }' because it is not a dictionary.")
+            ns = self.root.get(self.namespace, inherit=False)
+            if ns is None:
+                self.root._data[self.namespace] = {}
+                ns = self.root._data[self.namespace]
+            if isinstance(ns, dict):
+                ns.update({key: value})
+                self.root._data[self.namespace] = ns
+                return
+            raise TypeError(f"Can not set item to namespace '{ self.namespace }' because it is not a dictionary.")
+
+    def __delitem__(self, key: Any):
+        if isinstance(key, str):
+            del self.root[f"{ self.namespace }.{ key }"]
+        else:
+            ns = self.root.get(self.namespace, inherit=False)
+            if isinstance(ns, dict) and key in ns:
+                del ns[key]
+                self.root._data[self.namespace] = ns
+
+    def pop(self, key: Any, default: Any = None) -> Any:
+        if isinstance(key, str):
+            return self.root.pop(f"{ self.namespace }.{ key }", default)
+        else:
+            ns = self.root.get(self.namespace, inherit=False)
+            if isinstance(ns, dict) and key in ns:
+                val = ns.pop(key)
+                self.root._data[self.namespace] = ns
+                return val
+            return default
+
+    def clear(self):
+        self.root._data[self.namespace] = {}
+
+    def __contains__(self, key: Any) -> bool:
+        return key in self.keys()
 
     def set(self, key: Any, value: Any):
         return self.__setitem__(key, value)
@@ -436,10 +492,3 @@ class RuntimeDataNamespace:
     def update(self, new: dict[Any, Any]):
         for key, value in new.items():
             self.set(key, value)
-
-    def __delitem__(self, key: Any):
-        if isinstance(key, str):
-            del self.root[f"{ self.namespace }.{ key }"]
-        else:
-            if isinstance(self.root[self.namespace], dict):
-                del self.root._data[self.namespace][key]
