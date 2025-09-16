@@ -116,10 +116,12 @@ class ToolExtension(BaseAgent):
                     },
                 },
             )
-            tool_judgement_result = tool_judgement_request.get_async_generator(content="instant")
+            tool_judgement_response = tool_judgement_request.get_response()
+            tool_judgement_result = tool_judgement_response.get_async_generator(content="instant")
             async for instant in tool_judgement_result:
                 if instant.path == "use_tool" and instant.is_complete:
                     if instant.value is False:
+                        tool_judgement_response.cancel_logs()
                         return
                 if instant.path == "tool_command" and instant.is_complete:
                     tool_command = instant.value

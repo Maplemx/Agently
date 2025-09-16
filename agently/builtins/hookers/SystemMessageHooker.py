@@ -101,7 +101,7 @@ class SystemMessageHooker(EventHooker):
                             "log",
                             {
                                 "level": "INFO",
-                                "content": f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
+                                "content": f"[Agent-{ message_data['agent_name'] }] - [Response-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
                             },
                         )
             case "TOOL":

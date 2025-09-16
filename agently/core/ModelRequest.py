@@ -79,6 +79,7 @@ class ModelResponse:
         self.plugin_manager = plugin_manager
         settings_snapshot = settings.get()
         self.settings = Settings(settings_snapshot if isinstance(settings_snapshot, dict) else {})
+        self.settings.set("$log.cancel_logs", False)
         prompt_snapshot = prompt.get()
         self.prompt = Prompt(
             self.plugin_manager,
@@ -107,6 +108,9 @@ class ModelResponse:
         self.async_get_result_object = self.result.async_get_result_object
         self.get_generator = self.result.get_generator
         self.get_async_generator = self.result.get_async_generator
+
+    def cancel_logs(self):
+        self.settings.set("$log.cancel_logs", True)
 
     async def _get_response_generator(self) -> AsyncGenerator["AgentlyModelResponseMessage", None]:
         from agently.base import async_system_message
