@@ -26,36 +26,24 @@ flow = TriggerFlow()
 
 
 async def model_response(data: TriggerFlowEventData):
-    response = (
-        agent.set_chat_history(
-            data.get_flow_data(
-                "chat_history",
-            )
-        )
-        .input(data.value)
-        .get_response()
-    )
+    response = agent.input(data.value).get_response()
     agen = response.get_async_generator("delta")
     async for delta in agen:
         data.put(("delta", delta))
     full_reply = await response.async_get_result()
     data.put(("final", full_reply))
     data.put(RUNTIME_STREAM_STOP)
-    data.append_flow_data(
-        "chat_history",
+    agent.add_chat_history(
         {
             "role": "user",
             "content": data.value,
         },
-        emit=False,
     )
-    data.append_flow_data(
-        "chat_history",
+    agent.add_chat_history(
         {
             "role": "assistant",
             "content": full_reply,
         },
-        emit=False,
     )
     return full_reply
 
