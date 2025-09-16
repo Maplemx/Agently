@@ -152,6 +152,13 @@ class PromptModel(BaseModel):
         if self.output_format is None:
             if not isinstance(self.output, str) and isinstance(self.output, (Mapping, Sequence)):
                 self.output_format = "json"
+            elif isinstance(self.output, type):
+                if self.output == str:
+                    self.output = None
+                    self.output_format = "markdown"
+                else:
+                    self.output = {"value": (self.output,), "reply": (str, "Reply according the result value")}
+                    self.output_format = "json"
             else:
                 self.output_format = "markdown"
         if not isinstance(self.output_format, str):

@@ -127,6 +127,9 @@ class AgentlyPromptGenerator(PromptGenerator):
                 return self._generate_json_output_prompt(output[0], layer + 1)
             return f"<{str(output[0])}>"
 
+        if isinstance(output, type):
+            return f"<{type(output).__name__}>"
+
         return f"<{str(output)}>"
 
     def _generate_yaml_prompt_list(self, title: str, prompt_part: Any) -> list[str]:
