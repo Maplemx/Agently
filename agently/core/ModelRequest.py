@@ -130,6 +130,7 @@ class ModelResponse:
                 prefix(self.prompt, self.settings)
         model_requester = ModelRequester(self.prompt, self.settings)
         request_data = model_requester.generate_request_data()
+        request_data_dict = DataFormatter.sanitize(request_data.model_dump())
         await async_system_message(
             "MODEL_REQUEST",
             {
@@ -137,7 +138,21 @@ class ModelResponse:
                 "response_id": self.id,
                 "content": {
                     "stage": "Requesting",
-                    "detail": json.dumps(DataFormatter.sanitize(request_data.model_dump()), indent=2),
+                    "detail": json.dumps(
+                        {
+                            "data": request_data_dict["data"] if "data" in request_data_dict else None,
+                            "request_options": (
+                                request_data_dict["request_options"] if "request_options" in request_data_dict else None
+                            ),
+                            "request_url": (
+                                request_data_dict["request_url"] if "request_url" in request_data_dict else None
+                            ),
+                            "stream": (request_data_dict["stream"] if "stream" in request_data_dict else None),
+                        },
+                        indent=2,
+                    )
+                    .replace("\\n", "\n")
+                    .replace("\\\"", "\""),
                 },
             },
         )
@@ -213,7 +228,8 @@ class ModelRequest:
         self.extension_handlers = ExtensionHandlers(
             {
                 "prefixes": [],
-                "suffixes": [],
+                "base_suffixes": [],
+                "broadcast_suffixes": [],
             },
             name="Request-ExtensionHandlers",
             parent=parent_extension_handlers,
