@@ -374,9 +374,13 @@ class RuntimeData:
         current = self.get(key, default=None, inherit=False)
         if current is None:
             current = []
-        elif not isinstance(current, list):
+        elif isinstance(current, set):
+            current.add(value)
+        elif isinstance(current, list):
+            current.append(value)
+        else:
             current = [current]
-        current.append(value)
+            current.append(value)
         self._set_item_by_dot_path(key, current, cover=True)
 
     def extend(self, key: str, values: Sequence[Any]):
