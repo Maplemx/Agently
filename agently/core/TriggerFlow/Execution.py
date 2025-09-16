@@ -52,10 +52,10 @@ class TriggerFlowExecution:
         self.get_flow_data = self._trigger_flow.get_flow_data
         self.set_flow_data = self._trigger_flow.set_flow_data
         self.async_set_flow_data = self._trigger_flow.async_set_flow_data
-        self.append_flow_data = self._trigger_flow.set_flow_data
-        self.async_append_flow_data = self._trigger_flow.async_set_flow_data
-        self.del_flow_data = self._trigger_flow.set_flow_data
-        self.async_del_flow_data = self._trigger_flow.async_set_flow_data
+        self.append_flow_data = self._trigger_flow.append_flow_data
+        self.async_append_flow_data = self._trigger_flow.async_append_flow_data
+        self.del_flow_data = self._trigger_flow.del_flow_data
+        self.async_del_flow_data = self._trigger_flow.async_del_flow_data
 
         # Runtime Data
         self.get_runtime_data = self._runtime_data.get

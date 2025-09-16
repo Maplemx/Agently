@@ -43,11 +43,17 @@ class TriggerFlowEventData:
         self.set_flow_data = execution.set_flow_data
         self.append_flow_data = execution.append_flow_data
         self.del_flow_data = execution.del_flow_data
+        self.async_set_flow_data = execution.async_set_flow_data
+        self.async_append_flow_data = execution.async_append_flow_data
+        self.async_del_flow_data = execution.async_del_flow_data
 
         self.get_runtime_data = execution.get_runtime_data
         self.set_runtime_data = execution.set_runtime_data
         self.append_runtime_data = execution.append_runtime_data
         self.del_runtime_data = execution.del_runtime_data
+        self.async_set_runtime_data = execution.async_set_runtime_data
+        self.async_append_runtime_data = execution.async_append_runtime_data
+        self.async_del_runtime_data = execution.async_del_runtime_data
 
         self.emit = execution.emit
         self.async_emit = execution.async_emit
