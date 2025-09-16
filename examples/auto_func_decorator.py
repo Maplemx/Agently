@@ -8,7 +8,7 @@ Agently.set_settings(
         "model": "qwen2.5:7b",
         "model_type": "chat",
     },
-).set_settings("debug", False)
+).set_settings("debug", True)
 
 agent = Agently.create_agent()
 
@@ -65,9 +65,9 @@ async def python_code_executor(
 
 
 # Try provide two tools for agent
-# agent.use_tools([add, python_code_executor])
+agent.use_tools([add, python_code_executor])
 # Try just use code executor
-agent.use_tools(python_code_executor)
+# agent.use_tools(python_code_executor)
 # Try use nothing
 # pass
 
@@ -81,4 +81,5 @@ def calculate(formula: str) -> int:
     ...
 
 
-calculate("3333+6666=?")
+result = calculate("3333+6666=?")
+print(result)
