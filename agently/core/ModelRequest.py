@@ -154,6 +154,7 @@ class ModelResponse:
                             "stream": (request_data_dict["stream"] if "stream" in request_data_dict else None),
                         },
                         indent=2,
+                        ensure_ascii=False,
                     )
                     .replace("\\n", "\n")
                     .replace("\\\"", "\""),
