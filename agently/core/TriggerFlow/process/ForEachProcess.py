@@ -15,7 +15,6 @@
 
 import uuid
 import asyncio
-
 from typing import Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -36,23 +35,31 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
 
         async def send_for_each_items(data: "TriggerFlowEventData"):
             if not isinstance(data.value, str) and isinstance(data.value, Sequence):
+                expected_len = len(data.value)
                 data._system_runtime_data.set(
                     f"ForEach-{ for_each_id }.len",
-                    len(data.value),
+                    expected_len,
                 )
-                await asyncio.gather(
-                    *(
-                        [
-                            data.async_emit(
-                                send_items_trigger,
-                                (index, item) if with_index else item,
-                            )
-                            for index, item in enumerate(data.value)
-                        ]
+
+                data._system_runtime_data.set(f"ForEach-{ for_each_id }.results", [])
+                data._system_runtime_data.set(f"ForEach-{ for_each_id }.lock", asyncio.Lock())
+
+                tasks = []
+                for index, item in enumerate(data.value):
+                    task = asyncio.create_task(
+                        data.async_emit(
+                            send_items_trigger,
+                            (index, item) if with_index else item,
+                        )
                     )
-                )
+                    tasks.append(task)
+
+                await asyncio.gather(*tasks)
+
             else:
                 data._system_runtime_data.set(f"ForEach-{ for_each_id }.len", 1)
+                data._system_runtime_data.set(f"ForEach-{ for_each_id }.results", [])
+                data._system_runtime_data.set(f"ForEach-{ for_each_id }.lock", asyncio.Lock())
                 await data.async_emit(send_items_trigger, data.value)
 
         self.to(send_for_each_items)
@@ -66,35 +73,63 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
 
     def end_for_each(self, *, sort_by_index: bool = False):
         if "for_each_id" not in self._block_data.data:
-            raise NotImplementedError(f"Cannot use .case() before .match().")
+            raise NotImplementedError(f"Cannot use .end_for_each() without .for_each().")
+
         for_each_id = self._block_data.data["for_each_id"]
-        self._results = []
         end_task_trigger = f"ForEach-{ for_each_id }-End"
 
         async def collect_for_each_results(data: "TriggerFlowEventData"):
-            if sort_by_index:
-                try:
-                    index, result = data.value
-                    self._results.append((index, result))
-                except:
-                    raise ValueError(
-                        f"Return tuple(index, value) to .end_for_each() process if you want to use `sort_by_index`."
-                    )
-            else:
-                result = data.value
-                self._results.append(result)
+            lock_key = f"ForEach-{ for_each_id }.lock"
+            results_key = f"ForEach-{ for_each_id }.results"
+            len_key = f"ForEach-{ for_each_id }.len"
 
-            if len(self._results) == data._system_runtime_data[f"ForEach-{ for_each_id }.len"]:
+            if lock_key in data._system_runtime_data:
+                async with data._system_runtime_data[lock_key]:
+                    current_results = data._system_runtime_data.get(results_key, [])
+
+                    if sort_by_index:
+                        try:
+                            index, result = data.value
+                            current_results.append((index, result))
+                        except:
+                            raise ValueError(
+                                f"Return tuple(index, value) to .end_for_each() process if you want to use `sort_by_index`."
+                            )
+                    else:
+                        current_results.append(data.value)
+
+                    data._system_runtime_data.set(results_key, current_results)
+
+                    expected_len = data._system_runtime_data.get(len_key, 0)
+                    if len(current_results) == expected_len:
+                        final_results = current_results
+                        if sort_by_index:
+                            final_results = [
+                                value
+                                for _, value in sorted(
+                                    current_results,
+                                    key=lambda results: results[0],
+                                )
+                            ]
+
+                        del data._system_runtime_data[f"ForEach-{ for_each_id }.len"]
+                        del data._system_runtime_data[f"ForEach-{ for_each_id }.results"]
+                        del data._system_runtime_data[f"ForEach-{ for_each_id }.lock"]
+
+                        await data.async_emit(end_task_trigger, final_results)
+            else:
                 if sort_by_index:
-                    self._results = [
-                        value
-                        for _, value in sorted(
-                            self._results,
-                            key=lambda results: results[0],
+                    try:
+                        index, result = data.value
+                        final_results = [result]
+                    except:
+                        raise ValueError(
+                            f"Return tuple(index, value) to .end_for_each() process if you want to use `sort_by_index`."
                         )
-                    ]
-                await data.async_emit(end_task_trigger, self._results)
-                del data._system_runtime_data[f"ForEach-{ for_each_id }"]
+                else:
+                    final_results = [data.value]
+
+                await data.async_emit(end_task_trigger, final_results)
 
         self.to(collect_for_each_results)
 
