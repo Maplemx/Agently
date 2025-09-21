@@ -367,10 +367,7 @@ class RuntimeData:
         else:
             del self._data[key]
 
-    def namespace(self, namespace_path: str):
-        return RuntimeDataNamespace(self, namespace_path)
-
-    def append(self, key: str, value: Any):
+    def append(self, key: Any, value: Any):
         current = self.get(key, default=None, inherit=False)
         if current is None:
             current = []
@@ -383,7 +380,7 @@ class RuntimeData:
             current.append(value)
         self._set_item_by_dot_path(key, current, cover=True)
 
-    def extend(self, key: str, values: Sequence[Any]):
+    def extend(self, key: Any, values: Sequence[Any]):
         current = self.get(key, default=None, inherit=False)
         if current is None:
             current = []
@@ -391,6 +388,12 @@ class RuntimeData:
             current = [current]
         current.extend(values)
         self._set_item_by_dot_path(key, current, cover=True)
+
+    def delete(self, key: Any):
+        self.__delitem__(key)
+
+    def namespace(self, namespace_path: str):
+        return RuntimeDataNamespace(self, namespace_path)
 
 
 class RuntimeDataNamespace:
@@ -473,7 +476,7 @@ class RuntimeDataNamespace:
                 del ns[key]
                 self.root._data[self.namespace] = ns
 
-    def pop(self, key: Any, default: Any = None) -> Any:
+    def pop(self, key: str, default: Any = None) -> Any:
         if isinstance(key, str):
             return self.root.pop(f"{ self.namespace }.{ key }", default)
         else:
@@ -496,3 +499,28 @@ class RuntimeDataNamespace:
     def update(self, new: dict[Any, Any]):
         for key, value in new.items():
             self.set(key, value)
+
+    def append(self, key: str, value: Any):
+        current = self.get(key, default=None, inherit=False)
+        if current is None:
+            current = []
+        elif isinstance(current, set):
+            current.add(value)
+        elif isinstance(current, list):
+            current.append(value)
+        else:
+            current = [current]
+            current.append(value)
+        self.root._set_item_by_dot_path(f"{ self.namespace }.{ key }", current, cover=True)
+
+    def extend(self, key: str, values: Sequence[Any]):
+        current = self.get(key, default=None, inherit=False)
+        if current is None:
+            current = []
+        elif not isinstance(current, list):
+            current = [current]
+        current.extend(values)
+        self.root._set_item_by_dot_path(f"{ self.namespace }.{ key }", current, cover=True)
+
+    def delete(self, key: Any):
+        self.__delitem__(key)
