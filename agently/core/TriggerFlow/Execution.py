@@ -75,8 +75,8 @@ class TriggerFlowExecution:
 
         # Execution Status
         self._started = False
-        self.set_runtime_data("$TF.result", EMPTY, emit=False)
-        self.set_runtime_data("$TF.result_ready", asyncio.Event(), emit=False)
+        self._system_runtime_data.set("$TF.result", EMPTY)
+        self._system_runtime_data.set("$TF.result_ready", asyncio.Event())
         self._runtime_stream_queue = asyncio.Queue()
         self._runtime_stream_consumer: GeneratorConsumer | None = None
 
@@ -271,13 +271,13 @@ class TriggerFlowExecution:
 
     async def async_get_result(self, *, timeout: int | None = None):
         if timeout is None:
-            await self.get_runtime_data("$TF.result_ready").wait()
-            self._result = self.get_runtime_data("$TF.result")
+            await self._system_runtime_data.get("$TF.result_ready").wait()
+            self._result = self._system_runtime_data.get("$TF.result")
             return self._result
         else:
             try:
-                await asyncio.wait_for(self.get_runtime_data("$TF.result_ready").wait(), timeout=timeout)
-                self._result = self.get_runtime_data("$TF.result")
+                await asyncio.wait_for(self._system_runtime_data.get("$TF.result_ready").wait(), timeout=timeout)
+                self._result = self._system_runtime_data.get("$TF.result")
                 return self._result
             except asyncio.TimeoutError:
                 warnings.warn(
