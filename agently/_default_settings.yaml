@@ -29,7 +29,7 @@ runtime:
   raise_error: True
   raise_critical: True
   show_model_logs: False
-  show_tool_logs: True
+  show_tool_logs: False
   show_trigger_flow_logs: False
 plugins:
   ToolManager:

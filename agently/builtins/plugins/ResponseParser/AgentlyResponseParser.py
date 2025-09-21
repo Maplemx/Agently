@@ -82,6 +82,8 @@ class AgentlyResponseParser(ResponseParser):
             StreamingJSONParser(self._prompt_object.output) if self._prompt_object.output_format == "json" else None
         )
 
+        self._streaming_canceled = False
+
         self.get_meta = FunctionShifter.syncify(self.async_get_meta)
         self.get_text = FunctionShifter.syncify(self.async_get_text)
         self.get_result = FunctionShifter.syncify(self.async_get_result)
@@ -113,18 +115,33 @@ class AgentlyResponseParser(ResponseParser):
                         self.full_result_data["original_delta"].append(data)
                     case "delta":
                         buffer += str(data)
-                        await async_system_message(
-                            "MODEL_REQUEST",
-                            {
-                                "agent_name": self.agent_name,
-                                "response_id": self.response_id,
-                                "content": {
-                                    "stage": "Streaming",
-                                    "detail": str(data),
-                                    "delta": True,
+                        if self.settings.get("$log.cancel_logs") is not True:
+                            await async_system_message(
+                                "MODEL_REQUEST",
+                                {
+                                    "agent_name": self.agent_name,
+                                    "response_id": self.response_id,
+                                    "content": {
+                                        "stage": "Streaming",
+                                        "detail": str(data),
+                                        "delta": True,
+                                    },
                                 },
-                            },
-                        )
+                            )
+                        elif self._streaming_canceled is False:
+                            await async_system_message(
+                                "MODEL_REQUEST",
+                                {
+                                    "agent_name": self.agent_name,
+                                    "response_id": self.response_id,
+                                    "content": {
+                                        "stage": "Streaming",
+                                        "detail": f"(🟥 [Agent-{ self.agent_name }] - [Response-{ self.response_id }] logging canceled...)\n",
+                                        "delta": True,
+                                    },
+                                },
+                            )
+                            self._streaming_canceled = True
                     case "original_done":
                         self.full_result_data["original_done"] = data
                     case "done":
@@ -179,17 +196,18 @@ class AgentlyResponseParser(ResponseParser):
                                 )
                         else:
                             self.full_result_data["parsed_result"] = str(data)
-                            await async_system_message(
-                                "MODEL_REQUEST",
-                                {
-                                    "agent_name": self.agent_name,
-                                    "response_id": self.response_id,
-                                    "content": {
-                                        "stage": "Done",
-                                        "detail": str(data),
+                            if self.settings.get("$log.cancel_logs") is not True:
+                                await async_system_message(
+                                    "MODEL_REQUEST",
+                                    {
+                                        "agent_name": self.agent_name,
+                                        "response_id": self.response_id,
+                                        "content": {
+                                            "stage": "Done",
+                                            "detail": str(data),
+                                        },
                                     },
-                                },
-                            )
+                                )
                     case "meta":
                         if isinstance(data, Mapping):
                             self.full_result_data["meta"].update(dict(data))

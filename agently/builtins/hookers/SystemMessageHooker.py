@@ -64,7 +64,7 @@ class SystemMessageHooker(EventHooker):
                             },
                         },
                     )
-                    if settings["runtime.show_log"]:
+                    if settings["runtime.show_model_logs"]:
                         if (
                             SystemMessageHooker._current_meta["table_name"] == message_data["agent_name"]
                             and SystemMessageHooker._current_meta["row_id"] == message_data["response_id"]
@@ -80,7 +80,7 @@ class SystemMessageHooker(EventHooker):
                             SystemMessageHooker._current_meta["row_id"] = message_data["response_id"]
                             SystemMessageHooker._current_meta["stage"] = content["stage"]
                 else:
-                    if SystemMessageHooker._streaming is True and settings["runtime.show_log"]:
+                    if SystemMessageHooker._streaming is True and settings["runtime.show_model_logs"]:
                         print()
                         SystemMessageHooker._streaming = False
                     await event_center.async_emit(
@@ -96,16 +96,25 @@ class SystemMessageHooker(EventHooker):
                             },
                         },
                     )
-                    if settings["runtime.show_log"]:
+                    if settings["runtime.show_model_logs"]:
                         await event_center.async_emit(
                             "log",
                             {
                                 "level": "INFO",
-                                "content": f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
+                                "content": f"[Agent-{ message_data['agent_name'] }] - [Response-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
                             },
                         )
+            case "TOOL":
+                if settings["runtime.show_tool_logs"]:
+                    await event_center.async_emit(
+                        "log",
+                        {
+                            "level": "INFO",
+                            "content": f"[Tool Using Result]:\n{ message.content['data'] }",
+                        },
+                    )
             case "TRIGGER_FLOW":
-                if settings["runtime.show_trigger_flow_log"]:
+                if settings["runtime.show_trigger_flow_logs"]:
                     await event_center.async_emit(
                         "log",
                         {
@@ -113,4 +122,3 @@ class SystemMessageHooker(EventHooker):
                             "content": f"[TriggerFlow] { message.content['data'] }",
                         },
                     )
-

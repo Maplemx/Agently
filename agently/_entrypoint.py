@@ -25,15 +25,13 @@ settings.update_mappings(
             "debug": {
                 True: {
                     "runtime.show_model_logs": True,
-                    "runtime.show_tool_logs": False,
+                    "runtime.show_tool_logs": True,
+                    "runtime.show_trigger_flow_logs": True,
                 },
                 False: {
                     "runtime.show_model_logs": False,
-                    "runtime.show_tool_logs": True,
-                },
-                "silent": {
-                    "runtime.show_model_logs": False,
                     "runtime.show_tool_logs": False,
+                    "runtime.show_trigger_flow_logs": False,
                 },
             }
         }
@@ -81,10 +79,6 @@ class AgentlyMain:
         self.logger.setLevel(log_level)
         return self
 
-    @overload
-    def set_settings(self, key: Literal["debug"], value: Literal[True, False, "silent"]): ...
-    @overload
-    def set_settings(self, key: str, value: "SerializableValue"): ...
     def set_settings(self, key: str, value: "SerializableValue"):
         self.settings.set_settings(key, value)
         return self

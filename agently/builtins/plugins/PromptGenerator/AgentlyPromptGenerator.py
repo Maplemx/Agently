@@ -127,6 +127,9 @@ class AgentlyPromptGenerator(PromptGenerator):
                 return self._generate_json_output_prompt(output[0], layer + 1)
             return f"<{str(output[0])}>"
 
+        if isinstance(output, type):
+            return f"<{type(output).__name__}>"
+
         return f"<{str(output)}>"
 
     def _generate_yaml_prompt_list(self, title: str, prompt_part: Any) -> list[str]:
@@ -231,7 +234,7 @@ class AgentlyPromptGenerator(PromptGenerator):
             "content": (
                 str(sanitized_part)
                 if isinstance(sanitized_part, (str, int, float, bool)) or sanitized_part is None
-                else yaml.safe_dump(sanitized_part)
+                else yaml.safe_dump(sanitized_part, allow_unicode=True)
             ),
         }
 

@@ -32,7 +32,7 @@ R = TypeVar("R")
 class ToolExtension(BaseAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from agently.base import event_center
+        from agently.base import async_system_message
 
         self.tool = tool
         self.tool_func = self.tool.tool_func
@@ -41,10 +41,11 @@ class ToolExtension(BaseAgent):
         self.use_mcp = FunctionShifter.syncify(self.async_use_mcp)
 
         self.__tool_log = None
-        self.__messenger = event_center.create_messenger("Agently Tool")
 
         self.extension_handlers.append("prefixes", self.__prefix)
         self.extension_handlers.append("base_suffixes", self.__base_suffix)
+
+        self.async_system_message = async_system_message
 
     def register_tool(
         self,
@@ -115,10 +116,12 @@ class ToolExtension(BaseAgent):
                     },
                 },
             )
-            tool_judgement_result = tool_judgement_request.get_async_generator(content="instant")
+            tool_judgement_response = tool_judgement_request.get_response()
+            tool_judgement_result = tool_judgement_response.get_async_generator(content="instant")
             async for instant in tool_judgement_result:
                 if instant.path == "use_tool" and instant.is_complete:
                     if instant.value is False:
+                        tool_judgement_response.cancel_logs()
                         return
                 if instant.path == "tool_command" and instant.is_complete:
                     tool_command = instant.value
@@ -153,7 +156,10 @@ class ToolExtension(BaseAgent):
             ):
                 full_result_data["extra"]["tool_logs"].append(self.__tool_log)
             if self.settings.get("runtime.show_tool_logs"):
-                await self.__messenger.async_info(
-                    "\n" + "\n".join([f"{ key }: { value }" for key, value in self.__tool_log.items()])
+                await self.async_system_message(
+                    "TOOL",
+                    "\n".join(
+                        [f"{ key }: { value }" for key, value in self.__tool_log.items()],
+                    ),
                 )
             self.__tool_log = None

@@ -143,10 +143,10 @@ class TriggerFlowBaseProcess:
 
     def end(self):
         async def set_default_result(data: "TriggerFlowEventData"):
-            result = data.get_runtime_data("$TF.result")
+            result = data._system_runtime_data.get("$TF.result")
             if result is EMPTY:
-                data.set_runtime_data("$TF.result", data.value)
-            data.get_runtime_data("$TF.result_ready").set()
+                data._system_runtime_data.set("$TF.result", data.value)
+            data._system_runtime_data.get("$TF.result_ready").set()
 
         return self.to(set_default_result)
 
