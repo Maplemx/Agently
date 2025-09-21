@@ -234,7 +234,7 @@ class AgentlyPromptGenerator(PromptGenerator):
             "content": (
                 str(sanitized_part)
                 if isinstance(sanitized_part, (str, int, float, bool)) or sanitized_part is None
-                else yaml.safe_dump(sanitized_part)
+                else yaml.safe_dump(sanitized_part, allow_unicode=True)
             ),
         }
 
