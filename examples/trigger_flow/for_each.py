@@ -2,12 +2,20 @@ import asyncio
 import random
 from agently import TriggerFlow, TriggerFlowEventData
 
+
+async def handle(data: TriggerFlowEventData):
+    print("START HANDLING:", data.value)
+    await asyncio.sleep(random.randint(0, 100) / 100)
+    print("FINISH HANDLING:", data.value)
+    return data.value
+
+
 flow_1 = TriggerFlow()
 
-(flow_1.for_each().to(lambda data: print(data.value)))
+flow_1.for_each().to(handle).end_for_each().to(lambda data: data.value).end()
 
 execution_1 = flow_1.create_execution()
-execution_1.start(
+result = execution_1.start(
     [
         1,
         2,
@@ -21,31 +29,4 @@ execution_1.start(
         {"say": "hello world"},
     ]
 )
-
-flow_2 = TriggerFlow()
-
-
-async def send_list(_):
-    return [
-        1,
-        "2",
-        {"index": 3, "value": "OK"},
-        (4, "Agently"),
-    ]
-
-
-async def handle(data: TriggerFlowEventData):
-    await asyncio.sleep(random.randint(0, 100) / 100)
-    return data.value
-
-
-(
-    flow_2.to(send_list)
-    .for_each(with_index=True)  # Turn on/off to send item index in event data
-    .to(handle)
-    .end_for_each(sort_by_index=True)  # Turn on/off sort
-    .to(lambda data: print(data.value))
-)
-
-execution_2 = flow_2.create_execution()
-execution_2.start()
+print(result)

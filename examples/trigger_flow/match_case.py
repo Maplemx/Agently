@@ -25,9 +25,9 @@ flow_2 = TriggerFlow()
 
 (
     flow_2.to(lambda _: [1, "2", ["Agently"]])
-    .for_each(with_index=True)
+    .for_each()
     .match()
-    .case(lambda data: data.value[1] == 1)
+    .case(lambda data: data.value == 1)
     .to(lambda _: "OK")
     .case_else()
     .to(lambda _: "Not OK")
