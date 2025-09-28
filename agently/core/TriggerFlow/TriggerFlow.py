@@ -21,9 +21,10 @@ from typing import Callable, Any, Literal, TYPE_CHECKING, overload
 if TYPE_CHECKING:
     from .Execution import TriggerFlowExecution
     from .Chunk import TriggerFlowHandler
+    from agently.types.data import SerializableValue
 
 from agently.types.trigger_flow import TriggerFlowBlockData, TriggerFlowEventData
-from agently.utils import RuntimeData, FunctionShifter
+from agently.utils import Settings, RuntimeData, FunctionShifter
 from .BluePrint import TriggerFlowBluePrint
 from .Process import TriggerFlowProcess, TriggerFlowProcess
 from .Chunk import TriggerFlowChunk
@@ -34,8 +35,17 @@ class TriggerFlow:
         self,
         blue_print: TriggerFlowBluePrint | None = None,
         *,
+        name: str | None = None,
         skip_exceptions: bool = False,
     ):
+        from agently.base import settings
+
+        self.name = name or uuid.uuid4().hex
+        self.settings = Settings(
+            name=f"TriggerFlow-{ self.name }-Settings",
+            parent=settings,
+        )
+
         self._flow_data = RuntimeData()
         self._blue_print = blue_print if blue_print is not None else TriggerFlowBluePrint()
         self._skip_exceptions = skip_exceptions
@@ -63,6 +73,10 @@ class TriggerFlow:
         self.start_execution = FunctionShifter.syncify(self.async_start_execution)
         self.start = FunctionShifter.syncify(self.async_start)
 
+    def set_settings(self, key: str, value: "SerializableValue"):
+        self.settings.set_settings(key, value)
+        return self
+
     def when(
         self,
         target: str,
@@ -88,23 +102,25 @@ class TriggerFlow:
         return self.when(key, type="flow_data")
 
     @overload
-    def chunk(self, handler: "TriggerFlowHandler") -> TriggerFlowChunk: ...
+    def chunk(self, handler_or_name: "TriggerFlowHandler") -> TriggerFlowChunk: ...
+
     @overload
-    def chunk(self, handler: str) -> "Callable[[TriggerFlowHandler], TriggerFlowChunk]": ...
+    def chunk(self, handler_or_name: str) -> "Callable[[TriggerFlowHandler], TriggerFlowChunk]": ...
+
     def chunk(
-        self, handler: "TriggerFlowHandler | str"
+        self, handler_or_name: "TriggerFlowHandler | str"
     ) -> "TriggerFlowChunk | Callable[[TriggerFlowHandler], TriggerFlowChunk]":
-        if isinstance(handler, str):
+        if isinstance(handler_or_name, str):
 
             def wrapper(func: "TriggerFlowHandler"):
-                chunk = TriggerFlowChunk(func, name=handler)
-                self._blue_print.chunks[handler] = chunk
+                chunk = TriggerFlowChunk(func, name=handler_or_name)
+                self._blue_print.chunks[handler_or_name] = chunk
                 return chunk
 
             return wrapper
         else:
-            chunk = TriggerFlowChunk(handler, name=handler.__name__)
-            self._blue_print.chunks[handler.__name__] = chunk
+            chunk = TriggerFlowChunk(handler_or_name, name=handler_or_name.__name__)
+            self._blue_print.chunks[handler_or_name.__name__] = chunk
             return chunk
 
     def create_execution(self, *, skip_exceptions: bool | None = None):
@@ -126,9 +142,9 @@ class TriggerFlow:
             if execution.id in self._executions:
                 del self._executions[execution.id]
 
-    async def async_start_execution(self, initial_value: Any):
+    async def async_start_execution(self, initial_value: Any, *, wait_for_result: bool = False):
         execution = self.create_execution()
-        await execution.async_start(initial_value)
+        await execution.async_start(initial_value, wait_for_result=wait_for_result)
         return execution
 
     async def _async_change_flow_data(

@@ -22,8 +22,9 @@ from typing import Any, Literal, TYPE_CHECKING
 if TYPE_CHECKING:
     from .TriggerFlow import TriggerFlow
     from agently.types.trigger_flow import TriggerFlowAllHandlers
+    from agently.types.data import SerializableValue
 
-from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer
+from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer, Settings
 from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP
 from agently.types.data import EMPTY
 
@@ -44,6 +45,12 @@ class TriggerFlowExecution:
         self._runtime_data = RuntimeData()
         self._system_runtime_data = RuntimeData()
         self._skip_exceptions = skip_exceptions
+
+        # Settings
+        self.settings = Settings(
+            parent=self._trigger_flow.settings,
+            name=f"TriggerFlowExecution-{ self.id }-Settings",
+        )
 
         # Emit
         self.emit = FunctionShifter.syncify(self.async_emit)
@@ -75,16 +82,22 @@ class TriggerFlowExecution:
 
         # Execution Status
         self._started = False
-        self._system_runtime_data.set("$TF.result", EMPTY)
-        self._system_runtime_data.set("$TF.result_ready", asyncio.Event())
+        self._system_runtime_data.set("result", EMPTY)
+        self._system_runtime_data.set("result_ready", asyncio.Event())
         self._runtime_stream_queue = asyncio.Queue()
         self._runtime_stream_consumer: GeneratorConsumer | None = None
+
+    # Set Settings
+    def set_settings(self, key: str, value: "SerializableValue"):
+        self.settings.set_settings(key, value)
+        return self
 
     # Emit Event
     async def async_emit(
         self,
         event: str,
         value: Any = None,
+        layer_marks: list[str] | None = None,
     ):
         from agently.base import async_system_message
 
@@ -94,6 +107,7 @@ class TriggerFlowExecution:
                 "EVENT": event,
                 "VALUE": value,
             },
+            self.settings,
         )
         tasks = []
         handlers = self._handlers["event"]
@@ -106,6 +120,7 @@ class TriggerFlowExecution:
                         "EVENT": event,
                         "HANDLER": handler_id,
                     },
+                    self.settings,
                 )
                 tasks.append(
                     asyncio.ensure_future(
@@ -114,6 +129,7 @@ class TriggerFlowExecution:
                                 event=event,
                                 value=value,
                                 execution=self,
+                                layer_marks=layer_marks,
                             )
                         )
                     )
@@ -190,8 +206,16 @@ class TriggerFlowExecution:
         return await self._async_change_runtime_data("del", key, None, emit=emit)
 
     # Start
-    async def async_start(self, initial_value: Any = None):
+    async def async_start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: bool = True,
+        timeout: float | None = 10,
+    ):
         await self.async_emit("START", initial_value)
+        if wait_for_result:
+            return await self.async_get_result(timeout=timeout)
 
     # Runtime Stream
     async def async_put_into_stream(self, stream_item: Any):
@@ -204,12 +228,17 @@ class TriggerFlowExecution:
         self,
         *,
         initial_value: Any,
-        timeout: int | None,
+        timeout: float | None,
     ):
         temp_execution_task = None
         try:
             if not self._started:
-                temp_execution_task = asyncio.create_task(self.async_start(initial_value=initial_value))
+                temp_execution_task = asyncio.create_task(
+                    self.async_start(
+                        initial_value=initial_value,
+                        wait_for_result=False,
+                    )
+                )
             while True:
                 if timeout is not None:
                     try:
@@ -238,7 +267,7 @@ class TriggerFlowExecution:
         self,
         initial_value: Any = None,
         *,
-        timeout: int | None = 10,
+        timeout: float | None = 10,
     ):
         if self._runtime_stream_consumer is None:
             self._runtime_stream_consumer = GeneratorConsumer(
@@ -253,7 +282,7 @@ class TriggerFlowExecution:
         self,
         initial_value: Any = None,
         *,
-        timeout: int | None = 10,
+        timeout: float | None = 10,
     ):
         if self._runtime_stream_consumer is None:
             self._runtime_stream_consumer = GeneratorConsumer(
@@ -266,18 +295,18 @@ class TriggerFlowExecution:
 
     # Result
     def set_result(self, result: Any):
-        self.set_runtime_data("$TF.result", result, emit=False)
-        self.get_runtime_data("$TF.result_ready").set()
+        self._system_runtime_data.set("result", result)
+        self._system_runtime_data.get("result_ready").set()
 
-    async def async_get_result(self, *, timeout: int | None = None):
+    async def async_get_result(self, *, timeout: float | None = None):
         if timeout is None:
-            await self._system_runtime_data.get("$TF.result_ready").wait()
-            self._result = self._system_runtime_data.get("$TF.result")
+            await self._system_runtime_data.get("result_ready").wait()
+            self._result = self._system_runtime_data.get("result")
             return self._result
         else:
             try:
-                await asyncio.wait_for(self._system_runtime_data.get("$TF.result_ready").wait(), timeout=timeout)
-                self._result = self._system_runtime_data.get("$TF.result")
+                await asyncio.wait_for(self._system_runtime_data.get("result_ready").wait(), timeout=timeout)
+                self._result = self._system_runtime_data.get("result")
                 return self._result
             except asyncio.TimeoutError:
                 warnings.warn(

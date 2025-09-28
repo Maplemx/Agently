@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import uuid
 
 from typing import Any, Callable, Literal, TYPE_CHECKING
-from pydantic import BaseModel
 from agently.types.data import AVOID_COPY
 
 if TYPE_CHECKING:
@@ -22,9 +22,14 @@ if TYPE_CHECKING:
     from agently.core.TriggerFlow import TriggerFlowBaseProcess
 
 
-class TriggerFlowBlockData(BaseModel):
-    outer_block: "TriggerFlowBlockData | None"
-    data: dict[str, Any] = {}
+class TriggerFlowBlockData:
+    def __init__(
+        self,
+        outer_block: "TriggerFlowBlockData | None" = None,
+        data: dict[str, Any] | None = None,
+    ):
+        self.outer_block = outer_block
+        self.data = data if data is not None else {}
 
 
 class TriggerFlowEventData:
@@ -34,10 +39,13 @@ class TriggerFlowEventData:
         event: str,
         value: Any,
         execution: "TriggerFlowExecution",
+        layer_marks: list[str] | None = None,
     ):
         self.event = event
         self.value = value
         self.execution_id = execution.id
+        self.layer_marks = layer_marks if layer_marks is not None else []
+        self.settings = execution.settings
 
         self.get_flow_data = execution.get_flow_data
         self.set_flow_data = execution.set_flow_data
@@ -66,6 +74,20 @@ class TriggerFlowEventData:
         self.async_stop_stream = execution.async_stop_stream
 
         self._system_runtime_data = execution._system_runtime_data
+
+    @property
+    def upper_layer_mark(self):
+        return self.layer_marks[-2] if len(self.layer_marks) > 1 else None
+
+    @property
+    def layer_mark(self):
+        return self.layer_marks[-1] if len(self.layer_marks) > 0 else None
+
+    def layer_in(self):
+        self.layer_marks.append(uuid.uuid4().hex)
+
+    def layer_out(self):
+        self.layer_marks = self.layer_marks[:-1] if len(self.layer_marks) > 0 else []
 
 
 TriggerFlowHandler = Callable[[TriggerFlowEventData], Any]

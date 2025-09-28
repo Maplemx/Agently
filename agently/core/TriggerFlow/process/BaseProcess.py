@@ -15,7 +15,7 @@
 
 import uuid
 
-from typing import Literal, TYPE_CHECKING
+from typing import Sequence, Literal, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
@@ -83,7 +83,11 @@ class TriggerFlowBaseProcess:
     def when_flow_data(self, key: str):
         return self.when(key, type="flow_data")
 
-    def to(self, chunk: "TriggerFlowChunk | TriggerFlowHandler | str", side_branch: bool = False):
+    def to(
+        self,
+        chunk: "TriggerFlowChunk | TriggerFlowHandler | str",
+        side_branch: bool = False,
+    ):
         if isinstance(chunk, str):
             if chunk in self._blue_print.chunks:
                 chunk = self._blue_print.chunks[chunk]
@@ -122,7 +126,7 @@ class TriggerFlowBaseProcess:
             for done in chunks_to_wait.values():
                 if done is False:
                     return
-            await data.async_emit(batch_trigger, results)
+            await data.async_emit(batch_trigger, results, layer_marks=data.layer_marks.copy())
 
         for chunk in chunks:
             chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
@@ -143,16 +147,46 @@ class TriggerFlowBaseProcess:
 
     def end(self):
         async def set_default_result(data: "TriggerFlowEventData"):
-            result = data._system_runtime_data.get("$TF.result")
+            result = data._system_runtime_data.get("result")
             if result is EMPTY:
-                data._system_runtime_data.set("$TF.result", data.value)
-            data._system_runtime_data.get("$TF.result_ready").set()
+                data._system_runtime_data.set("result", data.value)
+            data._system_runtime_data.get("result_ready").set()
 
         return self.to(set_default_result)
 
-    def ____(self, *args, **kwargs):
+    def ____(
+        self,
+        *args,
+        log_info: bool = False,
+        print_info: bool = False,
+        show_value: bool = False,
+        **kwargs,
+    ):
         """
         Separator for chain expression.
         Do nothing but return self.
         """
+        if log_info or print_info or show_value:
+
+            async def runtime_output(data: "TriggerFlowEventData"):
+                from agently.base import async_system_message
+
+                message = {}
+                annotations = list(args) if args else []
+                annotations.extend([f"{k}:{v}" for k, v in kwargs.items()])
+                if annotations:
+                    message["ANNOTATIONS"] = "\t".join(annotations)
+                if show_value:
+                    message["VALUE"] = data.value
+                if log_info:
+                    await async_system_message(
+                        "TRIGGER_FLOW",
+                        message,
+                        data.settings,
+                    )
+                if print_info:
+                    print(*message.values())
+
+            self.side_branch(runtime_output)
+
         return self

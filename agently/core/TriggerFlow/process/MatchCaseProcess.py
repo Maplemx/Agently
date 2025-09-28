@@ -53,6 +53,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                     await data.async_emit(
                         f"Match-{ match_id }-Case-{ case_id }",
                         data.value,
+                        layer_marks=data.layer_marks.copy(),
                     )
                     if mode == "hit_first":
                         return
@@ -63,11 +64,13 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                     await data.async_emit(
                         f"Match-{ match_id }-Else",
                         data.value,
+                        layer_marks=data.layer_marks.copy(),
                     )
                 else:
                     await data.async_emit(
                         f"Match-{ match_id }-Result",
                         data.value,
+                        layer_marks=data.layer_marks.copy(),
                     )
 
         self.to(match_case)
@@ -132,7 +135,11 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             branch_ends.append(self.trigger_event)
 
         async def collect_branch_result(data: "TriggerFlowEventData"):
-            await data.async_emit(f"Match-{ match_id }-Result", data.value)
+            await data.async_emit(
+                f"Match-{ match_id }-Result",
+                data.value,
+                layer_marks=data.layer_marks.copy(),
+            )
 
         for trigger in branch_ends:
             self.when_event(trigger).to(collect_branch_result)
