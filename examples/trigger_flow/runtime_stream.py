@@ -21,7 +21,7 @@ async def stop_streaming(data: TriggerFlowEventData):
     return data.value
 
 
-flow.to(say_hello).to(say_bye).to(stop_streaming)
+flow.to(say_hello).to(say_bye).to(stop_streaming).end()
 execution = flow.create_execution()
 stream = execution.get_runtime_stream(initial_value="Agently")
 for item in stream:

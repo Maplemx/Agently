@@ -36,10 +36,10 @@ class TriggerFlowChunk:
 
     async def async_call(self, data: "TriggerFlowEventData"):
         result = await FunctionShifter.asyncify(self._handler)(data)
-        await data.async_emit(self.trigger, result)
+        await data.async_emit(self.trigger, result, layer_marks=data.layer_marks.copy())
         return result
 
     def call(self, data: "TriggerFlowEventData"):
         result = FunctionShifter.syncify(self._handler)(data)
-        data.emit(self.trigger, result)
+        data.emit(self.trigger, result, layer_marks=data.layer_marks.copy())
         return result

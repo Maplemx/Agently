@@ -15,7 +15,7 @@
 import asyncio
 
 import json
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from agently.types.data import SerializableData, EventMessage
 from agently.utils import FunctionShifter
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         EventHook,
     )
     from agently.types.plugins import EventHooker
+    from agently.utils import Settings
 
 
 class EventCenter:
@@ -104,7 +105,17 @@ class EventCenter:
         if event == "log" and len(tasks) == 0:
             print(*message_object.content if isinstance(message_object.content, list) else message_object.content)
 
-    async def async_system_message(self, message_type: "AgentlySystemEvent", message_data: Any):
+    async def async_system_message(
+        self,
+        message_type: "AgentlySystemEvent",
+        message_data: Any,
+        settings: "Settings | None" = None,
+    ):
+        if settings is None:
+            from agently.base import settings as default_settings
+
+            settings = default_settings
+
         await self.async_emit(
             "AGENTLY_SYS",
             {
@@ -112,6 +123,7 @@ class EventCenter:
                 "content": {
                     "type": message_type,
                     "data": message_data,
+                    "settings": settings,
                 },
             },
         )

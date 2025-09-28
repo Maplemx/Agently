@@ -42,7 +42,9 @@ class SystemMessageHooker(EventHooker):
 
     @staticmethod
     async def handler(message: "EventMessage"):
-        from agently.base import event_center, settings
+        from agently.base import event_center
+
+        settings = message.content["settings"]
 
         message_type: "AgentlySystemEvent" = message.content["type"]
         match message_type:

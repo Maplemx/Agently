@@ -127,6 +127,7 @@ class AgentlyResponseParser(ResponseParser):
                                         "delta": True,
                                     },
                                 },
+                                self.settings,
                             )
                         elif self._streaming_canceled is False:
                             await async_system_message(
@@ -140,6 +141,7 @@ class AgentlyResponseParser(ResponseParser):
                                         "delta": True,
                                     },
                                 },
+                                self.settings,
                             )
                             self._streaming_canceled = True
                     case "original_done":
@@ -179,6 +181,7 @@ class AgentlyResponseParser(ResponseParser):
                                             "detail": str(data),
                                         },
                                     },
+                                    self.settings,
                                 )
                             else:
                                 self.full_result_data["cleaned_result"] = None
@@ -193,6 +196,7 @@ class AgentlyResponseParser(ResponseParser):
                                             "detail": "❌ Can not parse this result!",
                                         },
                                     },
+                                    self.settings,
                                 )
                         else:
                             self.full_result_data["parsed_result"] = str(data)
@@ -207,6 +211,7 @@ class AgentlyResponseParser(ResponseParser):
                                             "detail": str(data),
                                         },
                                     },
+                                    self.settings,
                                 )
                     case "meta":
                         if isinstance(data, Mapping):
