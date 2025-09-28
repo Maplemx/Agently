@@ -160,6 +160,7 @@ class ModelResponse:
                     .replace("\\\"", "\""),
                 },
             },
+            self.settings,
         )
         response_generator = model_requester.request_model(request_data)
         broadcast_generator = model_requester.broadcast_response(response_generator)
