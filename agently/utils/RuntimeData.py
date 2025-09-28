@@ -14,7 +14,7 @@
 
 import datetime
 from copy import deepcopy
-from typing import Any, Literal, Sequence, Mapping, cast
+from typing import Any, Literal, Sequence, Mapping, cast, Iterator
 from pathlib import Path
 
 import json
@@ -79,6 +79,14 @@ class RuntimeData:
 
     def __eq__(self, equal_target: Any) -> bool:
         return self.data == equal_target
+
+    def __iter__(self) -> Iterator[Any]:
+        """Make RuntimeData iterable like a standard dict"""
+        return iter(self.data)
+
+    def __len__(self) -> int:
+        """Return the number of items in the RuntimeData"""
+        return len(self.data)
 
     @property
     def data(self) -> dict[Any, Any]:
@@ -149,12 +157,13 @@ class RuntimeData:
         return current
 
     def __getitem__(self, key: Any = None) -> Any:
-        if isinstance(key, str):
+        if isinstance(key, str) and "." in key:
             return self._get_item_by_dot_path(key)
         elif key is None:
             return self._data
         else:
-            return self.data[key] if key in self.data else None
+            # Return None for missing keys, don't use data property to avoid inheritance
+            return self.data.get(key)
 
     def get(
         self,
@@ -162,17 +171,41 @@ class RuntimeData:
         default: Any | None = None,
         inherit: bool = True,
     ) -> Any:
+        if key is None:
+            if inherit:
+                return self._get_inherited_view(self, {})
+            else:
+                return self._copy(self._data)
+
+        # Handle key lookup
         if inherit:
-            if key is not None:
-                result = self[key]
-            else:
-                result = self._get_inherited_view(self, {})
+            data = self.data
         else:
-            if key is not None:
-                result = self._get_item_by_dot_path(key, inherit)
-            else:
-                result = self._copy(self._data)
-        return result if result is not None else default
+            data = self._data
+
+        if isinstance(key, str) and "." in key:
+            # Handle dot path
+            current = data
+            path_list = key.split(".")
+            try:
+                for path in path_list:
+                    if isinstance(current, dict) and path in current:
+                        current = current[path]
+                    else:
+                        return default
+                return current
+            except:
+                return default
+        else:
+            # Handle simple key
+            if isinstance(data, dict):
+                # Use get with a sentinel to distinguish None values from missing keys
+                sentinel = object()
+                result = data.get(key, sentinel)
+                if result is sentinel:
+                    return default
+                return result
+            return default
 
     def keys(self):
         return self.data.keys()
@@ -199,7 +232,7 @@ class RuntimeData:
         return self._data.clear()
 
     def __contains__(self, key: Any) -> bool:
-        return key in self.keys()
+        return key in self.data
 
     def _set_item(self, ref: DictRef, value: Any):
         if isinstance(ref.get(), dict) and isinstance(value, Mapping):
@@ -213,9 +246,9 @@ class RuntimeData:
             if not isinstance(value, str) and isinstance(value, Sequence):
                 for item in value:
                     if item not in ref.get():
-                        ref.get().append(item)
+                        ref.get().append(self._copy(item))
             elif value not in ref.get():
-                ref.get().append(value)
+                ref.get().append(self._copy(value))
             return
         if isinstance(ref.get(), set):
             current_set = ref.get()
@@ -224,28 +257,28 @@ class RuntimeData:
             if not isinstance(value, (str, bytes)) and isinstance(value, Iterable):
                 for item in value:
                     if item not in current_set:
-                        current_set.add(item)
+                        current_set.add(self._copy(item))
             else:
                 if value not in current_set:
-                    current_set.add(value)
+                    current_set.add(self._copy(value))
             return
         else:
             existing = ref.get()
             if existing is None:
                 if isinstance(value, list):
-                    ref.set(value.copy())
+                    ref.set([self._copy(item) for item in value])
                 else:
-                    ref.set(value)
+                    ref.set(self._copy(value))
             elif isinstance(existing, list):
                 if isinstance(value, list):
                     for item in value:
                         if item not in existing:
-                            existing.append(item)
+                            existing.append(self._copy(item))
                 else:
                     if value not in existing:
-                        existing.append(value)
+                        existing.append(self._copy(value))
             else:
-                ref.set(value)
+                ref.set(self._copy(value))
 
     def _set_item_by_dot_path(self, dot_path: str, value: Any, *, cover: bool = False):
         current = DictRef(self._data)
@@ -262,15 +295,21 @@ class RuntimeData:
                 current.update({path: {}})
             current = current.move_in(path)
         if cover:
-            current.set(value)
+            current.set(self._copy(value))
         else:
             self._set_item(current, value)
 
     def __setitem__(self, key: Any, value: Any):
-        if isinstance(key, str):
+        if isinstance(key, str) and "." in key:
             return self._set_item_by_dot_path(key, value)
         else:
-            return self._data.__setitem__(key, value)
+            # For direct key assignment, use the merge behavior
+            if key in self._data:
+                existing = self._data[key]
+                ref = DictRef(self._data, key)
+                self._set_item(ref, value)
+            else:
+                self._data[key] = self._copy(value)
 
     def set(self, key: Any, value: Any):
         return self.__setitem__(key, value)
@@ -302,7 +341,7 @@ class RuntimeData:
                     case "toml_file":
                         data = toml.load(file)
                     case _:
-                        raise TypeError(f"[Agently RuntimeData] Can not load type: '{ type }'")
+                        raise TypeError(f"[Agently RuntimeData] Can not load type: '{ data_type }'")
         else:
             match data_type:
                 case "json":
@@ -349,7 +388,7 @@ class RuntimeData:
                 return toml.dumps(DataFormatter.to_str_key_dict(serializable_data))
 
     def __delitem__(self, key: Any):
-        if isinstance(key, str):
+        if isinstance(key, str) and "." in key:
             path_list = key.split(".")
             current = DictRef(self._data)
             for path in path_list[:-1]:
@@ -365,29 +404,52 @@ class RuntimeData:
             if isinstance(cur, dict) and last_key in cur:
                 del cur[last_key]
         else:
-            del self._data[key]
+            if key in self._data:
+                del self._data[key]
 
     def append(self, key: Any, value: Any):
-        current = self.get(key, default=None, inherit=False)
-        if current is None:
-            current = []
-        elif isinstance(current, set):
-            current.add(value)
-        elif isinstance(current, list):
-            current.append(value)
+        if isinstance(key, str) and "." in key:
+            current = self._get_item_by_dot_path(key, inherit=False)
         else:
-            current = [current]
-            current.append(value)
-        self._set_item_by_dot_path(key, current, cover=True)
+            current = self._data.get(key)
+
+        if current is None:
+            new_value = [self._copy(value)]
+        elif isinstance(current, set):
+            current = current.copy()  # Create a copy to avoid modifying original
+            current.add(self._copy(value))
+            self._set_item_by_dot_path(key, current, cover=True)
+            return
+        elif isinstance(current, list):
+            new_value = current.copy()  # Create a copy to avoid modifying original
+            new_value.append(self._copy(value))
+        else:
+            new_value = [current, self._copy(value)]
+
+        if isinstance(key, str) and "." in key:
+            self._set_item_by_dot_path(key, new_value, cover=True)
+        else:
+            self._data[key] = new_value
 
     def extend(self, key: Any, values: Sequence[Any]):
-        current = self.get(key, default=None, inherit=False)
+        if isinstance(key, str) and "." in key:
+            current = self._get_item_by_dot_path(key, inherit=False)
+        else:
+            current = self._data.get(key)
+
         if current is None:
-            current = []
-        elif not isinstance(current, list):
-            current = [current]
-        current.extend(values)
-        self._set_item_by_dot_path(key, current, cover=True)
+            new_value = [self._copy(item) for item in values]
+        elif isinstance(current, list):
+            new_value = current.copy()  # Create a copy to avoid modifying original
+            new_value.extend([self._copy(item) for item in values])
+        else:
+            new_value = [current]
+            new_value.extend([self._copy(item) for item in values])
+
+        if isinstance(key, str) and "." in key:
+            self._set_item_by_dot_path(key, new_value, cover=True)
+        else:
+            self._data[key] = new_value
 
     def delete(self, key: Any):
         self.__delitem__(key)
@@ -407,15 +469,32 @@ class RuntimeDataNamespace:
     def __eq__(self, equal_target: Any) -> bool:
         return self.data == equal_target
 
+    def __iter__(self) -> Iterator[Any]:
+        """Make namespace iterable"""
+        data = self.data
+        if isinstance(data, dict):
+            return iter(data)
+        return iter({})
+
+    def __len__(self) -> int:
+        """Return the number of items in the namespace"""
+        data = self.data
+        if isinstance(data, dict):
+            return len(data)
+        return 0
+
     @property
     def data(self) -> Any:
         return self.root.get(self.namespace)
 
     def __getitem__(self, key: Any) -> Any:
-        if isinstance(key, str):
+        if isinstance(key, str) and "." in key:
             return self.root.get(f"{ self.namespace }.{ key }")
         else:
-            return RuntimeData(self.root[self.namespace])[key]
+            ns_data = self.data
+            if isinstance(ns_data, dict):
+                return ns_data.get(key)
+            return None
 
     def get(
         self,
@@ -430,7 +509,20 @@ class RuntimeDataNamespace:
                 result = self.data
         else:
             if key is not None:
-                result = RuntimeData(self.root.get(self.namespace, inherit=False))[key]
+                ns_data = self.root.get(self.namespace, inherit=False)
+                if isinstance(ns_data, dict):
+                    if isinstance(key, str) and "." in key:
+                        # Handle dot path within namespace
+                        current = ns_data
+                        for path_part in key.split("."):
+                            if isinstance(current, dict) and path_part in current:
+                                current = current[path_part]
+                            else:
+                                return default
+                        return current
+                    else:
+                        return ns_data.get(key)
+                return None
             else:
                 result = self.root.get(self.namespace, inherit=False)
         return result if result is not None else default
@@ -454,21 +546,17 @@ class RuntimeDataNamespace:
         return {}.items()
 
     def __setitem__(self, key: Any, value: Any):
-        if isinstance(key, str):
+        if isinstance(key, str) and "." in key:
             return self.root.set(f"{self.namespace}.{key}", value)
         else:
-            ns = self.root.get(self.namespace, inherit=False)
-            if ns is None:
+            # Ensure namespace exists
+            if self.root.get(self.namespace, inherit=False) is None:
                 self.root._data[self.namespace] = {}
-                ns = self.root._data[self.namespace]
-            if isinstance(ns, dict):
-                ns.update({key: value})
-                self.root._data[self.namespace] = ns
-                return
-            raise TypeError(f"Can not set item to namespace '{ self.namespace }' because it is not a dictionary.")
+
+            self.root.set(f"{self.namespace}.{key}", value)
 
     def __delitem__(self, key: Any):
-        if isinstance(key, str):
+        if isinstance(key, str) and "." in key:
             del self.root[f"{ self.namespace }.{ key }"]
         else:
             ns = self.root.get(self.namespace, inherit=False)
@@ -477,7 +565,7 @@ class RuntimeDataNamespace:
                 self.root._data[self.namespace] = ns
 
     def pop(self, key: str, default: Any = None) -> Any:
-        if isinstance(key, str):
+        if isinstance(key, str) and "." in key:
             return self.root.pop(f"{ self.namespace }.{ key }", default)
         else:
             ns = self.root.get(self.namespace, inherit=False)
@@ -501,26 +589,12 @@ class RuntimeDataNamespace:
             self.set(key, value)
 
     def append(self, key: str, value: Any):
-        current = self.get(key, default=None, inherit=False)
-        if current is None:
-            current = []
-        elif isinstance(current, set):
-            current.add(value)
-        elif isinstance(current, list):
-            current.append(value)
-        else:
-            current = [current]
-            current.append(value)
-        self.root._set_item_by_dot_path(f"{ self.namespace }.{ key }", current, cover=True)
+        full_key = f"{ self.namespace }.{ key }"
+        self.root.append(full_key, value)
 
     def extend(self, key: str, values: Sequence[Any]):
-        current = self.get(key, default=None, inherit=False)
-        if current is None:
-            current = []
-        elif not isinstance(current, list):
-            current = [current]
-        current.extend(values)
-        self.root._set_item_by_dot_path(f"{ self.namespace }.{ key }", current, cover=True)
+        full_key = f"{ self.namespace }.{ key }"
+        self.root.extend(full_key, values)
 
     def delete(self, key: Any):
         self.__delitem__(key)
