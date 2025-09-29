@@ -65,6 +65,7 @@ class TriggerFlow:
         self.append_flow_data = FunctionShifter.syncify(self.async_append_flow_data)
         self.del_flow_data = FunctionShifter.syncify(self.async_del_flow_data)
 
+        self.when = self._start_process.when
         self.to = self._start_process.to
         self.side_branch = self._start_process.side_branch
         self.batch = self._start_process.batch
@@ -77,29 +78,29 @@ class TriggerFlow:
         self.settings.set_settings(key, value)
         return self
 
-    def when(
-        self,
-        target: str,
-        *,
-        type: Literal["event", "runtime_data", "flow_data"] = "event",
-    ):
-        return TriggerFlowProcess(
-            trigger_event=target,
-            trigger_type=type,
-            blue_print=self._blue_print,
-            block_data=TriggerFlowBlockData(
-                outer_block=None,
-            ),
-        )
+    # def when(
+    #     self,
+    #     target: str,
+    #     *,
+    #     type: Literal["event", "runtime_data", "flow_data"] = "event",
+    # ):
+    #     return TriggerFlowProcess(
+    #         trigger_event=target,
+    #         trigger_type=type,
+    #         blue_print=self._blue_print,
+    #         block_data=TriggerFlowBlockData(
+    #             outer_block=None,
+    #         ),
+    #     )
 
-    def when_event(self, event: str):
-        return self.when(event, type="event")
+    # def when_event(self, event: str):
+    #     return self.when(event, type="event")
 
-    def when_runtime_data(self, key: str):
-        return self.when(key, type="runtime_data")
+    # def when_runtime_data(self, key: str):
+    #     return self.when(key, type="runtime_data")
 
-    def when_flow_data(self, key: str):
-        return self.when(key, type="flow_data")
+    # def when_flow_data(self, key: str):
+    #     return self.when(key, type="flow_data")
 
     @overload
     def chunk(self, handler_or_name: "TriggerFlowHandler") -> TriggerFlowChunk: ...
@@ -174,16 +175,13 @@ class TriggerFlow:
             for execution in self._executions.values():
                 handlers = execution._handlers["flow_data"]
                 if key in handlers:
-                    for handler in handlers[key].values():
-                        futures.append(
-                            FunctionShifter.future(handler)(
-                                TriggerFlowEventData(
-                                    event=key,
-                                    value=value,
-                                    execution=execution,
-                                )
-                            )
+                    futures.append(
+                        execution.async_emit(
+                            key,
+                            value,
+                            trigger_type="flow_data",
                         )
+                    )
             if futures:
                 await asyncio.gather(*futures, return_exceptions=True)
 

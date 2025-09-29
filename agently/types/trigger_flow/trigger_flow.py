@@ -19,10 +19,13 @@ from agently.types.data import AVOID_COPY
 
 if TYPE_CHECKING:
     from agently.core import TriggerFlowExecution
-    from agently.core.TriggerFlow import TriggerFlowBaseProcess
+
+from agently.utils import RuntimeData
 
 
 class TriggerFlowBlockData:
+    global_data = RuntimeData()
+
     def __init__(
         self,
         outer_block: "TriggerFlowBlockData | None" = None,
@@ -36,12 +39,16 @@ class TriggerFlowEventData:
     def __init__(
         self,
         *,
-        event: str,
+        trigger_event: str,
+        trigger_type: Literal["event", "runtime_data", "flow_data"],
         value: Any,
         execution: "TriggerFlowExecution",
         layer_marks: list[str] | None = None,
     ):
-        self.event = event
+        self.trigger_event = trigger_event
+        self.trigger_type = trigger_type
+        self.event = trigger_event
+        self.type = trigger_type
         self.value = value
         self.execution_id = execution.id
         self.layer_marks = layer_marks if layer_marks is not None else []

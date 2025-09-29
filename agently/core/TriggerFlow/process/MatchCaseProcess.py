@@ -142,7 +142,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             )
 
         for trigger in branch_ends:
-            self.when_event(trigger).to(collect_branch_result)
+            self.when(trigger).to(collect_branch_result)
 
         outer_block = self._block_data.outer_block
         block_data = (

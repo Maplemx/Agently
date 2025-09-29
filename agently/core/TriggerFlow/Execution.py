@@ -95,29 +95,33 @@ class TriggerFlowExecution:
     # Emit Event
     async def async_emit(
         self,
-        event: str,
+        trigger_event: str,
         value: Any = None,
         layer_marks: list[str] | None = None,
+        *,
+        trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
     ):
         from agently.base import async_system_message
 
         await async_system_message(
             "TRIGGER_FLOW",
             {
-                "EVENT": event,
+                "TYPE": trigger_type,
+                "EVENT": trigger_event,
                 "VALUE": value,
             },
             self.settings,
         )
         tasks = []
-        handlers = self._handlers["event"]
+        handlers = self._handlers[trigger_type]
 
-        if event in handlers:
-            for handler_id, handler in handlers[event].items():
+        if trigger_event in handlers:
+            for handler_id, handler in handlers[trigger_event].items():
                 await async_system_message(
                     "TRIGGER_FLOW",
                     {
-                        "EVENT": event,
+                        "EVENT": trigger_event,
+                        "TYPE": trigger_type,
                         "HANDLER": handler_id,
                     },
                     self.settings,
@@ -126,7 +130,8 @@ class TriggerFlowExecution:
                     asyncio.ensure_future(
                         FunctionShifter.asyncify(handler)(
                             TriggerFlowEventData(
-                                event=event,
+                                trigger_event=trigger_event,
+                                trigger_type=trigger_type,
                                 value=value,
                                 execution=self,
                                 layer_marks=layer_marks,
@@ -165,16 +170,13 @@ class TriggerFlowExecution:
                     return
         if emit:
             if key in handlers:
-                for handler in handlers[key].values():
-                    futures.append(
-                        FunctionShifter.future(handler)(
-                            TriggerFlowEventData(
-                                event=key,
-                                value=value,
-                                execution=self,
-                            )
-                        )
+                futures.append(
+                    self.async_emit(
+                        key,
+                        value,
+                        trigger_type="runtime_data",
                     )
+                )
 
             if futures:
                 await asyncio.gather(*futures, return_exceptions=self._skip_exceptions)
