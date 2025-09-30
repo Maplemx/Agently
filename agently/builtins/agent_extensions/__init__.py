@@ -16,3 +16,4 @@
 from .ToolExtension import ToolExtension
 from .KeyWaiterExtension import KeyWaiterExtension
 from .AutoFuncExtension import AutoFuncExtension
+from .ConfigurePromptExtension import ConfigurePromptExtension

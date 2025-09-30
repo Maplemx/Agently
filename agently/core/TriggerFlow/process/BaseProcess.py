@@ -14,8 +14,9 @@
 
 
 import uuid
+from threading import Lock
 
-from typing import Sequence, Literal, TYPE_CHECKING
+from typing import Any, Literal, TYPE_CHECKING, overload
 
 
 if TYPE_CHECKING:
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
 from agently.core.TriggerFlow.Chunk import TriggerFlowChunk
 from agently.types.data import EMPTY
 from agently.types.trigger_flow import TriggerFlowBlockData
+from agently.utils import RuntimeData
 
 
 class TriggerFlowBaseProcess:
@@ -59,29 +61,132 @@ class TriggerFlowBaseProcess:
             **options,
         )
 
+    @overload
     def when(
         self,
-        target: str,
-        *,
-        type: Literal["event", "runtime_data", "flow_data"] = "event",
+        trigger_or_triggers: str | TriggerFlowChunk,
+    ): ...
+    @overload
+    def when(
+        self,
+        trigger_or_triggers: dict[
+            Literal["event"],
+            str | TriggerFlowChunk | list[str | TriggerFlowChunk],
+        ],
+    ): ...
+    @overload
+    def when(
+        self,
+        trigger_or_triggers: dict[
+            Literal["runtime_data", "flow_data", "collect"],
+            str | list[str],
+        ],
+    ): ...
+    def when(
+        self,
+        trigger_or_triggers: (
+            str
+            | TriggerFlowChunk
+            | dict[
+                Literal["event"],
+                str | TriggerFlowChunk | list[str | TriggerFlowChunk],
+            ]
+            | dict[
+                Literal["runtime_data", "flow_data", "collect"],
+                str | list[str],
+            ]
+        ),
     ):
-        return self._new(
-            trigger_event=target,
-            trigger_type=type,
-            blue_print=self._blue_print,
-            block_data=TriggerFlowBlockData(
-                outer_block=None,
-            ),
-        )
+        if isinstance(trigger_or_triggers, TriggerFlowChunk):
+            trigger_or_triggers = trigger_or_triggers.trigger
+        if isinstance(trigger_or_triggers, str):
+            return self._new(
+                trigger_event=trigger_or_triggers,
+                trigger_type="event",
+                blue_print=self._blue_print,
+                block_data=TriggerFlowBlockData(
+                    outer_block=None,
+                ),
+            )
+        else:
+            values: dict[Literal["event", "runtime_data", "flow_data", "collect"], dict[str, Any]] = {}
+            trigger_count = 0
+            current_trigger_type = "event"
+            current_trigger_event = ""
+            for trigger_type, trigger_event_or_events in trigger_or_triggers.items():
+                if trigger_type not in values:
+                    values[trigger_type] = {}
+                if isinstance(trigger_event_or_events, TriggerFlowChunk):
+                    if trigger_type == "event":
+                        trigger_event_or_events = trigger_event_or_events.trigger
+                    else:
+                        raise TypeError(f"Can not use chunk as trigger event when trigger type is not 'event'.")
+                if trigger_type == "collect":
+                    trigger_type = "event"
+                    if isinstance(trigger_event_or_events, str):
+                        trigger_event_or_events = f"Collect-{ trigger_event_or_events }"
+                    else:
+                        trigger_events = []
+                        for trigger_event in trigger_event_or_events:
+                            trigger_events.append(f"Collect-{ trigger_event }")
+                        trigger_event_or_events = trigger_events
+                if isinstance(trigger_event_or_events, str):
+                    values[trigger_type][trigger_event_or_events] = EMPTY
+                    current_trigger_type = trigger_type
+                    current_trigger_event = trigger_event_or_events
+                    trigger_count += 1
+                else:
+                    for trigger_event in trigger_event_or_events:
+                        if isinstance(trigger_event, TriggerFlowChunk):
+                            trigger_event = trigger_event.trigger
+                        values[trigger_type][trigger_event] = EMPTY
+                        current_trigger_type = trigger_type
+                        current_trigger_event = trigger_event
+                        trigger_count += 1
 
-    def when_event(self, event: str):
-        return self.when(event, type="event")
+            if trigger_count == 1:
+                return self._new(
+                    trigger_event=current_trigger_event,
+                    trigger_type=current_trigger_type,
+                    blue_print=self._blue_print,
+                    block_data=TriggerFlowBlockData(
+                        outer_block=None,
+                    ),
+                )
+            else:
+                when_trigger = f"When-{ uuid.uuid4().hex }"
 
-    def when_runtime_data(self, key: str):
-        return self.when(key, type="runtime_data")
+                async def wait_trigger(data: "TriggerFlowEventData"):
+                    if data.trigger_type in values and data.trigger_event in values[trigger_type]:  # type: ignore
+                        values[data.trigger_type][data.trigger_event] = data.value
 
-    def when_flow_data(self, key: str):
-        return self.when(key, type="flow_data")
+                    for trigger_event_dict in values.values():
+                        for event_value in trigger_event_dict.values():
+                            if event_value is EMPTY:
+                                return
+
+                    await data.async_emit(
+                        when_trigger,
+                        values,
+                        layer_marks=data.layer_marks.copy(),
+                    )
+
+                for trigger_type, trigger_event_dict in values.items():
+                    for trigger_event in trigger_event_dict.keys():
+                        self._blue_print.add_handler(
+                            trigger_type,  # type: ignore
+                            trigger_event,
+                            wait_trigger,
+                        )
+
+                return self._new(
+                    trigger_event=when_trigger,
+                    trigger_type="event",
+                    blue_print=self._blue_print,
+                    block_data=TriggerFlowBlockData(
+                        outer_block=None,
+                    ),
+                )
 
     def to(
         self,
@@ -126,7 +231,11 @@ class TriggerFlowBaseProcess:
             for done in chunks_to_wait.values():
                 if done is False:
                     return
-            await data.async_emit(batch_trigger, results, layer_marks=data.layer_marks.copy())
+            await data.async_emit(
+                batch_trigger,
+                results,
+                layer_marks=data.layer_marks.copy(),
+            )
 
         for chunk in chunks:
             chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
@@ -140,6 +249,47 @@ class TriggerFlowBaseProcess:
 
         return self._new(
             trigger_event=batch_trigger if not side_branch else self.trigger_event,
+            blue_print=self._blue_print,
+            block_data=self._block_data,
+            **self._options,
+        )
+
+    def collect(
+        self,
+        collection_name: str,
+        branch_id: str | None = None,
+        *,
+        mode: Literal["filled_and_update", "filled_then_empty"] = "filled_and_update",
+    ):
+        branch_id = branch_id if branch_id is not None else uuid.uuid4().hex
+        collect_trigger = f"Collect-{ collection_name }"
+        with Lock():
+            self._block_data.global_data.set(f"collections.{ collection_name }.{ branch_id }", EMPTY)
+
+        async def collect_branches(data: "TriggerFlowEventData"):
+            self._block_data.global_data.set(f"collections.{ collection_name }.{ branch_id }", data.value)
+            for value in self._block_data.global_data.get(f"collections.{ collection_name}").values():
+                if value is EMPTY:
+                    return
+
+            if mode == "filled_and_update":
+                await data.async_emit(
+                    collect_trigger,
+                    self._block_data.global_data.get(f"collections.{ collection_name}"),
+                    layer_marks=data.layer_marks.copy(),
+                )
+            elif mode == "filled_then_empty":
+                await data.async_emit(
+                    collect_trigger,
+                    self._block_data.global_data.get(f"collections.{ collection_name}"),
+                    layer_marks=data.layer_marks.copy(),
+                )
+                del self._block_data.global_data[f"collections.{ collection_name}"]
+
+        self.to(collect_branches)
+
+        return self._new(
+            trigger_event=collect_trigger,
             blue_print=self._blue_print,
             block_data=self._block_data,
             **self._options,

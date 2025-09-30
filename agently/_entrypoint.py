@@ -44,6 +44,7 @@ from agently.builtins.agent_extensions import (
     ToolExtension,
     KeyWaiterExtension,
     AutoFuncExtension,
+    ConfigurePromptExtension,
 )
 
 
@@ -51,6 +52,7 @@ class Agent(
     ToolExtension,
     KeyWaiterExtension,
     AutoFuncExtension,
+    ConfigurePromptExtension,
     BaseAgent,
 ): ...
 
