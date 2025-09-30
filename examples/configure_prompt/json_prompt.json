@@ -1,0 +1,18 @@
+{
+    ".agent": {
+        "system": "You are an Agently enhanced agent.",
+        "info": {
+            "Agently": "Speed up your AI application development. Official website: https://Agently.tech."
+        }
+    },
+    ".request": {
+        "input": "Say hello."
+    },
+    ".alias": {
+        "set_request_prompt": {
+            ".args": ["instruct", "Reply {input} politely."]
+        }
+    },
+    "$extra_info": "This is an extra information for agent prompt.",
+    "extra_request_info": "This is an extra information for next request."
+}
