@@ -249,40 +249,73 @@ class ModelRequest:
     def set_settings(self, key: str, value: "SerializableValue"):
         self.settings.set_settings(key, value)
 
-    def set_prompt(self, key: "PromptStandardSlot | str", value: tuple[type, str | None, str | None] | Any):
-        self.prompt.set(key, value)
+    def set_prompt(
+        self,
+        key: "PromptStandardSlot | str",
+        value: tuple[type, str | None, str | None] | Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.prompt.set(key, value, mappings)
         return self
 
     # Quick Prompt
-    def system(self, prompt: Any):
-        self.prompt.set("input", prompt)
+    def system(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.prompt.set("input", prompt, mappings)
         return self
 
-    def rule(self, prompt: Any):
+    def rule(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
         self.prompt.set("system", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
-        self.prompt.set("system.rule", prompt)
+        self.prompt.set("system.rule", prompt, mappings)
         return self
 
-    def role(self, prompt: Any):
+    def role(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
         self.prompt.set("system", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
-        self.prompt.set("system.your_role", prompt)
+        self.prompt.set("system.your_role", prompt, mappings)
         return self
 
-    def user_info(self, prompt: Any):
+    def user_info(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
         self.prompt.set("system", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
-        self.prompt.set("system.user_info", prompt)
+        self.prompt.set("system.user_info", prompt, mappings)
         return self
 
-    def input(self, prompt: Any):
-        self.prompt.set("input", prompt)
+    def input(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.prompt.set("input", prompt, mappings)
         return self
 
-    def info(self, prompt: Any):
-        self.prompt.set("info", prompt)
+    def info(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.prompt.set("info", prompt, mappings)
         return self
 
-    def instruct(self, prompt: Any):
-        self.prompt.set("instruct", prompt)
+    def instruct(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.prompt.set("instruct", prompt, mappings)
         return self
 
     def output(
@@ -293,8 +326,9 @@ class ModelRequest:
             | tuple[type, str | None, str, None]
             | Any
         ),
+        mappings: dict[str, Any] | None = None,
     ):
-        self.prompt.set("output", prompt)
+        self.prompt.set("output", prompt, mappings)
         return self
 
     def get_response(self):

@@ -81,12 +81,22 @@ class BaseAgent:
         self.settings.set_settings(key, value)
         return self
 
-    def set_agent_prompt(self, key: "PromptStandardSlot | str", value: Any):
-        self.prompt.set(key, value)
+    def set_agent_prompt(
+        self,
+        key: "PromptStandardSlot | str",
+        value: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.prompt.set(key, value, mappings)
         return self
 
-    def set_request_prompt(self, key: "PromptStandardSlot | str", value: Any):
-        self.request.prompt.set(key, value)
+    def set_request_prompt(
+        self,
+        key: "PromptStandardSlot | str",
+        value: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.request.prompt.set(key, value, mappings)
         return self
 
     def remove_agent_prompt(self, key: "PromptStandardSlot | str"):
@@ -127,59 +137,101 @@ class BaseAgent:
         return self
 
     # Quick Prompt
-    def system(self, prompt: Any, *, always: bool = False):
+    def system(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
         if always:
-            self.prompt.set("input", prompt)
+            self.prompt.set("input", prompt, mappings)
         else:
-            self.request.prompt.set("input", prompt)
+            self.request.prompt.set("input", prompt, mappings)
         return self
 
-    def rule(self, prompt: Any, *, always: bool = False):
+    def rule(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
         if always:
             self.prompt.set("instruct", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
-            self.prompt.set("system.rule", prompt)
+            self.prompt.set("system.rule", prompt, mappings)
         else:
             self.request.prompt.set("instruct", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
-            self.request.prompt.set("system.rule", prompt)
+            self.request.prompt.set("system.rule", prompt, mappings)
         return self
 
-    def role(self, prompt: Any, *, always: bool = False):
+    def role(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
         if always:
             self.prompt.set("instruct", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
-            self.prompt.set("system.your_role", prompt)
+            self.prompt.set("system.your_role", prompt, mappings)
         else:
             self.request.prompt.set("instruct", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
-            self.request.prompt.set("system.your_role", prompt)
+            self.request.prompt.set("system.your_role", prompt, mappings)
         return self
 
-    def user_info(self, prompt: Any, *, always: bool = False):
+    def user_info(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
         if always:
             self.prompt.set("instruct", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
-            self.prompt.set("system.user_info", prompt)
+            self.prompt.set("system.user_info", prompt, mappings)
         else:
             self.request.prompt.set("instruct", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
-            self.request.prompt.set("system.user_info", prompt)
+            self.request.prompt.set("system.user_info", prompt, mappings)
         return self
 
-    def input(self, prompt: Any, *, always: bool = False):
+    def input(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
         if always:
-            self.prompt.set("input", prompt)
+            self.prompt.set("input", prompt, mappings)
         else:
-            self.request.prompt.set("input", prompt)
+            self.request.prompt.set("input", prompt, mappings)
         return self
 
-    def info(self, prompt: Any, *, always: bool = False):
+    def info(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
         if always:
-            self.prompt.set("info", prompt)
+            self.prompt.set("info", prompt, mappings)
         else:
-            self.request.prompt.set("info", prompt)
+            self.request.prompt.set("info", prompt, mappings)
         return self
 
-    def instruct(self, prompt: Any, *, always: bool = False):
+    def instruct(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
         if always:
-            self.prompt.set("instruct", prompt)
+            self.prompt.set("instruct", prompt, mappings)
         else:
-            self.request.prompt.set("instruct", prompt)
+            self.request.prompt.set("instruct", prompt, mappings)
         return self
 
     def output(
@@ -190,11 +242,12 @@ class BaseAgent:
             | tuple[type, str | None, str, None]
             | Any
         ),
+        mappings: dict[str, Any] | None = None,
         *,
         always: bool = False,
     ):
         if always:
-            self.prompt.set("output", prompt)
+            self.prompt.set("output", prompt, mappings)
         else:
-            self.request.prompt.set("output", prompt)
+            self.request.prompt.set("output", prompt, mappings)
         return self

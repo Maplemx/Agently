@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Literal, TYPE_CHECKING, cast, overload
+import re
+from typing import Any, Literal, Mapping, Sequence, TYPE_CHECKING, cast, overload, TypeVar
 
 from agently.utils import RuntimeData, Settings
 
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
     from agently.types.data.prompt import ChatMessage, PromptStandardSlot
     from agently.types.plugins import PromptGenerator
     from agently.core import PluginManager
+
+T = TypeVar("T")
 
 
 class Prompt(RuntimeData):
@@ -75,6 +78,9 @@ class Prompt(RuntimeData):
         name: str | None = None,
     ):
         super().__init__(prompt_dict, parent=parent_prompt, name=name)
+
+        self._placeholder_pattern = re.compile(r"\$\{\s*([^}]+?)\s*\}")
+
         self.settings = Settings(
             name="Prompt-Settings",
             parent=parent_settings,
@@ -86,28 +92,104 @@ class Prompt(RuntimeData):
                 str(self.settings["plugins.PromptGenerator.activate"]),
             ),
         )
+
         self.prompt_generator = PromptGeneratorPlugin(self, self.settings)
         self.to_text = self.prompt_generator.to_text
         self.to_messages = self.prompt_generator.to_messages
         self.to_prompt_object = self.prompt_generator.to_prompt_object
         self.to_output_model = self.prompt_generator.to_output_model
 
+    def _substitute_placeholder(self, obj: T, variable_mappings: dict[str, Any]) -> T | Any:
+        if not isinstance(variable_mappings, dict):
+            raise TypeError(f"Variable mappings require a dictionary but got: { variable_mappings }")
+
+        if isinstance(obj, str):
+            full_match = self._placeholder_pattern.fullmatch(obj)
+            if full_match:
+                key = full_match.group(1).strip()
+                return variable_mappings.get(key, obj)
+            else:
+
+                def replacer(match):
+                    key = match.group(1).strip()
+                    return str(variable_mappings.get(key, match.group(0)))
+
+                return self._placeholder_pattern.sub(replacer, obj)
+
+        if isinstance(obj, Mapping):
+            return {
+                self._substitute_placeholder(key, variable_mappings): self._substitute_placeholder(
+                    value, variable_mappings
+                )
+                for key, value in obj.items()
+            }
+
+        if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
+            if isinstance(obj, tuple):
+                return tuple(self._substitute_placeholder(value, variable_mappings) for value in obj)
+            else:
+                return [self._substitute_placeholder(value, variable_mappings) for value in obj]
+
+        if isinstance(obj, set):
+            return {self._substitute_placeholder(value, variable_mappings) for value in obj}
+
+        return obj
+
     @overload
     def set(
-        self, key: Literal["chat_history"], value: "dict[str, str | dict[str, Any]] | list[ChatMessage] | ChatMessage"
+        self,
+        key: Literal["chat_history"],
+        value: "dict[str, str | dict[str, Any]] | list[ChatMessage] | ChatMessage",
+        mappings: dict[str, Any] | None = None,
     ): ...
 
     @overload
-    def set(self, key: "PromptStandardSlot | str", value: Any): ...
+    def set(
+        self,
+        key: "PromptStandardSlot | str",
+        value: Any,
+        mappings: dict[str, Any] | None = None,
+    ): ...
 
-    def set(self, key: "PromptStandardSlot | str", value: Any):
-        super().set(key, value)
+    def set(
+        self,
+        key: "PromptStandardSlot | str",
+        value: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        if mappings is not None:
+            super().set(
+                self._substitute_placeholder(key, mappings),
+                self._substitute_placeholder(value, mappings),
+            )
+        else:
+            super().set(key, value)
 
-    def update(self, new: "dict[PromptStandardSlot | str, Any]"):
-        super().update(new)
+    def update(
+        self,
+        new: "dict[PromptStandardSlot | str, Any]",
+        mappings: dict[str, Any] | None = None,
+    ):
+        if mappings is not None:
+            super().update(
+                self._substitute_placeholder(new, mappings),
+            )
+        else:
+            super().update(new)
 
-    def append(self, key: "PromptStandardSlot | str", value: Any):
-        super().append(key, value)
+    def append(
+        self,
+        key: "PromptStandardSlot | str",
+        value: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        if mappings is not None:
+            super().append(
+                self._substitute_placeholder(key, mappings),
+                self._substitute_placeholder(value, mappings),
+            )
+        else:
+            super().append(key, value)
 
     def get(self, key: "PromptStandardSlot | None" = None, default: Any | None = None, inherit: bool = True):
         return super().get(key, default=default, inherit=inherit)
