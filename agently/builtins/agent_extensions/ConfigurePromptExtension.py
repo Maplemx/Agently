@@ -24,21 +24,73 @@ from agently.core import BaseAgent
 
 
 class ConfigurePromptExtension(BaseAgent):
-    def _execute_prompt_configure(self, prompt: dict[str, Any]):
+    def _generate_output_value(self, output_prompt_value: Any):
+        if isinstance(output_prompt_value, dict):
+            output_type = None
+            output_desc = None
+            if "$type" in output_prompt_value:
+                output_type = output_prompt_value["$type"]
+            if ".type" in output_prompt_value:
+                output_type = output_prompt_value[".type"]
+            if "$desc" in output_prompt_value:
+                output_desc = output_prompt_value["$desc"]
+            if ".desc" in output_prompt_value:
+                output_desc = output_prompt_value[".desc"]
+            if output_type or output_desc:
+                return (
+                    output_type if output_type is not None else Any,
+                    output_desc,
+                )
+            else:
+                return output_prompt_value
+        else:
+            return output_prompt_value
+
+    def _execute_prompt_configure(self, prompt: dict[str, Any], variable_mappings: dict[str, Any] | None):
         for prompt_key, prompt_value in prompt.items():
             match prompt_key:
                 case ".agent":
                     if isinstance(prompt_value, dict):
                         for agent_prompt_key, agent_prompt_value in prompt_value.items():
-                            self.set_agent_prompt(agent_prompt_key, agent_prompt_value)
+                            if agent_prompt_key != "output":
+                                self.set_agent_prompt(
+                                    agent_prompt_key,
+                                    agent_prompt_value,
+                                    variable_mappings,
+                                )
+                            else:
+                                self.set_agent_prompt(
+                                    agent_prompt_key,
+                                    self._generate_output_value(agent_prompt_value),
+                                    variable_mappings,
+                                )
                     else:
-                        self.set_agent_prompt("system", prompt_value)
+                        self.set_agent_prompt(
+                            "system",
+                            prompt_value,
+                            variable_mappings,
+                        )
                 case ".request":
                     if isinstance(prompt_value, dict):
                         for request_prompt_key, request_prompt_value in prompt_value.items():
-                            self.set_request_prompt(request_prompt_key, request_prompt_value)
+                            if request_prompt_key != "output":
+                                self.set_request_prompt(
+                                    request_prompt_key,
+                                    request_prompt_value,
+                                    variable_mappings,
+                                )
+                            else:
+                                self.set_request_prompt(
+                                    request_prompt_key,
+                                    self._generate_output_value(request_prompt_value),
+                                    variable_mappings,
+                                )
                     else:
-                        self.set_request_prompt("input", prompt_value)
+                        self.set_request_prompt(
+                            "input",
+                            prompt_value,
+                            variable_mappings,
+                        )
                 case ".alias":
                     if isinstance(prompt_value, dict):
                         for alias_name, alias_parameters in prompt_value.items():
@@ -86,12 +138,35 @@ class ConfigurePromptExtension(BaseAgent):
                             f"{ prompt_value }"
                         )
                 case _:
-                    if prompt_key.startswith("$"):
-                        self.set_agent_prompt(prompt_key[1:], prompt_value)
+                    if prompt_key.startswith("$") and not prompt_key.startswith("${"):
+                        prompt_key = prompt_key[1:]
+                        if prompt_key != "output":
+                            self.set_agent_prompt(
+                                prompt_key,
+                                prompt_value,
+                                variable_mappings,
+                            )
+                        else:
+                            self.set_agent_prompt(
+                                prompt_key,
+                                self._generate_output_value(prompt_value),
+                                variable_mappings,
+                            )
                     else:
-                        self.set_request_prompt(prompt_key, prompt_value)
+                        if prompt_key != "output":
+                            self.set_request_prompt(
+                                prompt_key,
+                                prompt_value,
+                                variable_mappings,
+                            )
+                        else:
+                            self.set_request_prompt(
+                                prompt_key,
+                                self._generate_output_value(prompt_value),
+                                variable_mappings,
+                            )
 
-    def load_yaml_prompt(self, path_or_content: str):
+    def load_yaml_prompt(self, path_or_content: str, mappings: dict[str, Any] | None = None):
         path = Path(path_or_content)
         if path.exists() and path.is_file():
             try:
@@ -105,14 +180,14 @@ class ConfigurePromptExtension(BaseAgent):
             except yaml.YAMLError as e:
                 raise ValueError(f"Cannot load YAML content or file path not existed.\nError: { e }")
         if isinstance(prompt, dict):
-            self._execute_prompt_configure(prompt)
+            self._execute_prompt_configure(prompt, mappings)
         else:
             raise TypeError(
                 "Cannot execute YAML prompt configures, expect prompt configures as a dictionary data but got:"
                 f"{ prompt }"
             )
 
-    def load_json_prompt(self, path_or_content: str):
+    def load_json_prompt(self, path_or_content: str, mappings: dict[str, Any] | None = None):
         path = Path(path_or_content)
         if path.exists() and path.is_file():
             try:
@@ -126,7 +201,7 @@ class ConfigurePromptExtension(BaseAgent):
             except yaml.YAMLError as e:
                 raise ValueError(f"Cannot load JSON content or file path not existed.\nError: { e }")
         if isinstance(prompt, dict):
-            self._execute_prompt_configure(prompt)
+            self._execute_prompt_configure(prompt, mappings)
         else:
             raise TypeError(
                 "Cannot execute JSON prompt configures, expect prompt configures as a dictionary data but got:"

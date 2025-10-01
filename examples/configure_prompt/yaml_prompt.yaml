@@ -11,3 +11,7 @@
       - Reply {input} politely
 $extra_info: This is an extra information for agent prompt.
 extra_request_info: This is an extra information for next request.
+in_value_placeholder_test: "in_value_placeholder: ${in_value_placeholder}"
+$${key_name_placeholder}: This agent key name should be replaced.
+${key_name_placeholder}: This request key name should be replaced too.
+only_value_placeholder_test": ${ only_value_placeholder }
