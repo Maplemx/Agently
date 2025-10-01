@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import uuid
+import asyncio
 
 from typing import Callable, Literal, TYPE_CHECKING
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from agently.types.data import SerializableValue
     from agently.types.trigger_flow import TriggerFlowEventData
 
+from agently.types.data import EMPTY
 from agently.types.trigger_flow import TriggerFlowBlockData
 from .BaseProcess import TriggerFlowBaseProcess
 
@@ -43,22 +45,37 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
         )
 
         async def match_case(data: "TriggerFlowEventData"):
+            data.layer_in()
             matched_count = 0
+            tasks = []
             for case_id, condition in match_block_data.data["cases"].items():
                 if callable(condition):
                     judgement = condition(data)
                 else:
                     judgement = bool(data.value == condition)
                 if judgement is True:
-                    await data.async_emit(
-                        f"Match-{ match_id }-Case-{ case_id }",
-                        data.value,
-                        layer_marks=data.layer_marks.copy(),
-                    )
                     if mode == "hit_first":
+                        await data.async_emit(
+                            f"Match-{ match_id }-Case-{ case_id }",
+                            data.value,
+                            layer_marks=data.layer_marks.copy(),
+                        )
                         return
                     elif mode == "hit_all":
+                        data.layer_in()
                         matched_count += 1
+                        data._system_runtime_data.set(
+                            f"match_results.{ data.upper_layer_mark }.{ data.layer_mark }", EMPTY
+                        )
+                        tasks.append(
+                            data.async_emit(
+                                f"Match-{ match_id }-Case-{ case_id }",
+                                data.value,
+                                layer_marks=data.layer_marks.copy(),
+                            )
+                        )
+                        data.layer_out()
+            await asyncio.gather(*tasks)
             if matched_count == 0:
                 if match_block_data.data["has_else"] is True:
                     await data.async_emit(
@@ -135,11 +152,28 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             branch_ends.append(self.trigger_event)
 
         async def collect_branch_result(data: "TriggerFlowEventData"):
-            await data.async_emit(
-                f"Match-{ match_id }-Result",
-                data.value,
-                layer_marks=data.layer_marks.copy(),
-            )
+            match_results = data._system_runtime_data.get(f"match_results.{ data.upper_layer_mark }")
+            if match_results:
+                if data.layer_mark in match_results:
+                    match_results[data.layer_mark] = data.value
+                for value in match_results.values():
+                    if value is EMPTY:
+                        data._system_runtime_data.set(f"match_results.{ data.upper_layer_mark }", match_results)
+                        return
+                await data.async_emit(
+                    f"Match-{ match_id }-Result",
+                    list(match_results.values()),
+                    layer_marks=data.layer_marks.copy(),
+                )
+                del data._system_runtime_data[f"match_results.{ data.upper_layer_mark }"]
+                data.layer_out()
+            else:
+                await data.async_emit(
+                    f"Match-{ match_id }-Result",
+                    data.value,
+                    layer_marks=data.layer_marks.copy(),
+                )
+            data.layer_out()
 
         for trigger in branch_ends:
             self.when(trigger).to(collect_branch_result)
