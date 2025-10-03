@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 from agently.core.TriggerFlow.Chunk import TriggerFlowChunk
 from agently.types.data import EMPTY
 from agently.types.trigger_flow import TriggerFlowBlockData
-from agently.utils import RuntimeData
 
 
 class TriggerFlowBaseProcess:

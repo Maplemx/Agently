@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from .Chunk import TriggerFlowHandler
     from agently.types.data import SerializableValue
 
-from agently.types.trigger_flow import TriggerFlowBlockData, TriggerFlowEventData
+from agently.types.trigger_flow import TriggerFlowBlockData
 from agently.utils import Settings, RuntimeData, FunctionShifter
 from .BluePrint import TriggerFlowBluePrint
 from .Process import TriggerFlowProcess, TriggerFlowProcess
