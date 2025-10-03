@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import lru_cache
+
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Literal, TypeAlias
 from typing_extensions import TypedDict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 if TYPE_CHECKING:
     from agently.utils import GeneratorConsumer
@@ -56,4 +58,44 @@ class StreamingData(BaseModel):
     value: Any
     delta: str | None = None
     is_complete: bool = False
+    wildcard_path: str | None = None
+    indexes: tuple | None = None
     event_type: Literal["delta", "done"] = "done"
+
+    @staticmethod
+    @lru_cache(maxsize=1024)
+    def _process_path(path: str) -> tuple[str, tuple[int, ...]]:
+        if '[' not in path:
+            return path, ()
+        wildcard_chars = []
+        indexes: list[int] = []
+        i = 0
+        length = len(path)
+        while i < length:
+            c = path[i]
+            if c == '[':
+                j = i + 1
+                num_start = j
+                while j < length and path[j].isdigit():
+                    j += 1
+                if j > num_start and j < length and path[j] == ']':
+                    num_str = path[num_start:j]
+                    indexes.append(int(num_str))
+                    wildcard_chars.append('[*]')
+                    i = j + 1
+                    continue
+                else:
+                    wildcard_chars.append(c)
+                    i += 1
+                    continue
+            else:
+                wildcard_chars.append(c)
+                i += 1
+        wildcard = ''.join(wildcard_chars)
+        return wildcard, tuple(indexes)
+
+    @model_validator(mode="before")
+    @classmethod
+    def set_wildcard_path(cls, data: dict[str, Any]):
+        data["wildcard_path"], data["indexes"] = StreamingData._process_path(data["path"])
+        return data
