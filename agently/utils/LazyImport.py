@@ -31,7 +31,10 @@ class LazyImport:
         *,
         auto_install: bool = True,
         version_constraint: str | None = None,
+        install_name: str | None = None,
+        _attempted_install: bool = False,
     ):
+        # Ensure version constraint has a valid operator
         if version_constraint and not any(
             version_constraint.startswith(op) for op in ("==", ">=", "<=", "!=", ">", "<")
         ):
@@ -47,7 +50,7 @@ class LazyImport:
             for module_name in target_modules:
                 try:
                     module_name = DataFormatter.to_str(module_name)
-                    loaded_modules.append(importlib.import_module(f"{ from_package }.{ module_name }"))
+                    loaded_modules.append(importlib.import_module(f"{from_package}.{module_name}"))
                 except ModuleNotFoundError:
                     base_module = importlib.import_module(from_package)
                     try:
@@ -55,92 +58,124 @@ class LazyImport:
                         loaded_modules.append(module_attr)
                     except AttributeError:
                         raise ModuleNotFoundError(
-                            f"Required module not found: { module_name }\n"
-                            f"Found package '{ from_package } but found no module or attribute named '{ module_name }' from it."
+                            f"Required module not found: {module_name}\n"
+                            f"Found package '{from_package}' but no module or attribute named '{module_name}' in it."
                         )
             if version_constraint:
                 try:
-                    installed_version = get_installed_version(from_package)
+                    installed_version = get_installed_version(install_name or from_package)
                     spec = SpecifierSet(version_constraint)
                     if parse_version(installed_version) not in spec:
                         print(
-                            f"⚠️ Version mismatch for {from_package}: installed {installed_version}, expected {version_constraint}"
+                            f"⚠️ Version mismatch for {install_name or from_package}: "
+                            f"installed {installed_version}, expected {version_constraint}"
                         )
-                        confirm = (
-                            input(f"Do you want to install the required version {version_constraint} now? [y/N]: ")
-                            .strip()
-                            .lower()
-                        )
-                        if confirm == "y":
-                            subprocess.check_call(
-                                [sys.executable, "-m", "pip", "install", f"{from_package}{version_constraint}"]
+                        if auto_install and not _attempted_install:
+                            confirm = (
+                                input(f"Do you want to install the required version {version_constraint} now? [y/N]: ")
+                                .strip()
+                                .lower()
                             )
-                            return LazyImport.from_import(
-                                from_package,
-                                target_modules,
-                                auto_install=auto_install,
-                                version_constraint=version_constraint,
-                            )
+                            if confirm == "y":
+                                subprocess.check_call(
+                                    [
+                                        sys.executable,
+                                        "-m",
+                                        "pip",
+                                        "install",
+                                        f"{install_name or from_package}{version_constraint}",
+                                    ]
+                                )
+                                return LazyImport.from_import(
+                                    from_package,
+                                    target_modules,
+                                    auto_install=auto_install,
+                                    version_constraint=version_constraint,
+                                    install_name=install_name,
+                                    _attempted_install=True,  # Recursive call
+                                )
                 except PackageNotFoundError:
                     pass
             return (tuple(loaded_modules) if len(loaded_modules) > 1 else loaded_modules[0]) if loaded_modules else None
         except ModuleNotFoundError:
             raise
         except ImportError:
-            if auto_install:
-                print(f"❗️ Missing modules: { from_package }")
-                confirm = ""
-                while confirm not in ("y", "n"):
-                    confirm = input("Do you want to install it via pip now? [y/N]: ").strip().lower()
+            if auto_install and not _attempted_install:
+                print(f"❗️ Missing modules: {install_name or from_package}")
+                confirm = input("Do you want to install it via pip now? [y/N]: ").strip().lower()
                 if confirm == "y":
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", from_package])
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", install_name or from_package])
+                    # Recursive call with `_attempted_install` set to True
                     return LazyImport.from_import(
                         from_package,
                         target_modules,
                         auto_install=auto_install,
+                        version_constraint=version_constraint,
+                        install_name=install_name,
+                        _attempted_install=True,
                     )
             raise ImportError(
-                f"Required module not found: { module_name }\n"
-                f"Please install module manually using command for example: 'pip install { from_package }'"
+                f"Required module not found: {module_name}\n"
+                f"Please install module manually using command: 'pip install {install_name or from_package}'"
             )
 
     @staticmethod
-    def import_package(package_name: str, *, auto_install: bool = True, version_constraint: str | None = None):
+    def import_package(
+        package_name: str,
+        *,
+        auto_install: bool = True,
+        version_constraint: str | None = None,
+        install_name: str | None = None,
+        _attempted_install: bool = False,
+    ):
+        # Ensure version constraint has a valid operator
         if version_constraint and not any(
             version_constraint.startswith(op) for op in ("==", ">=", "<=", "!=", ">", "<")
         ):
             version_constraint = f"=={version_constraint}"
 
         try:
+            # Attempt to import the package
             module = importlib.import_module(package_name)
             if version_constraint:
-                root_package_name = package_name.split(".")[0]
                 try:
+                    root_package_name = install_name or package_name.split(".")[0]
                     installed_version = get_installed_version(root_package_name)
                     spec = SpecifierSet(version_constraint)
                     if parse_version(installed_version) not in spec:
                         print(
                             f"⚠️ Version mismatch for {root_package_name}: installed {installed_version}, expected {version_constraint}"
                         )
-                        confirm = (
-                            input(f"Do you want to install the required version {version_constraint} now? [y/N]: ")
-                            .strip()
-                            .lower()
-                        )
-                        if confirm == "y":
-                            subprocess.check_call(
-                                [sys.executable, "-m", "pip", "install", f"{root_package_name}{version_constraint}"]
+                        if auto_install and not _attempted_install:
+                            confirm = (
+                                input(f"Do you want to install the required version {version_constraint} now? [y/N]: ")
+                                .strip()
+                                .lower()
                             )
-                            return LazyImport.import_package(
-                                package_name, auto_install=auto_install, version_constraint=version_constraint
-                            )
+                            if confirm == "y":
+                                subprocess.check_call(
+                                    [
+                                        sys.executable,
+                                        "-m",
+                                        "pip",
+                                        "install",
+                                        f"{root_package_name}{version_constraint}",
+                                    ]
+                                )
+                                return LazyImport.import_package(
+                                    package_name,
+                                    auto_install=auto_install,
+                                    version_constraint=version_constraint,
+                                    install_name=install_name,
+                                    _attempted_install=True,
+                                )
                 except PackageNotFoundError:
                     pass
             return module
         except ImportError:
-            root_package_name = package_name.split(".")[0]
-            if auto_install:
-                print(f"❗️ Missing modules: { root_package_name }")
+            root_package_name = install_name or package_name.split(".")[0]
+            if auto_install and not _attempted_install:
+                print(f"❗️ Missing modules: {root_package_name}")
                 confirm = ""
                 while confirm not in ("y", "n"):
                     confirm = input("Do you want to install it via pip now? [y/N]: ").strip().lower()
@@ -149,8 +184,10 @@ class LazyImport:
                     return LazyImport.import_package(
                         package_name,
                         auto_install=auto_install,
+                        install_name=install_name,
+                        _attempted_install=True,
                     )
             raise ImportError(
-                f"Required module not found: { root_package_name }\n"
-                f"Please install module manually using command for example: 'pip install { root_package_name }'"
+                f"Required module not found: {package_name}\n"
+                f"Please install module manually using command: 'pip install {root_package_name}'"
             )

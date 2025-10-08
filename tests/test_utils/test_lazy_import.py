@@ -15,4 +15,4 @@ def test_import_package():
 
 
 if __name__ == "__main__":
-    agently_stage = LazyImport.import_package("agently-stage", auto_install=True)
+    agently_stage = LazyImport.import_package("agently_stage", auto_install=True, install_name="agently-stage")
