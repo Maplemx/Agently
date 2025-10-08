@@ -184,14 +184,20 @@ class AgentlyToolManager(ToolManager):
         if func is None:
             return f"Can not find tool named '{ name }'"
         func = FunctionShifter.syncify(func)
-        return func(**kwargs)
+        try:
+            return func(**kwargs)
+        except Exception as e:
+            return f"Error: { e }"
 
     async def async_call_tool(self, name: str, kwargs: dict[str, Any]) -> Any:
         func = self.get_tool_func(name)
         if func is None:
             return f"Can not find tool named '{ name }'"
         func = FunctionShifter.asyncify(func)
-        return await func(**kwargs)
+        try:
+            return await func(**kwargs)
+        except Exception as e:
+            return f"Error: { e }"
 
     def _mcp_tool_func(
         self,
