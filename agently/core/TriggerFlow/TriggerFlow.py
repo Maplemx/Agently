@@ -78,30 +78,6 @@ class TriggerFlow:
         self.settings.set_settings(key, value)
         return self
 
-    # def when(
-    #     self,
-    #     target: str,
-    #     *,
-    #     type: Literal["event", "runtime_data", "flow_data"] = "event",
-    # ):
-    #     return TriggerFlowProcess(
-    #         trigger_event=target,
-    #         trigger_type=type,
-    #         blue_print=self._blue_print,
-    #         block_data=TriggerFlowBlockData(
-    #             outer_block=None,
-    #         ),
-    #     )
-
-    # def when_event(self, event: str):
-    #     return self.when(event, type="event")
-
-    # def when_runtime_data(self, key: str):
-    #     return self.when(key, type="runtime_data")
-
-    # def when_flow_data(self, key: str):
-    #     return self.when(key, type="flow_data")
-
     @overload
     def chunk(self, handler_or_name: "TriggerFlowHandler") -> TriggerFlowChunk: ...
 
