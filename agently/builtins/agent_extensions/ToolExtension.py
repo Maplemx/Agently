@@ -80,6 +80,8 @@ class ToolExtension(BaseAgent):
             if isinstance(tool, str):
                 names.append(tool)
             else:
+                if tool.__name__ not in self.tool.tool_manager.tool_funcs:  # type: ignore
+                    self.tool_func(tool)
                 names.append(tool.__name__)
         self.tool.tag(names, f"agent-{ self.name }")
         return self
