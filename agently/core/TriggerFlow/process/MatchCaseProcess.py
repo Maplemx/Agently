@@ -160,20 +160,20 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                     if value is EMPTY:
                         data._system_runtime_data.set(f"match_results.{ data.upper_layer_mark }", match_results)
                         return
+                data.layer_out()
                 await data.async_emit(
                     f"Match-{ match_id }-Result",
                     list(match_results.values()),
                     layer_marks=data.layer_marks.copy(),
                 )
                 del data._system_runtime_data[f"match_results.{ data.upper_layer_mark }"]
-                data.layer_out()
             else:
+                data.layer_out()
                 await data.async_emit(
                     f"Match-{ match_id }-Result",
                     data.value,
                     layer_marks=data.layer_marks.copy(),
                 )
-            data.layer_out()
 
         for trigger in branch_ends:
             self.when(trigger).to(collect_branch_result)
