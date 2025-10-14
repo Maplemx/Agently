@@ -63,6 +63,26 @@ flow.when(
     },
 ).to(lambda data: print("runtime data 'test' and flow data 'test' both changed:", data.value))
 
+# Wait for runtime data key 'test' or 'test_1'
+flow.when(
+    {
+        "runtime_data": ["test", "test_1"],
+    },
+    # use mode="or" to switch to the OR mode
+    mode="or",
+    # In OR mode, data.value will be a tuple contains (<event type>, <event key>, <value>)
+).to(lambda data: print("runtime data 'test' or 'test_1' changed:", data.value))
+
+# Wait for flow data key 'test' or 'test_1' in SIMPLE OR mode
+flow.when(
+    {
+        "flow_data": ["test", "test_1"],
+    },
+    # use
+    mode="simple_or",
+    # In SIMPLE OR mode, data.value will be the value only
+).to(lambda data: print("flow data 'test' or 'test_1' changed:", data.value))
+
 # Wait for all data change
 flow.when(
     {

@@ -17,6 +17,7 @@ import uuid
 from threading import Lock
 
 from typing import Any, Literal, TYPE_CHECKING, overload
+from typing_extensions import Self
 
 
 if TYPE_CHECKING:
@@ -64,7 +65,10 @@ class TriggerFlowBaseProcess:
     def when(
         self,
         trigger_or_triggers: str | TriggerFlowChunk,
-    ): ...
+        *,
+        mode: Literal["and", "or", "simple_or"] = "and",
+    ) -> Self: ...
+
     @overload
     def when(
         self,
@@ -72,7 +76,10 @@ class TriggerFlowBaseProcess:
             Literal["event"],
             str | TriggerFlowChunk | list[str | TriggerFlowChunk],
         ],
-    ): ...
+        *,
+        mode: Literal["and", "or", "simple_or"] = "and",
+    ) -> Self: ...
+
     @overload
     def when(
         self,
@@ -80,7 +87,10 @@ class TriggerFlowBaseProcess:
             Literal["runtime_data", "flow_data", "collect"],
             str | list[str],
         ],
-    ): ...
+        *,
+        mode: Literal["and", "or", "simple_or"] = "and",
+    ) -> Self: ...
+
     def when(
         self,
         trigger_or_triggers: (
@@ -95,6 +105,8 @@ class TriggerFlowBaseProcess:
                 str | list[str],
             ]
         ),
+        *,
+        mode: Literal["and", "or", "simple_or"] = "and",
     ):
         if isinstance(trigger_or_triggers, TriggerFlowChunk):
             trigger_or_triggers = trigger_or_triggers.trigger
@@ -152,40 +164,51 @@ class TriggerFlowBaseProcess:
                         outer_block=None,
                     ),
                 )
-            else:
-                when_trigger = f"When-{ uuid.uuid4().hex }"
 
-                async def wait_trigger(data: "TriggerFlowEventData"):
-                    if data.trigger_type in values and data.trigger_event in values[trigger_type]:  # type: ignore
-                        values[data.trigger_type][data.trigger_event] = data.value
+            when_trigger = f"When-{ uuid.uuid4().hex }"
 
-                    for trigger_event_dict in values.values():
-                        for event_value in trigger_event_dict.values():
-                            if event_value is EMPTY:
-                                return
+            async def wait_trigger(data: "TriggerFlowEventData"):
+                match mode:
+                    case "or" | "simple_or":
+                        await data.async_emit(
+                            when_trigger,
+                            (
+                                data.value
+                                if mode == "simple_or"
+                                else (data.trigger_type, data.trigger_event, data.value)
+                            ),
+                            layer_marks=data.layer_marks.copy(),
+                        )
+                    case "and":
+                        if data.trigger_type in values and data.trigger_event in values[trigger_type]:  # type: ignore
+                            values[data.trigger_type][data.trigger_event] = data.value
+                        for trigger_event_dict in values.values():
+                            for event_value in trigger_event_dict.values():
+                                if event_value is EMPTY:
+                                    return
 
-                    await data.async_emit(
-                        when_trigger,
-                        values,
-                        layer_marks=data.layer_marks.copy(),
-                    )
-
-                for trigger_type, trigger_event_dict in values.items():
-                    for trigger_event in trigger_event_dict.keys():
-                        self._blue_print.add_handler(
-                            trigger_type,  # type: ignore
-                            trigger_event,
-                            wait_trigger,
+                        await data.async_emit(
+                            when_trigger,
+                            values,
+                            layer_marks=data.layer_marks.copy(),
                         )
 
-                return self._new(
-                    trigger_event=when_trigger,
-                    trigger_type="event",
-                    blue_print=self._blue_print,
-                    block_data=TriggerFlowBlockData(
-                        outer_block=None,
-                    ),
-                )
+            for trigger_type, trigger_event_dict in values.items():
+                for trigger_event in trigger_event_dict.keys():
+                    self._blue_print.add_handler(
+                        trigger_type,  # type: ignore
+                        trigger_event,
+                        wait_trigger,
+                    )
+
+            return self._new(
+                trigger_event=when_trigger,
+                trigger_type="event",
+                blue_print=self._blue_print,
+                block_data=TriggerFlowBlockData(
+                    outer_block=None,
+                ),
+            )
 
     def to(
         self,
