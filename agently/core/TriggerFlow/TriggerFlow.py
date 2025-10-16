@@ -221,3 +221,9 @@ class TriggerFlow:
             initial_value,
             timeout=timeout,
         )
+
+    def save_blue_print(self):
+        return self._blue_print.copy()
+
+    def load_blue_print(self, new_blue_print: TriggerFlowBluePrint):
+        self._blue_print = new_blue_print

@@ -14,6 +14,7 @@
 
 
 import uuid
+import copy
 from typing import Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -143,3 +144,9 @@ class TriggerFlowBluePrint:
             id=execution_id,
             skip_exceptions=skip_exceptions,
         )
+
+    def copy(self, *, name: str | None = None):
+        new_blue_print = type(self)(name=name)
+        new_blue_print._handlers = copy.deepcopy(self._handlers)
+        new_blue_print.chunks = copy.deepcopy(self.chunks)
+        return new_blue_print
