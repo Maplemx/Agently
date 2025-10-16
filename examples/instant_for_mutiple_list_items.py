@@ -23,4 +23,4 @@ instant_generator = (
 
 for data in instant_generator:
     if data.wildcard_path == "steps[*]":
-        print(data.path, data.indexes, data.value)
+        print(data.path, data.indexes, data.value, data.full_data)

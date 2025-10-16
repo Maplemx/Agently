@@ -291,6 +291,7 @@ class StreamingJSONParser:
                             delta=delta,
                             is_complete=False,
                             event_type="delta",
+                            full_data=self.current_data,  # Pass the full current_data here
                         )
                         self.string_values[path] = current_data
 
@@ -303,6 +304,7 @@ class StreamingJSONParser:
                         delta=None,
                         is_complete=True,
                         event_type="done",
+                        full_data=self.current_data,  # Pass the full current_data here
                     )
 
             # Handle primitive (non-string) types
@@ -315,6 +317,7 @@ class StreamingJSONParser:
                         delta=current_data,
                         is_complete=False,
                         event_type="delta",
+                        full_data=self.current_data,  # Pass the full current_data here
                     )
                 # Check if primitive field should be immediately marked complete
                 if path and await self._should_mark_field_complete(path, current_data, previous_data):
@@ -325,6 +328,7 @@ class StreamingJSONParser:
                         delta=None,
                         is_complete=True,
                         event_type="done",
+                        full_data=self.current_data,  # Pass the full current_data here
                     )
 
             # Handle dictionary/object types
@@ -347,6 +351,7 @@ class StreamingJSONParser:
                         delta=None,
                         is_complete=True,
                         event_type="done",
+                        full_data=self.current_data,  # Pass the full current_data here
                     )
 
             # Handle list/array types
@@ -369,6 +374,7 @@ class StreamingJSONParser:
                         delta=None,
                         is_complete=True,
                         event_type="done",
+                        full_data=self.current_data,  # Pass the full current_data here
                     )
 
         async for event in traverse_and_compare(self.current_data, self.previous_data):
@@ -408,7 +414,14 @@ class StreamingJSONParser:
                 # Mark this object field as complete if not already done
                 if path and path not in self.field_completion_status:
                     self.field_completion_status.add(path)
-                    yield StreamingData(path=path, value=data, delta=None, is_complete=True, event_type="done")
+                    yield StreamingData(
+                        path=path,
+                        value=data,
+                        delta=None,
+                        is_complete=True,
+                        event_type="done",
+                        full_data=self.current_data,  # Pass the full current_data here
+                    )
 
             elif isinstance(data, list):
                 # Recursively mark all elements
@@ -420,13 +433,27 @@ class StreamingJSONParser:
                 # Mark this array field as complete if not already done
                 if path and path not in self.field_completion_status:
                     self.field_completion_status.add(path)
-                    yield StreamingData(path=path, value=data, delta=None, is_complete=True, event_type="done")
+                    yield StreamingData(
+                        path=path,
+                        value=data,
+                        delta=None,
+                        is_complete=True,
+                        event_type="done",
+                        full_data=self.current_data,  # Pass the full current_data here
+                    )
 
             else:
                 # Mark primitive field as complete if not already done
                 if path and path not in self.field_completion_status:
                     self.field_completion_status.add(path)
-                    yield StreamingData(path=path, value=data, delta=None, is_complete=True, event_type="done")
+                    yield StreamingData(
+                        path=path,
+                        value=data,
+                        delta=None,
+                        is_complete=True,
+                        event_type="done",
+                        full_data=self.current_data,  # Pass the full current_data here
+                    )
 
         async for event in mark_all_complete(self.current_data):
             yield event

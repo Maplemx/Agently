@@ -61,6 +61,7 @@ class StreamingData(BaseModel):
     wildcard_path: str | None = None
     indexes: tuple | None = None
     event_type: Literal["delta", "done"] = "done"
+    full_data: Any = None
 
     @staticmethod
     @lru_cache(maxsize=1024)
