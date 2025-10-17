@@ -42,8 +42,8 @@ class ToolExtension(BaseAgent):
 
         self.__tool_log = None
 
-        self.extension_handlers.append("prefixes", self.__prefix)
-        self.extension_handlers.append("base_suffixes", self.__base_suffix)
+        self.extension_handlers.append("request_prefixes", self.__request_prefix)
+        self.extension_handlers.append("broadcast_prefixes", self.__broadcast_prefix)
 
         self.async_system_message = async_system_message
 
@@ -90,7 +90,7 @@ class ToolExtension(BaseAgent):
         await self.tool.async_use_mcp(transport, tags=[f"agent-{ self.name }"])
         return self
 
-    async def __prefix(self, prompt: "Prompt", settings: "Settings"):
+    async def __request_prefix(self, prompt: "Prompt", _):
         tool_list = self.tool.get_tool_list(tags=[f"agent-{ self.name }"])
         if tool_list:
             tool_judgement_request = ModelRequest(
@@ -137,6 +137,10 @@ class ToolExtension(BaseAgent):
                             tool_command["purpose"]: tool_result,
                         },
                     )
+                    prompt.set(
+                        "extra_instruction",
+                        "NOTICE: MUST QUOTE KEY INFO OR MARK SOURCE (PREFER URL INCLUDED) FROM {action_results} IN REPLY IF YOU USE {action_results} TO IMPROVE REPLY!",
+                    )
                     self.__tool_log = {
                         "tool_name": tool_command["tool_name"],
                         "kwargs": tool_command["tool_kwargs"],
@@ -144,7 +148,7 @@ class ToolExtension(BaseAgent):
                         "result": tool_result,
                     }
 
-    async def __base_suffix(self, full_result_data: "AgentlyModelResult"):
+    async def __broadcast_prefix(self, full_result_data: "AgentlyModelResult", _):
         if self.__tool_log is not None:
             yield "tool", self.__tool_log
             if "extra" not in full_result_data:
