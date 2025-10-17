@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Literal, get_origin, get_args
+from typing import Mapping, Sequence, Any, Literal, get_origin, get_args
 from collections import OrderedDict
 
 
@@ -205,3 +205,81 @@ class DataPathBuilder:
 
         traverse(agently_output_dict, [])
         return list(ordered_paths.keys())
+
+    @staticmethod
+    def get_value_by_path(
+        data: Mapping[str, Any] | Sequence[Any], path: str, *, style: Literal["dot", "slash"] = "dot"
+    ) -> Any:
+        """
+        Retrieve the value from a dictionary based on the given path.
+        If the path does not exist, return None.
+
+        :param data: The dictionary to search.
+        :param path: The path to the desired value (dot or slash style).
+        :param style: The style of the path, either "dot" or "slash".
+        :return: The value at the specified path, or None if not found.
+        """
+        if not isinstance(data, dict):
+            raise TypeError("The data parameter must be a dictionary.")
+
+        if not path:
+            return None
+
+        keys = []
+        if style == "dot":
+            buffer = ""
+            i = 0
+            while i < len(path):
+                if path[i] == "[":
+                    if buffer:
+                        keys.append(buffer)
+                        buffer = ""
+                    end = path.find("]", i)
+                    keys.append(path[i + 1 : end])  # Keep as string to handle [*]
+                    i = end + 1
+                elif path[i] == ".":
+                    if buffer:
+                        keys.append(buffer)
+                        buffer = ""
+                    i += 1
+                else:
+                    buffer += path[i]
+                    i += 1
+            if buffer:
+                keys.append(buffer)
+        elif style == "slash":
+            keys: list[Any] = path.strip("/").split("/")
+            for i, key in enumerate(keys):
+                if key.isdigit():
+                    keys[i] = int(key)
+
+        def resolve(current: Any, remaining_keys: list[Any]) -> Any:
+            if not remaining_keys:
+                return current
+
+            key = remaining_keys[0]
+            if key == "[*]":
+                if isinstance(current, Sequence) and not isinstance(current, str):
+                    results = []
+                    for item in current:
+                        result = resolve(item, remaining_keys[1:])
+                        if isinstance(result, list):
+                            results.extend(result)
+                        elif result is not None:
+                            results.append(result)
+                    return results
+                else:
+                    return None
+            elif isinstance(current, Mapping) and key in current:
+                return resolve(current[key], remaining_keys[1:])
+            elif (
+                not isinstance(current, str)
+                and isinstance(current, Sequence)
+                and isinstance(key, int)
+                and 0 <= key < len(current)
+            ):
+                return resolve(current[key], remaining_keys[1:])
+            else:
+                return None
+
+        return resolve(data, keys)
