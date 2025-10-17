@@ -108,7 +108,12 @@ class AgentlyResponseParser(ResponseParser):
 
         buffer = ""
         try:
-            async for event, data in self.response_generator:
+            async for item in self.response_generator:
+                try:
+                    event, data = item
+                except:
+                    warnings.warn(f"\n⚠️ Incorrect response data from Agently Response Generator: { item }")
+                    continue
                 yield event, data
                 match event:
                     case "original_delta":
