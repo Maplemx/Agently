@@ -17,10 +17,6 @@ from typing_extensions import TypedDict
 
 from pydantic import BaseModel, field_validator, model_validator
 
-if TYPE_CHECKING:
-    from agently.utils import GeneratorConsumer
-    from agently.types.data.serializable import SerializableValue
-
 
 class AgentlyRequestDataDict(TypedDict):
     client_options: dict[str, Any]
