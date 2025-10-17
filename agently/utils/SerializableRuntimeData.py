@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import TypeVar
+
 from agently.utils import RuntimeData, RuntimeDataNamespace
 from agently.types.data import SerializableData, SerializableValue
+
+T = TypeVar("T")
 
 
 class SerializableRuntimeData(RuntimeData):
@@ -38,9 +42,9 @@ class SerializableRuntimeData(RuntimeData):
     def get(
         self,
         key: str | None = None,
-        default: SerializableValue | None = None,
+        default: T = None,
         inherit: bool = True,
-    ) -> SerializableValue:
+    ) -> SerializableValue | T:
         return super().get(key, default, inherit)
 
     def pop(self, key: str, default: SerializableValue = None) -> SerializableValue:
@@ -76,9 +80,9 @@ class SerializableRuntimeDataNamespace(RuntimeDataNamespace):
     def get(
         self,
         key: str | None = None,
-        default: SerializableValue | None = None,
+        default: T = None,
         inherit: bool = True,
-    ) -> SerializableValue:
+    ) -> SerializableValue | T:
         return super().get(key, default, inherit)
 
     def pop(self, key: str, default: SerializableValue = None) -> SerializableValue:

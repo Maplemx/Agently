@@ -14,7 +14,7 @@
 
 import datetime
 from copy import deepcopy
-from typing import Any, Literal, Sequence, Mapping, cast, Iterator
+from typing import Any, Literal, Sequence, Mapping, cast, Iterator, TypeVar
 from pathlib import Path
 
 import json
@@ -23,6 +23,8 @@ import toml
 
 from agently.types.data import SerializableValue
 from .DataFormatter import DataFormatter
+
+T = TypeVar("T")
 
 
 class DictRef:
@@ -141,7 +143,7 @@ class RuntimeData:
     def _get_inherited_view(self, runtime_data: "RuntimeData", result: dict[Any, Any] | None = None) -> dict[Any, Any]:
         if result is None:
             result = {}
-        result = self._merge_view(result, runtime_data.get(inherit=False))
+        result = self._merge_view(result, runtime_data.get(default={}, inherit=False))
         if runtime_data.parent is not None:
             return self._get_inherited_view(runtime_data.parent, result)
         return result
@@ -168,9 +170,9 @@ class RuntimeData:
     def get(
         self,
         key: Any | None = None,
-        default: Any | None = None,
+        default: T = None,
         inherit: bool = True,
-    ) -> Any:
+    ) -> Any | T:
         if key is None:
             if inherit:
                 return self._get_inherited_view(self, {})
@@ -313,6 +315,11 @@ class RuntimeData:
 
     def set(self, key: Any, value: Any):
         return self.__setitem__(key, value)
+
+    def setdefault(self, key: Any, value: Any, *, inherit: bool = True):
+        if self.get(key, inherit=inherit) is None:
+            self.set(key, value)
+        return self.get(key, inherit=inherit)
 
     def update(self, new: dict[Any, Any]):
         for key, value in new.items():
@@ -499,9 +506,9 @@ class RuntimeDataNamespace:
     def get(
         self,
         key: Any | None = None,
-        default: Any | None = None,
+        default: T = None,
         inherit: bool = True,
-    ) -> Any:
+    ) -> Any | T:
         if inherit:
             if key is not None:
                 result = self[key]
@@ -583,6 +590,11 @@ class RuntimeDataNamespace:
 
     def set(self, key: Any, value: Any):
         return self.__setitem__(key, value)
+
+    def setdefault(self, key: Any, value: Any, *, inherit: bool = True):
+        if self.get(key, inherit=inherit) is None:
+            self.set(key, value)
+        return self.get(key, inherit=inherit)
 
     def update(self, new: dict[Any, Any]):
         for key, value in new.items():
