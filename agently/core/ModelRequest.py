@@ -122,15 +122,11 @@ class ModelResponse:
                 str(self.settings["plugins.ModelRequester.activate"]),
             ),
         )
-        prefixes = self.extension_handlers.get("prefixes", [])
-        for prefix in prefixes:
-            if inspect.ismethod(prefix):
-                prefix_func = prefix.__func__
-            else:
-                prefix_func = prefix
-            if inspect.iscoroutinefunction(prefix_func):
+        request_prefixes = self.extension_handlers.get("request_prefixes", [])
+        for prefix in request_prefixes:
+            if inspect.iscoroutinefunction(prefix):
                 await prefix(self.prompt, self.settings)
-            elif inspect.isfunction(prefix_func):
+            elif inspect.isfunction(prefix):
                 prefix(self.prompt, self.settings)
         model_requester = ModelRequester(self.prompt, self.settings)
         request_data = model_requester.generate_request_data()
@@ -164,49 +160,107 @@ class ModelResponse:
         )
         response_generator = model_requester.request_model(request_data)
         broadcast_generator = model_requester.broadcast_response(response_generator)
-        base_suffixes = self.extension_handlers.get("base_suffixes", [])
+        broadcast_prefixes = self.extension_handlers.get("broadcast_prefixes", [])
         broadcast_suffixes = self.extension_handlers.get("broadcast_suffixes", {})
-        for suffix in base_suffixes:
-            if inspect.ismethod(suffix):
-                suffix_func = suffix.__func__
-            else:
-                suffix_func = suffix
-            if inspect.iscoroutinefunction(suffix_func):
-                result = await suffix(self.result.full_result_data)
+        for prefix in broadcast_prefixes:
+            if inspect.iscoroutinefunction(prefix):
+                result = await prefix(
+                    self.result.full_result_data,
+                    self.settings,
+                )
                 if result is not None:
                     yield result
-            elif inspect.isgeneratorfunction(suffix_func):
-                for result in suffix(self.result.full_result_data):
-                    yield result
-            elif inspect.isasyncgenfunction(suffix_func):
-                async for result in suffix(self.result.full_result_data):
-                    yield result
-            elif inspect.isfunction(suffix_func):
-                result = suffix(self.result.full_result_data)
+            elif inspect.isgeneratorfunction(prefix):
+                for result in prefix(
+                    self.result.full_result_data,
+                    self.settings,
+                ):
+                    if result is not None:
+                        yield result
+            elif inspect.isasyncgenfunction(prefix):
+                async for result in prefix(
+                    self.result.full_result_data,
+                    self.settings,
+                ):
+                    if result is not None:
+                        yield result
+            elif inspect.isfunction(prefix):
+                result = prefix(
+                    self.result.full_result_data,
+                    self.settings,
+                )
                 if result is not None:
                     yield result
         async for event, data in broadcast_generator:
             yield event, data
             suffixes = broadcast_suffixes[event] if event in broadcast_suffixes else []
             for suffix in suffixes:
-                if inspect.ismethod(suffix):
-                    suffix_func = suffix.__func__
-                else:
-                    suffix_func = suffix
-                if inspect.iscoroutinefunction(suffix_func):
-                    result = await suffix(event, data, self.result.full_result_data)
+                if inspect.iscoroutinefunction(suffix):
+                    result = await suffix(
+                        event,
+                        data,
+                        self.result.full_result_data,
+                        self.settings,
+                    )
                     if result is not None:
                         yield result
-                elif inspect.isgeneratorfunction(suffix_func):
-                    for result in suffix(event, data, self.result.full_result_data):
-                        yield result
-                elif inspect.isasyncgenfunction(suffix_func):
-                    async for result in suffix(event, data, self.result.full_result_data):
-                        yield result
-                elif inspect.isfunction(suffix_func):
-                    result = suffix(event, data, self.result.full_result_data)
+                elif inspect.isgeneratorfunction(suffix):
+                    for result in suffix(
+                        event,
+                        data,
+                        self.result.full_result_data,
+                        self.settings,
+                    ):
+                        if result is not None:
+                            yield result
+                elif inspect.isasyncgenfunction(suffix):
+                    async for result in suffix(
+                        event,
+                        data,
+                        self.result.full_result_data,
+                        self.settings,
+                    ):
+                        if result is not None:
+                            yield result
+                elif inspect.isfunction(suffix):
+                    result = suffix(
+                        event,
+                        data,
+                        self.result.full_result_data,
+                        self.settings,
+                    )
                     if result is not None:
                         yield result
+        finally_handlers = self.extension_handlers.get("finally", [])
+        for handler in finally_handlers:
+            if inspect.iscoroutinefunction(handler):
+                result = await handler(
+                    self.result.full_result_data,
+                    self.settings,
+                )
+                if result is not None:
+                    yield result
+            elif inspect.isgeneratorfunction(handler):
+                for result in handler(
+                    self.result.full_result_data,
+                    self.settings,
+                ):
+                    if result is not None:
+                        yield result
+            elif inspect.isasyncgenfunction(handler):
+                async for result in handler(
+                    self.result.full_result_data,
+                    self.settings,
+                ):
+                    if result is not None:
+                        yield result
+            elif inspect.isfunction(handler):
+                result = handler(
+                    self.result.full_result_data,
+                    self.settings,
+                )
+                if result is not None:
+                    yield result
 
 
 class ModelRequest:

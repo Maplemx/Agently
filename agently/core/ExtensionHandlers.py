@@ -25,24 +25,24 @@ if TYPE_CHECKING:
 
 class ExtensionHandlers(RuntimeData):
     @overload
-    def append(self, key: Literal["prefixes"] | str, value: "Callable[[Prompt, Settings], Any]"): ...
+    def append(self, key: Literal["request_prefixes"], value: "Callable[[Prompt, Settings], Any]"): ...
     @overload
     def append(
         self,
-        key: Literal["base_suffixes"],
-        value: "Callable[[AgentlyModelResult], Any]",
+        key: Literal["broadcast_prefixes", "finally"],
+        value: "Callable[[AgentlyModelResult, Settings], Any]",
     ): ...
     @overload
     def append(
         self,
         key: Literal["broadcast_suffixes"],
-        value: "Callable[[AgentlyModelResponseEvent, Any, AgentlyModelResult], Any]",
+        value: "Callable[[AgentlyModelResponseEvent, Any, AgentlyModelResult, Settings], Any]",
         *,
         event: "AgentlyModelResponseEvent",
     ): ...
     def append(
         self,
-        key: Literal["prefixes", "base_suffixes", "broadcast_suffixes"] | str,
+        key: Literal["request_prefixes", "broadcast_prefixes", "broadcast_suffixes", "finally"],
         value: Callable,
         *,
         event: str | None = None,

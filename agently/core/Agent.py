@@ -47,9 +47,10 @@ class BaseAgent:
         )
         self.extension_handlers = ExtensionHandlers(
             {
-                "prefixes": [],
-                "base_suffixes": [],
+                "request_prefixes": [],
+                "broadcast_prefixes": [],
                 "broadcast_suffixes": [],
+                "finally": [],
             },
             name=f"Agent-{ self.name }-ExtensionHandlers",
         )
