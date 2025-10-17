@@ -44,7 +44,7 @@ class DataFormatter:
         if issubclass(type(value), RuntimeData) or issubclass(type(value), RuntimeDataNamespace):
             return DataFormatter.sanitize(value.data, remain_type=remain_type)
 
-        if isinstance(value, type) or get_origin(value) is not None:
+        if isinstance(value, type):
             if issubclass(value, BaseModel):
                 extracted_value = {}
                 for name, field in value.model_fields.items():
@@ -64,22 +64,25 @@ class DataFormatter:
             else:
                 if remain_type:
                     return value
-                else:
-                    original_text = get_origin(value)
-                    args = get_args(value)
-                    if original_text is list:
-                        return f"list[{DataFormatter.sanitize(args[0], remain_type=remain_type)}]"
-                    if original_text is dict:
-                        return f"dict[{DataFormatter.sanitize(args[0], remain_type=remain_type)}, {DataFormatter.sanitize(args[1], remain_type=remain_type)}]"
-                    if original_text is tuple:
-                        return f"tuple[{', '.join(DataFormatter.sanitize(a, remain_type=remain_type) for a in args)}]"
-                    if original_text is Union:
-                        return " | ".join(str(DataFormatter.sanitize(a, remain_type=remain_type)) for a in args)
-                    if original_text is Literal:
-                        return f"Literal[{ ', '.join(str(DataFormatter.sanitize(a, remain_type=remain_type)) for a in args) }]"
-                    if isinstance(value, type) and hasattr(value, "__name__"):
-                        return value.__name__
-                    return str(value)
+                return value.__name__ if hasattr(value, "__name__") else str(value)
+        if get_origin(value) is not None:
+            if remain_type:
+                return value
+            original_text = get_origin(value)
+            args = get_args(value)
+            if original_text is list:
+                return f"list[{DataFormatter.sanitize(args[0], remain_type=remain_type)}]"
+            if original_text is dict:
+                return f"dict[{DataFormatter.sanitize(args[0], remain_type=remain_type)}, {DataFormatter.sanitize(args[1], remain_type=remain_type)}]"
+            if original_text is tuple:
+                return f"tuple[{', '.join(DataFormatter.sanitize(a, remain_type=remain_type) for a in args)}]"
+            if original_text is Union:
+                return " | ".join(str(DataFormatter.sanitize(a, remain_type=remain_type)) for a in args)
+            if original_text is Literal:
+                return f"Literal[{ ', '.join(str(DataFormatter.sanitize(a, remain_type=remain_type)) for a in args) }]"
+            if isinstance(value, type) and hasattr(value, "__name__"):
+                return value.__name__
+            return str(value)
 
         if isinstance(value, dict):
             return {str(k): DataFormatter.sanitize(v, remain_type=remain_type) for k, v in value.items()}
