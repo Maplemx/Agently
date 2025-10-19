@@ -51,6 +51,7 @@ class ModelResponseResult:
             ),
         )
         _response_parser = ResponseParser(agent_name, response_id, prompt, response_generator, self.settings)
+        self.prompt = prompt
         self.full_result_data = _response_parser.full_result_data
         self.get_meta = _response_parser.get_meta
         self.async_get_meta = _response_parser.async_get_meta
@@ -235,28 +236,28 @@ class ModelResponse:
         for handler in finally_handlers:
             if inspect.iscoroutinefunction(handler):
                 result = await handler(
-                    self.result.full_result_data,
+                    self.result,
                     self.settings,
                 )
                 if result is not None:
                     yield result
             elif inspect.isgeneratorfunction(handler):
                 for result in handler(
-                    self.result.full_result_data,
+                    self.result,
                     self.settings,
                 ):
                     if result is not None:
                         yield result
             elif inspect.isasyncgenfunction(handler):
                 async for result in handler(
-                    self.result.full_result_data,
+                    self.result,
                     self.settings,
                 ):
                     if result is not None:
                         yield result
             elif inspect.isfunction(handler):
                 result = handler(
-                    self.result.full_result_data,
+                    self.result,
                     self.settings,
                 )
                 if result is not None:

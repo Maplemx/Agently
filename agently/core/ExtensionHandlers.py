@@ -19,17 +19,22 @@ from agently.utils import RuntimeData
 
 if TYPE_CHECKING:
     from agently.core import Prompt
+    from agently.core.ModelRequest import ModelResponseResult
     from agently.utils import Settings
     from agently.types.data import AgentlyModelResponseEvent, AgentlyModelResult
 
 
 class ExtensionHandlers(RuntimeData):
     @overload
-    def append(self, key: Literal["request_prefixes"], value: "Callable[[Prompt, Settings], Any]"): ...
+    def append(
+        self,
+        key: Literal["request_prefixes"],
+        value: "Callable[[Prompt, Settings], Any]",
+    ): ...
     @overload
     def append(
         self,
-        key: Literal["broadcast_prefixes", "finally"],
+        key: Literal["broadcast_prefixes"],
         value: "Callable[[AgentlyModelResult, Settings], Any]",
     ): ...
     @overload
@@ -39,6 +44,12 @@ class ExtensionHandlers(RuntimeData):
         value: "Callable[[AgentlyModelResponseEvent, Any, AgentlyModelResult, Settings], Any]",
         *,
         event: "AgentlyModelResponseEvent",
+    ): ...
+    @overload
+    def append(
+        self,
+        key: Literal["finally"],
+        value: "Callable[[ModelResponseResult, Settings], Any]",
     ): ...
     def append(
         self,
