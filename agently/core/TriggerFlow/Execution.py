@@ -298,16 +298,22 @@ class TriggerFlowExecution:
     # Result
     def set_result(self, result: Any):
         self._system_runtime_data.set("result", result)
-        self._system_runtime_data.get("result_ready").set()
+        result_ready = self._system_runtime_data.get("result_ready")
+        if isinstance(result_ready, asyncio.Event):
+            result_ready.set()
 
     async def async_get_result(self, *, timeout: float | None = None):
         if timeout is None:
-            await self._system_runtime_data.get("result_ready").wait()
+            result_ready = self._system_runtime_data.get("result_ready")
+            if isinstance(result_ready, asyncio.Event):
+                await result_ready.wait()
             self._result = self._system_runtime_data.get("result")
             return self._result
         else:
             try:
-                await asyncio.wait_for(self._system_runtime_data.get("result_ready").wait(), timeout=timeout)
+                result_ready = self._system_runtime_data.get("result_ready")
+                if isinstance(result_ready, asyncio.Event):
+                    await asyncio.wait_for(result_ready.wait(), timeout=timeout)
                 self._result = self._system_runtime_data.get("result")
                 return self._result
             except asyncio.TimeoutError:

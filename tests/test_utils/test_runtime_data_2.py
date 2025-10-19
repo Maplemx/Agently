@@ -271,18 +271,18 @@ class TestRuntimeDataInheritance:
 
         # Child should inherit from parent
         inherited = child.get()
-        assert inherited['a'] == 1  # From parent
-        assert inherited['c'] == 3  # From child
-        assert inherited['b']['x'] == 10  # From parent
-        assert inherited['b']['y'] == 20  # From child
+        assert inherited['a'] == 1  # type:ignore From parent
+        assert inherited['c'] == 3  # type:ignore From child
+        assert inherited['b']['x'] == 10  # type:ignore From parent
+        assert inherited['b']['y'] == 20  # type:ignore From child
 
     def test_inheritance_override(self):
         parent = RuntimeData({'a': 1, 'b': 2})
         child = RuntimeData({'b': 20}, parent=parent)
 
         inherited = child.get()
-        assert inherited['a'] == 1  # From parent
-        assert inherited['b'] == 20  # Overridden by child
+        assert inherited['a'] == 1  # type:ignore From parent
+        assert inherited['b'] == 20  # type:ignore Overridden by child
 
     def test_inheritance_disabled(self):
         parent = RuntimeData({'a': 1})
@@ -290,6 +290,7 @@ class TestRuntimeDataInheritance:
 
         # Without inheritance
         data = child.get(inherit=False)
+        assert isinstance(data, dict)
         assert data == {'b': 2}
         assert 'a' not in data
 
@@ -625,6 +626,7 @@ class TestRuntimeDataProblematicCases:
 
         # This should not consume excessive memory
         inherited = current.get()
+        assert inherited
         assert len(inherited) == 11  # base + 10 levels
 
     def test_serialization_of_unserializable_objects(self):

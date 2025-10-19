@@ -92,7 +92,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             if for_each_instance_id in for_each_results and item_id in for_each_results[for_each_instance_id]:
                 for_each_results.set(f"{ for_each_instance_id }.{ item_id }", data.value)
 
-                for value in for_each_results.get(for_each_instance_id).values():
+                for value in for_each_results.get(for_each_instance_id, {}).values():
                     if value is EMPTY:
                         return
 

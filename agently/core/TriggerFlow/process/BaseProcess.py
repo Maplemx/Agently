@@ -14,6 +14,7 @@
 
 
 import uuid
+from asyncio import Event
 from threading import Lock
 
 from typing import Any, Literal, TYPE_CHECKING, overload
@@ -290,7 +291,7 @@ class TriggerFlowBaseProcess:
 
         async def collect_branches(data: "TriggerFlowEventData"):
             self._block_data.global_data.set(f"collections.{ collection_name }.{ branch_id }", data.value)
-            for value in self._block_data.global_data.get(f"collections.{ collection_name}").values():
+            for value in self._block_data.global_data.get(f"collections.{ collection_name}", {}).values():
                 if value is EMPTY:
                     return
 
@@ -322,7 +323,9 @@ class TriggerFlowBaseProcess:
             result = data._system_runtime_data.get("result")
             if result is EMPTY:
                 data._system_runtime_data.set("result", data.value)
-            data._system_runtime_data.get("result_ready").set()
+            result_ready = data._system_runtime_data.get("result_ready")
+            if isinstance(result_ready, Event):
+                result_ready.set()
 
         return self.to(set_default_result)
 
