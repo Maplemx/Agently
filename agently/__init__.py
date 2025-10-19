@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ._entrypoint import AgentlyMain
-from .base import print_, async_print
+from .base import print_, async_print, AgentlyMain
 from .core import TriggerFlow, TriggerFlowBluePrint
 from .types.trigger_flow import TriggerFlowEventData
 
