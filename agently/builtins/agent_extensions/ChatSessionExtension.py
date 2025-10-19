@@ -87,7 +87,7 @@ class ChatSessionExtension(BaseAgent):
         style: Literal["dot", "slash"] = "dot",
     ):
         record_input_paths = self.settings.get("record_input_paths", [])
-        assert record_input_paths is list
+        assert isinstance(record_input_paths, list)
         for prompt_key_and_path in prompt_keys_and_paths:
             if isinstance(prompt_key_and_path, str):
                 path = (prompt_key_and_path, None)
@@ -115,8 +115,8 @@ class ChatSessionExtension(BaseAgent):
         *,
         style: Literal["dot", "slash"] = "dot",
     ):
-        record_input_paths = self.settings.get("record_input_paths")
-        assert record_input_paths is list
+        record_input_paths = self.settings.get("record_input_paths", [])
+        assert isinstance(record_input_paths, list)
         if path is not None and style == "slash":
             path = DataPathBuilder.convert_slash_to_dot(path)
         if (prompt_key, path) not in record_input_paths:
@@ -282,7 +282,7 @@ class ChatSessionExtension(BaseAgent):
                 self.add_chat_history(
                     {
                         "role": "assistant",
-                        "content": yaml.safe_dump(result),
+                        "content": yaml.safe_dump(content),
                     }
                 )
                 return
