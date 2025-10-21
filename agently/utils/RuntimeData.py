@@ -392,7 +392,7 @@ class RuntimeData:
             case "yaml":
                 return yaml.safe_dump(serializable_data)
             case "toml":
-                return toml.dumps(DataFormatter.to_str_key_dict(serializable_data))
+                return toml.dumps(DataFormatter.to_str_key_dict(serializable_data, default_key="data"))
 
     def __delitem__(self, key: Any):
         if isinstance(key, str) and "." in key:

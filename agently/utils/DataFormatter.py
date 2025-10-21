@@ -23,11 +23,14 @@ from typing import (
     get_args,
     overload,
     TYPE_CHECKING,
+    TypeVar,
 )
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from agently.types.data import SerializableValue, KwargsType
+
+T = TypeVar("T")
 
 
 class DataFormatter:
@@ -101,9 +104,10 @@ class DataFormatter:
         value: Any,
         *,
         value_format: None = None,
-        default: dict[str, Any] | None = None,
+        default_key: str,
+        default_value: T = None,
         inconvertible_warning: bool = False,
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, Any | T]: ...
 
     @overload
     @staticmethod
@@ -111,9 +115,10 @@ class DataFormatter:
         value: Any,
         *,
         value_format: Literal["serializable"],
-        default: dict[str, "SerializableValue"] | None = None,
+        default_key: str,
+        default_value: T = None,
         inconvertible_warning: bool = False,
-    ) -> dict[str, "SerializableValue"]: ...
+    ) -> dict[str, "SerializableValue" | T]: ...
 
     @overload
     @staticmethod
@@ -121,18 +126,64 @@ class DataFormatter:
         value: Any,
         *,
         value_format: Literal["str"],
-        default: dict[str, str] | None = None,
+        default_key: str,
+        default_value: T = None,
         inconvertible_warning: bool = False,
-    ) -> dict[str, str]: ...
+    ) -> dict[str, str | T]: ...
+
+    @overload
+    @staticmethod
+    def to_str_key_dict(
+        value: Any,
+        *,
+        value_format: None = None,
+        default_key: None,
+        default_value: T = None,
+        inconvertible_warning: bool = False,
+    ) -> dict[str, Any] | T: ...
+
+    @overload
+    @staticmethod
+    def to_str_key_dict(
+        value: Any,
+        *,
+        value_format: Literal["serializable"],
+        default_key: None,
+        default_value: T = None,
+        inconvertible_warning: bool = False,
+    ) -> dict[str, "SerializableValue"] | T: ...
+
+    @overload
+    @staticmethod
+    def to_str_key_dict(
+        value: Any,
+        *,
+        value_format: Literal["str"],
+        default_key: None,
+        default_value: T = None,
+        inconvertible_warning: bool = False,
+    ) -> dict[str, str | T] | T: ...
+
+    @overload
+    @staticmethod
+    def to_str_key_dict(
+        value: Any,
+        *,
+        value_format: Literal['serializable', 'str'] | None = None,
+        default_key: str | None = None,
+        default_value: T = None,
+        inconvertible_warning: bool = False,
+    ) -> dict[str, Any] | T: ...
 
     @staticmethod
     def to_str_key_dict(
         value: Any,
         *,
         value_format: Literal["serializable", "str"] | None = None,
-        default: dict[str, Any] | None = None,
+        default_key: str | None = None,
+        default_value: T = None,
         inconvertible_warning: bool = False,
-    ):
+    ) -> dict[str, Any] | T:
         if isinstance(value, Mapping):
             if value_format is None:
                 return {str(DataFormatter.sanitize(k)): v for k, v in value.items()}
@@ -147,7 +198,14 @@ class DataFormatter:
                     f"Value: { value }\n"
                     "Tips: You can provide parameter 'default_key' to allow DataFormatter.to_str_key_dict() convert non-dictionary value to a dictionary { default_key: value } automatically."
                 )
-            return default if default is not None else {}
+            # restructure value to {default_key: value}
+            if default_key is not None:
+                return DataFormatter.to_str_key_dict(
+                    {default_key: value},
+                    value_format=value_format,
+                    default_value=default_value,
+                )
+            return default_value
 
     @staticmethod
     def to_str(value: Any) -> str:
