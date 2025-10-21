@@ -200,17 +200,17 @@ class OpenAICompatible(ModelRequester):
         agently_request_dict["data"] = request_data
 
         # headers
-        headers = DataFormatter.to_str_key_dict(
+        headers: dict[str, str] = DataFormatter.to_str_key_dict(
             self.plugin_settings.get("headers"),
             value_format="str",
-            default={},
+            default_value={},
         )
         headers.update({"Connection": "close"})
         ## set
         agently_request_dict["headers"] = headers
 
         # client options
-        client_options = DataFormatter.to_str_key_dict(self.plugin_settings.get("client_options"))
+        client_options = DataFormatter.to_str_key_dict(self.plugin_settings.get("client_options"), default_value={})
         ## proxy
         proxy = self.plugin_settings.get("proxy", None)
         if proxy:
@@ -225,7 +225,8 @@ class OpenAICompatible(ModelRequester):
                     "write": 30.0,
                     "pool": 30.0,
                 },
-            )
+            ),
+            default_value={},
         )
         timeout = Timeout(**timeout_configs)
         client_options.update({"timeout": timeout})
@@ -236,7 +237,16 @@ class OpenAICompatible(ModelRequester):
         request_options = DataFormatter.to_str_key_dict(
             self.plugin_settings.get("request_options"),
             value_format="serializable",
+            default_value={},
         )
+        request_options_in_prompt = self.prompt.get("options", {})
+        if request_options_in_prompt:
+            request_options.update(request_options_in_prompt)
+            request_options = DataFormatter.to_str_key_dict(
+                request_options,
+                value_format="serializable",
+                default_value={},
+            )
         ## !: ensure model
         request_options.update(
             {
@@ -245,7 +255,7 @@ class OpenAICompatible(ModelRequester):
                     DataFormatter.to_str_key_dict(
                         self.plugin_settings.get("default_model"),
                         value_format="serializable",
-                        default={self.model_type: self.plugin_settings.get("default_model")},
+                        default_key=self.model_type,
                     )[self.model_type],
                 )
             }
@@ -264,6 +274,7 @@ class OpenAICompatible(ModelRequester):
         path_mapping = DataFormatter.to_str_key_dict(
             self.plugin_settings.get("path_mapping"),
             value_format="str",
+            default_value={},
         )
         path_mapping = {k: v if v[0] == "/" else f"/{ v }" for k, v in path_mapping.items()}
         ## set
@@ -309,16 +320,31 @@ class OpenAICompatible(ModelRequester):
         auth = DataFormatter.to_str_key_dict(
             self.plugin_settings.get("auth", "None"),
             value_format="serializable",
-            default={"api_key": self.plugin_settings.get("auth", "None")},
+            default_key="api_key",
         )
-        headers_with_auth = {**request_data.headers, "Authorization": f"Bearer { auth['api_key'] }"}
+        api_key = self.plugin_settings.get("api_key", None)
+        if api_key is not None and "api_key" not in auth:
+            auth["api_key"] = str(api_key)
+        if "api_key" in auth:
+            headers_with_auth = {**request_data.headers, "Authorization": f"Bearer { auth['api_key'] }"}
+        elif "headers" in auth and isinstance(auth["headers"], dict):
+            headers_with_auth = {**request_data.headers, **auth["headers"]}
+        elif "body" in auth and isinstance(auth["body"], dict):
+            headers_with_auth = request_data.headers.copy()
+            request_data.data.update(**auth["body"])
+        else:
+            headers_with_auth = request_data.headers.copy()
 
         # request
         # stream request
         if self.model_type in ("chat", "completions") and request_data.stream:
             async with AsyncClient(**request_data.client_options) as client:
                 client.headers.update(headers_with_auth)
-                full_request_data = DataFormatter.to_str_key_dict(request_data.data, value_format="serializable")
+                full_request_data = DataFormatter.to_str_key_dict(
+                    request_data.data,
+                    value_format="serializable",
+                    default_value={},
+                )
                 full_request_data.update(request_data.request_options)
                 try:
                     async for sse in await self._aiter_sse_with_retry(
@@ -373,7 +399,11 @@ class OpenAICompatible(ModelRequester):
         else:
             async with AsyncClient(**request_data.client_options) as client:
                 client.headers.update(headers_with_auth)
-                full_request_data = DataFormatter.to_str_key_dict(request_data.data, value_format="serializable")
+                full_request_data = DataFormatter.to_str_key_dict(
+                    request_data.data,
+                    value_format="serializable",
+                    default_value={},
+                )
                 full_request_data.update(request_data.request_options)
                 try:
                     response = await client.post(
