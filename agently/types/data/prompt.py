@@ -122,6 +122,7 @@ PromptStandardSlot = Literal[
     "attachment",
     "output",
     "output_format",
+    "options",
 ]
 
 
@@ -144,6 +145,7 @@ class PromptModel(BaseModel):
     attachment: Annotated[list[ChatMessageContent], PlainValidator(validate_attachment)] = []
     output: Any = None
     output_format: OutputFormat | Any = None
+    options: dict[str, Any] = {}
 
     model_config = ConfigDict(extra="allow")
 

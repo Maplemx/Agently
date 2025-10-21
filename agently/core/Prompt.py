@@ -191,5 +191,5 @@ class Prompt(RuntimeData):
         else:
             super().append(key, value)
 
-    def get(self, key: "PromptStandardSlot | None" = None, default: Any | None = None, inherit: bool = True):
+    def get(self, key: "PromptStandardSlot | None" = None, default: T = None, inherit: bool = True) -> Any | T:
         return super().get(key, default=default, inherit=inherit)

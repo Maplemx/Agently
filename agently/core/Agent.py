@@ -110,7 +110,7 @@ class BaseAgent:
 
     def reset_chat_history(self):
         if "chat_history" in self.prompt:
-            del self.prompt["chat_history"]
+            self.prompt.set("chat_history", [])
         return self
 
     def set_chat_history(self, chat_history: "list[dict[str, Any] | ChatMessage]"):
@@ -121,6 +121,8 @@ class BaseAgent:
         return self
 
     def add_chat_history(self, chat_history: "list[dict[str, Any] | ChatMessage] | dict[str, Any] | ChatMessage"):
+        if not isinstance(chat_history, list):
+            chat_history = [chat_history]
         self.prompt.set("chat_history", chat_history)
         return self
 
@@ -251,4 +253,16 @@ class BaseAgent:
             self.prompt.set("output", prompt, mappings)
         else:
             self.request.prompt.set("output", prompt, mappings)
+        return self
+
+    def options(
+        self,
+        options: dict[str, Any],
+        *,
+        always: bool = False,
+    ):
+        if always:
+            self.prompt.set("options", options)
+        else:
+            self.request.prompt.set("options", options)
         return self
