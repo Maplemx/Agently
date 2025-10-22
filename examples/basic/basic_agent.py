@@ -13,7 +13,7 @@ Agently.set_settings(
         "base_url": os.environ["QIANFAN_BASE_URL"],
         "model": "ernie-lite-8k",
         "model_type": "chat",
-        "auth": os.environ["QIANFAN_API_KEY"],
+        "api_key": os.environ["QIANFAN_API_KEY"],
     },
 )
 

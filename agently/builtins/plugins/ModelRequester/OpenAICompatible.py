@@ -323,7 +323,7 @@ class OpenAICompatible(ModelRequester):
             default_key="api_key",
         )
         api_key = self.plugin_settings.get("api_key", None)
-        if api_key is not None and "api_key" not in auth:
+        if api_key is not None and auth["api_key"] == "None":
             auth["api_key"] = str(api_key)
         if "api_key" in auth:
             headers_with_auth = {**request_data.headers, "Authorization": f"Bearer { auth['api_key'] }"}
