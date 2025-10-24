@@ -84,6 +84,8 @@ class OpenAICompatible(ModelRequester):
         "$mappings": {
             "path_mappings": {
                 "OpenAICompatible": "plugins.ModelRequester.OpenAICompatible",
+                "OpenAI": "plugins.ModelRequester.OpenAICompatible",
+                "OAIClient": "plugins.ModelRequester.OpenAICompatible",
             },
         },
         "model_type": "chat",
@@ -98,6 +100,7 @@ class OpenAICompatible(ModelRequester):
         "proxy": None,
         "request_options": {},
         "base_url": "https://api.openai.com/v1",
+        "full_url": None,
         "path_mapping": {
             "chat": "/chat/completions",
             "completions": "/completions",
@@ -261,12 +264,16 @@ class OpenAICompatible(ModelRequester):
             }
         )
         ## !: ensure stream
-        is_stream = self.plugin_settings.get("stream", True)
+        is_stream = self.plugin_settings.get("stream")
+        if is_stream is None:
+            is_stream = True
         request_options.update({"stream": is_stream})
         ## set
         agently_request_dict["request_options"] = request_options
 
         # request url
+        ## get full url
+        full_url = self.plugin_settings.get("full_url")
         ## get base url
         base_url = str(self.plugin_settings.get("base_url"))
         base_url = base_url[:-1] if base_url[-1] == "/" else base_url
@@ -278,7 +285,10 @@ class OpenAICompatible(ModelRequester):
         )
         path_mapping = {k: v if v[0] == "/" else f"/{ v }" for k, v in path_mapping.items()}
         ## set
-        request_url = f"{ base_url }{ path_mapping[self.model_type] }"
+        if isinstance(full_url, str):
+            request_url = full_url
+        else:
+            request_url = f"{ base_url }{ path_mapping[self.model_type] }"
         agently_request_dict["request_url"] = request_url
 
         return AgentlyRequestData(**agently_request_dict)
@@ -357,22 +367,34 @@ class OpenAICompatible(ModelRequester):
                         json=full_request_data,
                         headers=headers_with_auth,
                     )
-                    content_type = response.headers.get("Content-Type", "")
-                    if content_type.startswith("application/json"):
-                        try:
-                            error_json = response.json()
-                        except Exception:
-                            error_json = await response.aread()
-                            error_json = json.loads(error_json.decode())
-                        error = error_json["error"]
-                        error_title = f"{ error['code'] if 'code' in error else 'unknown_code' } - { error['type'] if 'type' in error else 'unknown_type' }"
-                        error_detail = error["message"] if "message" in error else ""
-                        yield "error", error_detail
-                    else:
+                    # Raise status code >= 400
+                    if response.status_code >= 400:
+                        e = RequestError(
+                            f"Status Code: { response.status_code }\n" f"Request Data: {full_request_data}"
+                        )
                         self._messenger.error(
-                            "Error: SSE Error\n" f"Detail: {e}\n" f"Request Data: {full_request_data}", status="FAILED"
+                            e,
+                            status="FAILED",
                         )
                         yield "error", e
+                    else:
+                        content_type = response.headers.get("Content-Type", "")
+                        if content_type.startswith("application/json"):
+                            try:
+                                error_json = response.json()
+                            except Exception:
+                                error_json = await response.aread()
+                                error_json = json.loads(error_json.decode())
+                            error = error_json["error"]
+                            error_title = f"{ error['code'] if 'code' in error else 'unknown_code' } - { error['type'] if 'type' in error else 'unknown_type' }"
+                            error_detail = error["message"] if "message" in error else ""
+                            yield "error", error_detail
+                        else:
+                            self._messenger.error(
+                                "Error: SSE Error\n" f"Detail: {e}\n" f"Request Data: {full_request_data}",
+                                status="FAILED",
+                            )
+                            yield "error", e
                 except HTTPStatusError as e:
                     self._messenger.error(
                         "Error: HTTP Status Error\n"
@@ -410,8 +432,18 @@ class OpenAICompatible(ModelRequester):
                         request_data.request_url,
                         json=full_request_data,
                     )
-                    yield "message", response.content.decode()
-                    yield "message", "[DONE]"
+                    if response.status_code >= 400:
+                        e = RequestError(
+                            f"Status Code: { response.status_code }\n" f"Request Data: {full_request_data}"
+                        )
+                        self._messenger.error(
+                            e,
+                            status="FAILED",
+                        )
+                        yield "error", e
+                    else:
+                        yield "message", response.content.decode()
+                        yield "message", "[DONE]"
                 except HTTPStatusError as e:
                     self._messenger.error(
                         "Error: HTTP Status Error\n"
@@ -480,6 +512,7 @@ class OpenAICompatible(ModelRequester):
                         loaded_message,
                         role_mapping,
                         style=content_mapping_style,
+                        default="assistant",
                     )
                     if role:
                         meta.update({"role": role})
