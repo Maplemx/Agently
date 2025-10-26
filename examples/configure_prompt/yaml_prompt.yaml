@@ -4,6 +4,23 @@
     Agently: "Speed up your AI application development. Official website: https://Agently.tech."
 .request:
   input: Say hello.
+  output:
+    thinking:
+      $type:
+        - $type: str
+          $desc: one step of plan
+      $desc: plans to response
+    reply:
+      $type: str
+    extra:
+      $type:
+        worth_to_remember:
+          $type: bool
+          $desc: is {input} and {reply} worth to be remembered that not a normal daily chat?
+        user_emotion_guess:
+          $type: str
+          $desc: how do you thinking user's emotion is going to be after {reply}?
+      $desc: extra info you need to collect and analysis
 .alias:
   set_request_prompt:
     .args:

@@ -38,11 +38,13 @@ class ConfigurePromptExtension(BaseAgent):
                 output_desc = output_prompt_value[".desc"]
             if output_type or output_desc:
                 return (
-                    output_type if output_type is not None else Any,
+                    self._generate_output_value(output_type) if output_type is not None else Any,
                     output_desc,
                 )
             else:
-                return output_prompt_value
+                return {key: self._generate_output_value(value) for key, value in output_prompt_value.items()}
+        elif isinstance(output_prompt_value, list):
+            return [self._generate_output_value(item) for item in output_prompt_value]
         else:
             return output_prompt_value
 
