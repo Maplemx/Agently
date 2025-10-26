@@ -153,12 +153,12 @@ class AgentlyResponseParser(ResponseParser):
                         self.full_result_data["original_done"] = data
                     case "done":
                         self.full_result_data["text_result"] = str(data)
-                        if buffer != self.full_result_data["text_result"]:
-                            warnings.warn(
-                                "Buffered streaming result is not exactly the same as final result.\n"
-                                f"Buffered Result: { buffer }\n"
-                                f"Final Result: { self.full_result_data['text_result'] }\n"
-                            )
+                        # if buffer != self.full_result_data["text_result"]:
+                        #     warnings.warn(
+                        #         "Buffered streaming result is not exactly the same as final result.\n"
+                        #         f"Buffered Result: { buffer }\n"
+                        #         f"Final Result: { self.full_result_data['text_result'] }\n"
+                        #     )
                         if self._prompt_object.output_format == "json":
                             cleaned_json = DataLocator.locate_output_json(str(data), self._prompt_object.output)
                             if cleaned_json:

@@ -536,6 +536,9 @@ class OpenAICompatible(ModelRequester):
                             yield "extra", {extra_key: extra_value}
             else:
                 done_content = None
+                if self.model_type == "embeddings" and done_mapping is None:
+                    done_mapping = "data[0].embedding"
+                    content_mapping_style = "dot"
                 if done_mapping:
                     done_content = DataLocator.locate_path_in_dict(
                         message_record,
@@ -546,16 +549,20 @@ class OpenAICompatible(ModelRequester):
                     yield "done", done_content
                 else:
                     yield "done", content_buffer
-                done_message = message_record
-                if "message" not in done_message["choices"][0]:
-                    done_message["choices"][0].update({"message": {}})
-                done_message["choices"][0]["message"].update(
-                    {
-                        "role": meta["role"] if "role" in meta else "assistant",
-                        "content": done_content if done_content else content_buffer,
-                    }
-                )
-                yield "original_done", done_message
+                match self.model_type:
+                    case "embeddings":
+                        yield "original_done", message_record
+                    case "_":
+                        done_message = message_record
+                        if "message" not in done_message["choices"][0]:
+                            done_message["choices"][0].update({"message": {}})
+                        done_message["choices"][0]["message"].update(
+                            {
+                                "role": meta["role"] if "role" in meta else "assistant",
+                                "content": done_content if done_content else content_buffer,
+                            }
+                        )
+                        yield "original_done", done_message
                 if finish_reason_mapping:
                     meta.update(
                         {
