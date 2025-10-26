@@ -184,13 +184,25 @@ class OpenAICompatible(ModelRequester):
                 request_data = {"prompt": self.prompt.to_text()}
             case "embeddings":
                 sanitized_input = DataFormatter.sanitize(self.prompt["input"])
-                request_data = {
-                    "input": (
-                        str(sanitized_input)
-                        if isinstance(sanitized_input, (str, int, float, bool)) or sanitized_input is None
-                        else yaml.safe_dump(sanitized_input)
-                    )
-                }
+                if isinstance(sanitized_input, list):
+                    request_data = {
+                        "input": [
+                            (
+                                str(item)
+                                if isinstance(item, (str, int, float, bool)) or item is None
+                                else yaml.safe_dump(item)
+                            )
+                            for item in sanitized_input
+                        ],
+                    }
+                else:
+                    request_data = {
+                        "input": (
+                            str(sanitized_input)
+                            if isinstance(sanitized_input, (str, int, float, bool)) or sanitized_input is None
+                            else yaml.safe_dump(sanitized_input)
+                        )
+                    }
             case _:
                 self._messenger.error(
                     TypeError(
@@ -266,7 +278,10 @@ class OpenAICompatible(ModelRequester):
         ## !: ensure stream
         is_stream = self.plugin_settings.get("stream")
         if is_stream is None:
-            is_stream = True
+            if self.model_type == "embeddings":
+                is_stream = False
+            else:
+                is_stream = True
         request_options.update({"stream": is_stream})
         ## set
         agently_request_dict["request_options"] = request_options
@@ -537,7 +552,7 @@ class OpenAICompatible(ModelRequester):
             else:
                 done_content = None
                 if self.model_type == "embeddings" and done_mapping is None:
-                    done_mapping = "data[0].embedding"
+                    done_mapping = "data"
                     content_mapping_style = "dot"
                 if done_mapping:
                     done_content = DataLocator.locate_path_in_dict(

@@ -204,7 +204,14 @@ class AgentlyResponseParser(ResponseParser):
                                     self.settings,
                                 )
                         else:
-                            self.full_result_data["parsed_result"] = str(data)
+                            if (
+                                isinstance(data, list)
+                                and isinstance(data[0], dict)
+                                and "object" in data[0]
+                                and data[0]["object"] == "embedding"
+                            ):
+                                data = [item["embedding"] for item in data]
+                            self.full_result_data["parsed_result"] = data
                             if self.settings.get("$log.cancel_logs") is not True:
                                 await async_system_message(
                                     "MODEL_REQUEST",
