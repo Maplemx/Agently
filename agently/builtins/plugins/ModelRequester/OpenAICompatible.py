@@ -372,10 +372,15 @@ class OpenAICompatible(ModelRequester):
                 )
                 full_request_data.update(request_data.request_options)
                 try:
+                    has_done = False
                     async for sse in await self._aiter_sse_with_retry(
                         client, "POST", request_data.request_url, json=full_request_data, headers=headers_with_auth
                     ):
                         yield sse.event, sse.data
+                        if sse.data.strip() == "[DONE]":
+                            has_done = False
+                    if not has_done:
+                        yield "message", "[DONE]"
                 except SSEError as e:
                     response = await client.post(
                         request_data.request_url,
@@ -403,6 +408,12 @@ class OpenAICompatible(ModelRequester):
                             error = error_json["error"]
                             error_title = f"{ error['code'] if 'code' in error else 'unknown_code' } - { error['type'] if 'type' in error else 'unknown_type' }"
                             error_detail = error["message"] if "message" in error else ""
+                            self._messenger.error(
+                                f"Error: { error_title }\n"
+                                f"Detail: {error_detail }\n"
+                                f"Request Data: {full_request_data}",
+                                status="FAILED",
+                            )
                             yield "error", error_detail
                         else:
                             self._messenger.error(
