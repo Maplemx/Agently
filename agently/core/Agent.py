@@ -75,7 +75,7 @@ class BaseAgent:
         self.get_generator = self.request.get_generator
         self.get_async_generator = self.request.get_async_generator
 
-        self.start = self.get_result
+        self.start = self.get_data
         self.async_start = self.async_get_data
 
     # Basic Methods
