@@ -120,3 +120,28 @@ class FunctionShifter:
             return loop.run_until_complete(consume())
         finally:
             loop.close()
+
+    @staticmethod
+    def auto_options_func(func: Callable[..., R]) -> Callable[..., R]:
+        signature = inspect.signature(func)
+        params = signature.parameters
+        accepts_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+
+        @wraps(func)
+        def _wrapper(*args, **kwargs):
+            if not accepts_kwargs:
+                kwargs = {
+                    name: value
+                    for name, value in kwargs.items()
+                    if name in params
+                    and params[name].kind
+                    in (
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        inspect.Parameter.KEYWORD_ONLY,
+                    )
+                }
+
+            result = func(*args, **kwargs)
+            return result
+
+        return _wrapper
