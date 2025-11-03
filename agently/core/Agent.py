@@ -63,19 +63,20 @@ class BaseAgent:
         )
 
         self.get_response = self.request.get_response
+        self.get_result = self.request.get_result
         self.get_meta = self.request.get_meta
         self.async_get_meta = self.request.async_get_meta
         self.get_text = self.request.get_text
         self.async_get_text = self.request.async_get_text
-        self.get_result = self.request.get_result
-        self.async_get_result = self.request.async_get_result
-        self.get_result_object = self.request.get_result_object
-        self.async_get_result_object = self.request.async_get_result_object
+        self.get_data = self.request.get_data
+        self.async_get_data = self.request.async_get_data
+        self.get_data_object = self.request.get_data_object
+        self.async_get_data_object = self.request.async_get_data_object
         self.get_generator = self.request.get_generator
         self.get_async_generator = self.request.get_async_generator
 
         self.start = self.get_result
-        self.async_start = self.async_get_result
+        self.async_start = self.async_get_data
 
     # Basic Methods
     def set_settings(self, key: str, value: "SerializableValue"):

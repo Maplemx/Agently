@@ -57,10 +57,10 @@ class ModelResponseResult:
         self.async_get_meta = _response_parser.async_get_meta
         self.get_text = _response_parser.get_text
         self.async_get_text = _response_parser.async_get_text
-        self.get_result = _response_parser.get_result
-        self.async_get_result = _response_parser.async_get_result
-        self.get_result_object = _response_parser.get_result_object
-        self.async_get_result_object = _response_parser.async_get_result_object
+        self.get_data = _response_parser.get_data
+        self.async_get_data = _response_parser.async_get_data
+        self.get_data_object = _response_parser.get_data_object
+        self.async_get_data_object = _response_parser.async_get_data_object
         self.get_generator = _response_parser.get_generator
         self.get_async_generator = _response_parser.get_async_generator
 
@@ -99,14 +99,15 @@ class ModelResponse:
             self.plugin_manager,
             self.settings,
         )
+        self.get_result = self.result
         self.get_meta = self.result.get_meta
         self.async_get_meta = self.result.async_get_meta
         self.get_text = self.result.get_text
         self.async_get_text = self.result.async_get_text
-        self.get_result = self.result.get_result
-        self.async_get_result = self.result.async_get_result
-        self.get_result_object = self.result.get_result_object
-        self.async_get_result_object = self.result.async_get_result_object
+        self.get_data = self.result.get_data
+        self.async_get_data = self.result.async_get_data
+        self.get_data_object = self.result.get_data_object
+        self.async_get_data_object = self.result.async_get_data_object
         self.get_generator = self.result.get_generator
         self.get_async_generator = self.result.get_async_generator
 
@@ -298,8 +299,8 @@ class ModelRequest:
 
         self.get_meta = FunctionShifter.syncify(self.async_get_meta)
         self.get_text = FunctionShifter.syncify(self.async_get_text)
-        self.get_result = FunctionShifter.syncify(self.async_get_result)
-        self.get_result_object = FunctionShifter.syncify(self.async_get_result_object)
+        self.get_data = FunctionShifter.syncify(self.async_get_data)
+        self.get_data_object = FunctionShifter.syncify(self.async_get_data_object)
 
     def set_settings(self, key: str, value: "SerializableValue"):
         self.settings.set_settings(key, value)
@@ -397,21 +398,24 @@ class ModelRequest:
         self.prompt.clear()
         return response
 
+    async def get_result(self):
+        return self.get_response().result
+
     async def async_get_meta(self):
         return await self.get_response().async_get_meta()
 
     async def async_get_text(self):
         return await self.get_response().async_get_text()
 
-    async def async_get_result(
+    async def async_get_data(
         self,
         *,
         content: Literal['original', 'parsed', 'all'] = "parsed",
     ):
-        return await self.get_response().async_get_result(content=content)
+        return await self.get_response().async_get_data(content=content)
 
-    async def async_get_result_object(self):
-        return await self.get_response().async_get_result_object()
+    async def async_get_data_object(self):
+        return await self.get_response().async_get_data_object()
 
     @overload
     def get_generator(

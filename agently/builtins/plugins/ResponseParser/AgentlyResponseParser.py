@@ -86,8 +86,8 @@ class AgentlyResponseParser(ResponseParser):
 
         self.get_meta = FunctionShifter.syncify(self.async_get_meta)
         self.get_text = FunctionShifter.syncify(self.async_get_text)
-        self.get_result = FunctionShifter.syncify(self.async_get_result)
-        self.get_result_object = FunctionShifter.syncify(self.async_get_result_object)
+        self.get_data = FunctionShifter.syncify(self.async_get_data)
+        self.get_data_object = FunctionShifter.syncify(self.async_get_data_object)
 
     @staticmethod
     def _on_register():
@@ -241,7 +241,7 @@ class AgentlyResponseParser(ResponseParser):
         await cast(GeneratorConsumer, self._response_consumer).get_result()
         return self.full_result_data["meta"]
 
-    async def async_get_result(
+    async def async_get_data(
         self,
         *,
         content: Literal['original', 'parsed', "all"] = "parsed",
@@ -257,7 +257,7 @@ class AgentlyResponseParser(ResponseParser):
             case "all":
                 return self.full_result_data.copy()
 
-    async def async_get_result_object(self) -> BaseModel | None:
+    async def async_get_data_object(self) -> BaseModel | None:
         if self._prompt_object.output_format != "json":
             raise TypeError(
                 "Error: Cannot build an output model for a non-structure output.\n"
