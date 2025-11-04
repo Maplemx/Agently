@@ -13,15 +13,16 @@
 # limitations under the License.
 
 
-from typing import Literal
+from typing import Any, Literal
 
-from agently.utils import LazyImport
+from agently.utils import LazyImport, FunctionShifter
 
 
 class Search:
 
     def __init__(
         self,
+        *,
         proxy: str | None = None,
         timeout: int | None = None,
         backend: (
@@ -31,6 +32,76 @@ class Search:
             Literal["auto", "bing", "duckduckgo", "yahoo", "google", "mullvad_google", "yandex", "wikipedia"] | None
         ) = None,
         news_backend: Literal["auto", "bing", "duckduckgo", "yahoo"] | None = None,
+        region: Literal[
+            "xa-ar",
+            "xa-en",
+            "ar-es",
+            "au-en",
+            "at-de",
+            "be-fr",
+            "be-nl",
+            "br-pt",
+            "bg-bg",
+            "ca-en",
+            "ca-fr",
+            "ct-ca",
+            "cl-es",
+            "cn-zh",
+            "co-es",
+            "hr-hr",
+            "cz-cs",
+            "dk-da",
+            "ee-et",
+            "fi-fi",
+            "fr-fr",
+            "de-de",
+            "gr-el",
+            "hk-tzh",
+            "hu-hu",
+            "in-en",
+            "id-id",
+            "id-en",
+            "ie-en",
+            "il-he",
+            "it-it",
+            "jp-jp",
+            "kr-kr",
+            "lv-lv",
+            "lt-lt",
+            "xl-es",
+            "my-ms",
+            "my-en",
+            "mx-es",
+            "nl-nl",
+            "nz-en",
+            "no-no",
+            "pe-es",
+            "ph-en",
+            "ph-tl",
+            "pl-pl",
+            "pt-pt",
+            "ro-ro",
+            "ru-ru",
+            "sg-en",
+            "sk-sk",
+            "sl-sl",
+            "za-en",
+            "es-es",
+            "se-sv",
+            "ch-de",
+            "ch-fr",
+            "ch-it",
+            "tw-tzh",
+            "th-th",
+            "tr-tr",
+            "ua-uk",
+            "uk-en",
+            "us-en",
+            "ue-es",
+            "ve-es",
+            "vn-vi",
+        ] = "us-en",
+        options: dict[str, Any] | None = None,
     ):
         LazyImport.import_package("ddgs")
         from ddgs import DDGS
@@ -42,6 +113,8 @@ class Search:
             "search": search_backend if search_backend is not None else backend,
             "news": news_backend if news_backend is not None else backend,
         }
+        self.region = region
+        self._extra_options = options or {}
 
     async def search(
         self,
@@ -60,11 +133,14 @@ class Search:
         Returns:
             List of dictionaries with search results.
         """
-        return self.ddgs.text(
+        search_text = FunctionShifter.auto_options_func(self.ddgs.text)
+        return search_text(
             query=query,
             timelimit=timelimit,
             max_results=max_results,
             backend=self.backends.get("search", "auto"),
+            region=self.region,
+            **self._extra_options,
         )
 
     async def search_news(
@@ -84,11 +160,14 @@ class Search:
         Returns:
             List of dictionaries with news search results.
         """
-        return self.ddgs.news(
+        search_news = FunctionShifter.auto_options_func(self.ddgs.news)
+        return search_news(
             query=query,
             timelimit=timelimit,
             max_results=max_results,
             backend=self.backends.get("news", "auto"),
+            region=self.region,
+            **self._extra_options,
         )
 
     async def search_wikipedia(
@@ -108,11 +187,14 @@ class Search:
         Returns:
             List of dictionaries with search results.
         """
-        return self.ddgs.text(
+        search_wikipedia = FunctionShifter.auto_options_func(self.ddgs.text)
+        return search_wikipedia(
             query=query,
             timelimit=timelimit,
             max_results=max_results,
             backend="wikipedia",
+            region=self.region,
+            **self._extra_options,
         )
 
     async def search_arxiv(

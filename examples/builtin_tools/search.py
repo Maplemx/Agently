@@ -1,7 +1,11 @@
 import asyncio
 from agently.builtins.tools import Search
 
-search = Search(proxy="http://127.0.0.1:7890")
+search = Search(
+    proxy="http://127.0.0.1:7890",
+    region="us-en",
+    options={"safesearch": "on"},
+)
 
 
 async def directly_search():
@@ -22,7 +26,7 @@ async def directly_search():
     print(results)
 
 
-# asyncio.run(directly_search())
+asyncio.run(directly_search())
 
 import os
 from dotenv import find_dotenv, load_dotenv
@@ -52,5 +56,5 @@ agent.use_tools(
 )
 
 response = agent.input("Search news about language model applications.").get_response()
-print(response.result.get_result())
+print(response.result.get_data())
 print(response.result.full_result_data["extra"])
