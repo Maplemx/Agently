@@ -27,5 +27,5 @@ request.set_prompt(
     },
 )
 
-result = request.get_result_object()
+result = request.get_data_object()
 Agently.print(result)
