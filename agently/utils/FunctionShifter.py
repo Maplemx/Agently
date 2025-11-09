@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import queue
 import asyncio
 import threading
 from functools import wraps
 
 import inspect
-from typing import Any, Callable, Coroutine, TypeVar, ParamSpec
+from typing import Any, Callable, Coroutine, TypeVar, ParamSpec, Generator, AsyncGenerator
 from asyncio import Future
 
 T = TypeVar("T")
@@ -107,19 +108,43 @@ class FunctionShifter:
         return wrapper
 
     @staticmethod
-    def syncify_async_generator(async_gen):
-        loop = asyncio.new_event_loop()
+    def syncify_async_generator(async_gen: AsyncGenerator[R, Any]) -> Generator[R, Any, Any]:
 
-        async def consume():
-            result = []
-            async for item in async_gen:
-                result.append(item)
-            return result
+        q: "queue.Queue" = queue.Queue()
+        SENTINEL = object()
+
+        async def _consume():
+            try:
+                async for item in async_gen:
+                    q.put(("item", item))
+            except Exception as e:
+                q.put(("error", e))
+            finally:
+                q.put(("end", SENTINEL))
+
+        def _runner():
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(_consume())
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
+
+        thread = threading.Thread(target=_runner, daemon=True)
+        thread.start()
 
         try:
-            return loop.run_until_complete(consume())
+            while True:
+                kind, payload = q.get()
+                if kind == "item":
+                    yield payload
+                elif kind == "error":
+                    raise payload
+                elif kind == "end":
+                    break
         finally:
-            loop.close()
+            thread.join()
 
     @staticmethod
     def auto_options_func(func: Callable[..., R]) -> Callable[..., R]:
