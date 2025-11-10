@@ -23,7 +23,9 @@ if TYPE_CHECKING:
     from agently.utils import GeneratorConsumer
     from agently.types.data.serializable import SerializableValue
 
-AgentlyModelResponseEvent = Literal["error", "original_delta", "delta", "original_done", "done", "meta", "extra"]
+AgentlyModelResponseEvent = Literal[
+    "error", "original_delta", "delta", "tool_calls", "original_done", "done", "meta", "extra"
+]
 
 AgentlyModelResponseMessage: TypeAlias = tuple[AgentlyModelResponseEvent, Any]
 AgentlyResponseGenerator: TypeAlias = AsyncGenerator[AgentlyModelResponseMessage, None]

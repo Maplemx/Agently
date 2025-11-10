@@ -46,6 +46,7 @@ class ContentMapping(TypedDict):
     id: str | None
     role: str | None
     delta: str | None
+    tool_calls: str | None
     done: str | None
     usage: str | None
     finish_reason: str | None
@@ -114,11 +115,11 @@ class OpenAICompatible(ModelRequester):
             "id": "id",
             "role": "choices[0].delta.role",
             "delta": "choices[0].delta.content",
+            "tool_calls": "choices[0].delta.tool_calls",
             "done": None,
             "usage": "usage",
             "finish_reason": "choices[0].finish_reason",
             "extra_delta": {
-                "tool_calls": "choices[0].delta.tool_calls",
                 "function_call": "choices[0].delta.function_call",
             },
             "extra_done": None,
@@ -508,6 +509,7 @@ class OpenAICompatible(ModelRequester):
         id_mapping = content_mapping["id"]
         role_mapping = content_mapping["role"]
         delta_mapping = content_mapping["delta"]
+        tool_calls_mapping = content_mapping["tool_calls"]
         done_mapping = content_mapping["done"]
         usage_mapping = content_mapping["usage"]
         finish_reason_mapping = content_mapping["finish_reason"]
@@ -551,6 +553,14 @@ class OpenAICompatible(ModelRequester):
                     if delta:
                         content_buffer += str(delta)
                         yield "delta", delta
+                if tool_calls_mapping:
+                    tool_calls = DataLocator.locate_path_in_dict(
+                        loaded_message,
+                        tool_calls_mapping,
+                        style=content_mapping_style,
+                    )
+                    if tool_calls:
+                        yield "tool_calls", tool_calls
                 if extra_delta_mapping:
                     for extra_key, extra_path in extra_delta_mapping.items():
                         extra_value = DataLocator.locate_path_in_dict(
