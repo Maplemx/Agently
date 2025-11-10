@@ -135,7 +135,7 @@ class AgentlyPromptGenerator(PromptGenerator):
     def _generate_yaml_prompt_list(self, title: str, prompt_part: Any) -> list[str]:
         sanitized_part = DataFormatter.sanitize(prompt_part)
         return [
-            f"[{ title.upper() }]:",
+            f"[{ title }]:",
             (
                 str(sanitized_part)
                 if isinstance(sanitized_part, (str, int, float, bool)) or sanitized_part is None
@@ -145,10 +145,11 @@ class AgentlyPromptGenerator(PromptGenerator):
         ]
 
     def _generate_main_prompt(self, prompt_object: PromptModel):
+        prompt_title_mapping = cast(dict[str, str], self.settings.get("prompt.prompt_title_mapping", {}))
         prompt_text_list = []
         # tools
         if prompt_object.tools and isinstance(prompt_object.tools, list):
-            prompt_text_list.append("[TOOLS]:")
+            prompt_text_list.append(f"[{ prompt_title_mapping.get('tools', 'TOOLS') }]:")
             for tool_info in prompt_object.tools:
                 if isinstance(tool_info, dict):
                     prompt_text_list.append("[")
@@ -163,11 +164,21 @@ class AgentlyPromptGenerator(PromptGenerator):
 
         # action_results
         if prompt_object.action_results:
-            prompt_text_list.extend(self._generate_yaml_prompt_list("ACTION RESULTS", prompt_object.action_results))
+            prompt_text_list.extend(
+                self._generate_yaml_prompt_list(
+                    str(
+                        prompt_title_mapping.get(
+                            'action_results',
+                            'ACTION RESULTS',
+                        )
+                    ),
+                    prompt_object.action_results,
+                )
+            )
 
         # info
         if prompt_object.info:
-            prompt_text_list.append("[INFO]:")
+            prompt_text_list.append(f"[{ prompt_title_mapping.get('info', 'INFO') }]:")
             if isinstance(prompt_object.info, Mapping):
                 for title, content in prompt_object.info.items():
                     prompt_text_list.append(f"- { title }: { DataFormatter.sanitize(content) }")
@@ -186,11 +197,45 @@ class AgentlyPromptGenerator(PromptGenerator):
 
         # instruct
         if prompt_object.instruct:
-            prompt_text_list.extend(self._generate_yaml_prompt_list("INSTRUCT", prompt_object.instruct))
+            prompt_text_list.extend(
+                self._generate_yaml_prompt_list(
+                    str(
+                        prompt_title_mapping.get(
+                            'instruct',
+                            'INSTRUCT',
+                        )
+                    ),
+                    prompt_object.instruct,
+                )
+            )
+
+        # examples
+        if prompt_object.examples:
+            prompt_text_list.extend(
+                self._generate_yaml_prompt_list(
+                    str(
+                        prompt_title_mapping.get(
+                            'examples',
+                            'EXAMPLES',
+                        )
+                    ),
+                    prompt_object.examples,
+                )
+            )
 
         # input
         if prompt_object.input:
-            prompt_text_list.extend(self._generate_yaml_prompt_list("INPUT", prompt_object.input))
+            prompt_text_list.extend(
+                self._generate_yaml_prompt_list(
+                    str(
+                        prompt_title_mapping.get(
+                            'input',
+                            'INPUT',
+                        )
+                    ),
+                    prompt_object.input,
+                )
+            )
 
         # output
         if prompt_object.output:
@@ -200,7 +245,7 @@ class AgentlyPromptGenerator(PromptGenerator):
                     final_output_dict.update(prompt_object.output)
                     prompt_text_list.extend(
                         [
-                            "[OUTPUT REQUIREMENT]:",
+                            f"[{ prompt_title_mapping.get('output_requirement', 'OUTPUT REQUIREMENT') }]:",
                             "Data Format: JSON",
                             "Data Structure:",
                             self._generate_json_output_prompt(DataFormatter.sanitize(final_output_dict)),
@@ -210,14 +255,16 @@ class AgentlyPromptGenerator(PromptGenerator):
                 case "markdown":
                     prompt_text_list.extend(
                         [
-                            "[OUTPUT REQUIREMENT]:",
+                            f"[{ prompt_title_mapping.get('output_requirement', 'OUTPUT REQUIREMENT') }]:",
                             "Data Format: markdown text",
                         ]
                     )
                 case "text":
                     pass
 
-        prompt_text_list.append("[OUTPUT]:")
+        prompt_text_list.append(
+            f"[{ prompt_title_mapping.get('output', 'OUTPUT') }]:",
+        )
         return prompt_text_list
 
     def _generate_yaml_prompt_message(
@@ -253,22 +300,47 @@ class AgentlyPromptGenerator(PromptGenerator):
         prompt_text_list = []
 
         merged_role_mapping = cast(dict[str, str], self.settings.get("prompt.role_mapping", {}))
+        prompt_title_mapping = cast(dict[str, str], self.settings.get("prompt.prompt_title_mapping", {}))
         if not isinstance(merged_role_mapping, dict):
             merged_role_mapping = {}
 
         if isinstance(role_mapping, dict):
             merged_role_mapping.update(role_mapping)
 
+        prompt_text_list.append(
+            f"{ (merged_role_mapping['user'] if 'user' in merged_role_mapping else 'user').upper() }:"
+        )
+
         # system & developer
         if prompt_object.system:
-            prompt_text_list.extend(self._generate_yaml_prompt_list("SYSTEM", prompt_object.system))
+            prompt_text_list.extend(
+                self._generate_yaml_prompt_list(
+                    str(
+                        prompt_title_mapping.get(
+                            'system',
+                            'SYSTEM',
+                        )
+                    ),
+                    prompt_object.system,
+                )
+            )
 
         if prompt_object.developer:
-            prompt_text_list.extend(self._generate_yaml_prompt_list("DEVELOPER DIRECTIONS", prompt_object.developer))
+            prompt_text_list.extend(
+                self._generate_yaml_prompt_list(
+                    str(
+                        prompt_title_mapping.get(
+                            'developer',
+                            'DEVELOPER DIRECTIONS',
+                        )
+                    ),
+                    prompt_object.developer,
+                )
+            )
 
         # chat_history
         if prompt_object.chat_history:
-            chat_history_lines = ["[CHAT HISTORY]:"]
+            chat_history_lines = [f"[{ prompt_title_mapping.get('chat_history', 'CHAT HISTORY') }]:"]
             content_adapter = TypeAdapter(ChatMessageContent)
             for message in prompt_object.chat_history:
                 role = (
@@ -296,7 +368,7 @@ class AgentlyPromptGenerator(PromptGenerator):
 
         prompt_text_list.extend(self._generate_main_prompt(prompt_object))
         prompt_text_list.append(
-            f"[{ merged_role_mapping['assistant'] if 'assistant' in merged_role_mapping else 'assistant' }]:"
+            f"{ (merged_role_mapping['assistant'] if 'assistant' in merged_role_mapping else 'assistant').upper() }:"
         )
 
         return "\n".join(prompt_text_list)
@@ -314,6 +386,8 @@ class AgentlyPromptGenerator(PromptGenerator):
         prompt_messages = []
 
         merged_role_mapping = cast(dict[str, str], self.settings.get("prompt.role_mapping", {}))
+        prompt_title_mapping = cast(dict[str, str], self.settings.get("prompt.prompt_title_mapping", {}))
+
         if not isinstance(merged_role_mapping, dict):
             merged_role_mapping = {}
 
@@ -324,7 +398,12 @@ class AgentlyPromptGenerator(PromptGenerator):
         if prompt_object.system:
             prompt_messages.append(
                 self._generate_yaml_prompt_message(
-                    "system",
+                    str(
+                        prompt_title_mapping.get(
+                            'system',
+                            'SYSTEM',
+                        )
+                    ),
                     prompt_object.system,
                     role_mapping=merged_role_mapping,
                 )
@@ -333,7 +412,12 @@ class AgentlyPromptGenerator(PromptGenerator):
         if prompt_object.developer:
             prompt_messages.append(
                 self._generate_yaml_prompt_message(
-                    "developer",
+                    str(
+                        prompt_title_mapping.get(
+                            'developer',
+                            'DEVELOPER DIRECTIONS',
+                        )
+                    ),
                     prompt_object.developer,
                     role_mapping=merged_role_mapping,
                 )
@@ -376,7 +460,12 @@ class AgentlyPromptGenerator(PromptGenerator):
                         0,
                         {
                             "role": "user",
-                            "content": [{"type": "text", "text": "[Chat History]"}],
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": f"[{ prompt_title_mapping.get('chat_history', 'CHAT HISTORY') }]",
+                                }
+                            ],
                         },
                     )
                 if chat_history[-1]["role"] != "assistant":

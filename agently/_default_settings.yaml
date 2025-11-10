@@ -22,6 +22,18 @@ prompt:
     assistant: assistant
     user: user
     _: assistant
+  prompt_title_mapping:
+    system: "SYSTEM"
+    developer: "DEVELOPER DIRECTIONS"
+    chat_history: "CHAT HISTORY"
+    info: "INFO"
+    tools: "TOOLS"
+    action_results: "ACTION RESULTS"
+    instruct: "INSTRUCT"
+    examples: "EXAMPLES"
+    input: "INPUT"
+    output: "OUTPUT"
+    output_requirement: "OUTPUT REQUIREMENT"
 response:
   streaming_parse: False
   streaming_parse_path_style: dot
