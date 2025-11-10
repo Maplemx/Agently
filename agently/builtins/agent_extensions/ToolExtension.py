@@ -119,7 +119,7 @@ class ToolExtension(BaseAgent):
                 },
             )
             tool_judgement_response = tool_judgement_request.get_response()
-            tool_judgement_result = tool_judgement_response.get_async_generator(content="instant")
+            tool_judgement_result = tool_judgement_response.get_async_generator(type="instant")
             async for instant in tool_judgement_result:
                 if instant.path == "use_tool" and instant.is_complete:
                     if instant.value is False:

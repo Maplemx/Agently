@@ -22,6 +22,7 @@ from pydantic import BaseModel
 import json5
 
 from agently.types.plugins import ResponseParser
+from agently.types.data import StreamingData
 from agently.utils import (
     DataPathBuilder,
     RuntimeDataNamespace,
@@ -244,11 +245,17 @@ class AgentlyResponseParser(ResponseParser):
     async def async_get_data(
         self,
         *,
-        content: Literal['original', 'parsed', "all"] = "parsed",
+        type: Literal['original', 'parsed', "all"] | None = "parsed",
+        content: Literal['original', 'parsed', "all"] | None = "parsed",
     ) -> Any:
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
-        match content:
+        if type is None and content is not None:
+            warnings.warn(
+                f"Parameter `content` in method .async_get_data() is  deprecated and will be removed in future version, please use parameter `type` instead."
+            )
+            type = content
+        match type:
             case "original":
                 return self.full_result_data["original_done"].copy()
             case "parsed":
@@ -275,23 +282,36 @@ class AgentlyResponseParser(ResponseParser):
 
     async def get_async_generator(
         self,
-        content: Literal['all', 'delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        type: Literal['all', 'delta', 'typed_delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        content: Literal['all', 'delta', 'typed_delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
     ) -> AsyncGenerator:
         await self._ensure_consumer()
         parsed_generator = cast(GeneratorConsumer, self._response_consumer).get_async_generator()
         _streaming_parse_path_style = self.settings.get("response.streaming_parse_path_style", "dot")
+        if type is None and content is not None:
+            warnings.warn(
+                f"Parameter `content` in method .get_async_generator() is  deprecated and will be removed in future version, please use parameter `type` instead."
+            )
+            type = content
         async for event, data in parsed_generator:
-            match content:
+            match type:
                 case "all":
                     yield event, data
                 case "delta":
                     if event == "delta":
                         yield data
+                case "typed_delta":
+                    if event == "delta":
+                        yield "delta", data
+                    elif event == "tool_calls":
+                        yield "tool_calls", data
                 case "instant" | "streaming_parse":
                     if self._streaming_json_parser is not None:
                         streaming_parsed = None
                         if event == "delta":
                             streaming_parsed = self._streaming_json_parser.parse_chunk(data)
+                        elif event == "tool_calls":
+                            yield StreamingData(path="$tool_calls", value=data)
                         elif event == "done":
                             streaming_parsed = self._streaming_json_parser.finalize()
                         if streaming_parsed:
@@ -305,23 +325,36 @@ class AgentlyResponseParser(ResponseParser):
 
     def get_generator(
         self,
-        content: Literal['all', 'delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        type: Literal['all', 'delta', 'typed_delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        content: Literal['all', 'delta', 'typed_delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
     ) -> Generator:
         asyncio.run(self._ensure_consumer())
         parsed_generator = cast(GeneratorConsumer, self._response_consumer).get_generator()
         _streaming_parse_path_style = self.settings.get("response.streaming_parse_path_style", "dot")
+        if type is None and content is not None:
+            warnings.warn(
+                f"Parameter `content` in method .get_generator() is  deprecated and will be removed in future version, please use parameter `type` instead."
+            )
+            type = content
         for event, data in parsed_generator:
-            match content:
+            match type:
                 case "all":
                     yield event, data
                 case "delta":
                     if event == "delta":
                         yield data
+                case "typed_delta":
+                    if event == "delta":
+                        yield "delta", data
+                    elif event == "tool_calls":
+                        yield "tool_calls", data
                 case "instant" | "streaming_parse":
                     if self._streaming_json_parser is not None:
                         streaming_parsed = None
                         if event == "delta":
                             streaming_parsed = self._streaming_json_parser.parse_chunk(data)
+                        elif event == "tool_calls":
+                            yield StreamingData(path="$tool_calls", value=data)
                         elif event == "done":
                             streaming_parsed = self._streaming_json_parser.finalize()
                         if streaming_parsed:

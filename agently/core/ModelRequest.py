@@ -410,9 +410,9 @@ class ModelRequest:
     async def async_get_data(
         self,
         *,
-        content: Literal['original', 'parsed', 'all'] = "parsed",
+        type: Literal['original', 'parsed', 'all'] = "parsed",
     ):
-        return await self.get_response().async_get_data(content=content)
+        return await self.get_response().async_get_data(type=type)
 
     async def async_get_data_object(self):
         return await self.get_response().async_get_data_object()
@@ -420,59 +420,59 @@ class ModelRequest:
     @overload
     def get_generator(
         self,
-        content: Literal["instant", "streaming_parse"],
+        type: Literal["instant", "streaming_parse"],
     ) -> Generator["StreamingData", None, None]: ...
 
     @overload
     def get_generator(
         self,
-        content: Literal["all"],
+        type: Literal["all"],
     ) -> Generator[tuple[str, Any], None, None]: ...
 
     @overload
     def get_generator(
         self,
-        content: Literal["delta", "original"],
+        type: Literal["delta", "typed_delta", "original"],
     ) -> Generator[str, None, None]: ...
 
     @overload
     def get_generator(
         self,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+        type: Literal["all", "original", "delta", "typed_delta", "instant", "streaming_parse"] | None = "delta",
     ) -> Generator: ...
 
     def get_generator(
         self,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+        type: Literal["all", "original", "delta", "typed_delta", "instant", "streaming_parse"] | None = "delta",
     ) -> Generator:
-        return self.get_response().get_generator(content=content)
+        return self.get_response().get_generator(type=type)
 
     @overload
     def get_async_generator(
         self,
-        content: Literal["instant", "streaming_parse"],
+        type: Literal["instant", "streaming_parse"],
     ) -> AsyncGenerator["StreamingData", None]: ...
 
     @overload
     def get_async_generator(
         self,
-        content: Literal["all"],
+        type: Literal["all"],
     ) -> AsyncGenerator[tuple[str, Any], None]: ...
 
     @overload
     def get_async_generator(
         self,
-        content: Literal["delta", "original"],
+        type: Literal["delta", "typed_delta", "original"],
     ) -> AsyncGenerator[str, None]: ...
 
     @overload
     def get_async_generator(
         self,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+        type: Literal["all", "original", "delta", "typed_delta", "instant", "streaming_parse"] | None = "delta",
     ) -> AsyncGenerator: ...
 
     def get_async_generator(
         self,
-        content: Literal["all", "original", "delta", "instant", "streaming_parse"] | None = "delta",
+        type: Literal["all", "original", "delta", "typed_delta", "instant", "streaming_parse"] | None = "delta",
     ) -> AsyncGenerator:
-        return self.get_response().get_async_generator(content=content)
+        return self.get_response().get_async_generator(type=type)

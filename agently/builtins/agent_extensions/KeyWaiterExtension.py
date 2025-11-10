@@ -19,6 +19,7 @@ from typing import Any, Callable
 from agently.core import BaseAgent
 from agently.utils import FunctionShifter, GeneratorConsumer
 
+
 class KeyWaiterExtension(BaseAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -48,7 +49,7 @@ class KeyWaiterExtension(BaseAgent):
 
     def __get_consumer(self):
         response = self.get_response()
-        return GeneratorConsumer(response.get_async_generator(content="instant"))
+        return GeneratorConsumer(response.get_async_generator(type="instant"))
 
     async def async_get_key_result(
         self,
