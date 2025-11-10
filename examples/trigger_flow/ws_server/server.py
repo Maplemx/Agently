@@ -30,7 +30,7 @@ async def model_response(data: TriggerFlowEventData):
     agen = response.get_async_generator("delta")
     async for delta in agen:
         data.put(("delta", delta))
-    full_reply = await response.async_get_result()
+    full_reply = await response.async_get_data()
     data.put(("final", full_reply))
     data.put(RUNTIME_STREAM_STOP)
     agent.add_chat_history(

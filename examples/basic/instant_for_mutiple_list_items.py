@@ -18,7 +18,7 @@ instant_generator = (
             "steps": [(str,)],
         }
     )
-    .get_generator(content="instant")
+    .get_generator(type="instant")
 )
 
 for data in instant_generator:

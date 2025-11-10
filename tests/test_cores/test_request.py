@@ -37,7 +37,7 @@ async def test_single_request():
 
     request.prompt["input"] = "你是谁"
 
-    async for delta in request.get_async_generator(content="delta"):
+    async for delta in request.get_async_generator(type="delta"):
         print(delta)
 
 

@@ -44,7 +44,7 @@ def test_model_request():
     )
     response = request.get_response()
     results = []
-    for parsed in response.get_generator(content="streaming_parse"):
+    for parsed in response.get_generator(type="instant"):
         # print(parsed)
         results.append(parsed)
     assert results[0].value is not None

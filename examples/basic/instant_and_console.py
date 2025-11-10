@@ -32,7 +32,7 @@ streaming_parse_generator = agent.output(
         "actions": [("str",)],
         "say": ("str",),
     }
-).get_generator(content="instant")
+).get_generator(type="instant")
 
 messenger = Agently.event_center.create_messenger(
     "Customize Output",

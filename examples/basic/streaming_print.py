@@ -37,7 +37,7 @@ async def basic_delta():
                 ),
             }
         )
-        .get_async_generator(content="delta")
+        .get_async_generator(type="delta")
     )
 
     async for delta in async_generator:
@@ -67,7 +67,7 @@ async def async_instant():
                 ),
             }
         )
-        .get_async_generator(content="instant")
+        .get_async_generator(type="instant")
     )
 
     current_path = None
@@ -111,7 +111,7 @@ def instant():
                 ),
             }
         )
-        .get_generator(content="instant")
+        .get_generator(type="instant")
     )
 
     current_path = None

@@ -27,7 +27,7 @@ async def main():
                 "sentence": (str,),
             }
         )
-        .get_async_generator(content="instant")
+        .get_async_generator(type="instant")
     )
 
     async for event in instant_mode_response:
