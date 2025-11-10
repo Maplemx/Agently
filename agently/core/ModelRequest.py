@@ -374,6 +374,14 @@ class ModelRequest:
         self.prompt.set("instruct", prompt, mappings)
         return self
 
+    def examples(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.prompt.set("examples", prompt, mappings)
+        return self
+
     def output(
         self,
         prompt: (

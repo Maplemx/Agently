@@ -40,7 +40,7 @@ class BaseAgent:
             name=f"Agent-{ self.name }-Settings",
             parent=parent_settings,
         )
-        self.prompt = Prompt(
+        self.agent_prompt = Prompt(
             name=f"Agent-{ self.name }-Prompt",
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
@@ -58,9 +58,11 @@ class BaseAgent:
             agent_name=self.name,
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
-            parent_prompt=self.prompt,
+            parent_prompt=self.agent_prompt,
             parent_extension_handlers=self.extension_handlers,
         )
+        self.request_prompt = self.request.prompt
+        self.prompt = self.request_prompt
 
         self.get_response = self.request.get_response
         self.get_result = self.request.get_result
@@ -236,6 +238,19 @@ class BaseAgent:
             self.prompt.set("instruct", prompt, mappings)
         else:
             self.request.prompt.set("instruct", prompt, mappings)
+        return self
+
+    def examples(
+        self,
+        prompt: Any,
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
+        if always:
+            self.prompt.set("examples", prompt, mappings)
+        else:
+            self.request.prompt.set("examples", prompt, mappings)
         return self
 
     def output(

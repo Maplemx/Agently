@@ -118,6 +118,7 @@ PromptStandardSlot = Literal[
     "tools",
     "action_results",
     "instruct",
+    "examples",
     "input",
     "attachment",
     "output",
@@ -141,6 +142,7 @@ class PromptModel(BaseModel):
     tools: list[ToolMeta] | None = None
     action_results: Any = None
     instruct: Any = None
+    examples: Any = None
     input: Any = None
     attachment: Annotated[list[ChatMessageContent], PlainValidator(validate_attachment)] = []
     output: Any = None
