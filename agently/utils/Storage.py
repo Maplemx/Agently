@@ -25,9 +25,14 @@ from typing import (
 )
 from contextlib import asynccontextmanager
 
-from sqlmodel import SQLModel, select, inspect, create_engine, Session
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.sql import ColumnElement
+from agently.utils import LazyImport
+
+LazyImport.import_package("sqlmodel")
+LazyImport.import_package("sqlalchemy")
+
+from sqlmodel import SQLModel, select, inspect, create_engine, Session  # type: ignore
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker  # type: ignore
+from sqlalchemy.sql import ColumnElement  # type: ignore
 
 from .RuntimeData import RuntimeData
 
