@@ -25,7 +25,7 @@ from typing import (
 )
 from contextlib import asynccontextmanager
 
-from agently.utils import LazyImport
+from .LazyImport import LazyImport
 
 LazyImport.import_package("sqlmodel")
 LazyImport.import_package("sqlalchemy")
