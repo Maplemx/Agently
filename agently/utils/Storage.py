@@ -29,6 +29,7 @@ from .LazyImport import LazyImport
 
 LazyImport.import_package("sqlmodel")
 LazyImport.import_package("sqlalchemy")
+LazyImport.import_package("aiosqlite")
 
 from sqlmodel import SQLModel, select, inspect, create_engine, Session  # type: ignore
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker  # type: ignore
