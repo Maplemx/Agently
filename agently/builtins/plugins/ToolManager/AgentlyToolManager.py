@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import json
 import inspect
 
 from typing import (
@@ -206,6 +206,7 @@ class AgentlyToolManager(ToolManager):
     ):
         async def _call_mcp_tool(**kwargs):
             from fastmcp import Client
+            from mcp.types import TextContent, ImageContent, AudioContent, ResourceLink, EmbeddedResource
 
             async with Client(transport) as client:  # type: ignore
                 mcp_result = await client.call_tool(
@@ -216,7 +217,19 @@ class AgentlyToolManager(ToolManager):
                 if mcp_result.is_error:
                     return {"error": mcp_result.content[0].text}  # type: ignore
                 else:
-                    return mcp_result.structured_content
+                    if mcp_result.structured_content:
+                        return mcp_result.structured_content
+                    try:
+                        result = mcp_result.content[0]
+                        if isinstance(result, TextContent):
+                            try:
+                                return json.loads(result.text)
+                            except json.decoder.JSONDecodeError:
+                                return result.text
+                        elif isinstance(result, (ImageContent, AudioContent, ResourceLink, EmbeddedResource)):
+                            return result.model_dump()
+                    except:
+                        return None
 
         return _call_mcp_tool
 
