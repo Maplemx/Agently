@@ -17,7 +17,8 @@ from .Messenger import create_messenger
 from .RuntimeData import RuntimeData, RuntimeDataNamespace
 from .SerializableRuntimeData import SerializableRuntimeData, SerializableRuntimeDataNamespace
 from .Settings import Settings, SettingsNamespace
-from .Storage import Storage, AsyncStorage
+
+# from .Storage import Storage, AsyncStorage
 from .FunctionShifter import FunctionShifter
 from .DataFormatter import DataFormatter
 from .DataPathBuilder import DataPathBuilder
