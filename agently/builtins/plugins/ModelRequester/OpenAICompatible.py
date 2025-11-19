@@ -391,7 +391,9 @@ class OpenAICompatible(ModelRequester):
                     # Raise status code >= 400
                     if response.status_code >= 400:
                         e = RequestError(
-                            f"Status Code: { response.status_code }\n" f"Request Data: {full_request_data}"
+                            f"Status Code: { response.status_code }\n"
+                            f"Detail: { response.text }\n"
+                            f"Request Data: {full_request_data}"
                         )
                         self._messenger.error(
                             e,
@@ -461,7 +463,9 @@ class OpenAICompatible(ModelRequester):
                     )
                     if response.status_code >= 400:
                         e = RequestError(
-                            f"Status Code: { response.status_code }\n" f"Request Data: {full_request_data}"
+                            f"Status Code: { response.status_code }\n"
+                            f"Detail: { response.text }\n"
+                            f"Request Data: {full_request_data}"
                         )
                         self._messenger.error(
                             e,
