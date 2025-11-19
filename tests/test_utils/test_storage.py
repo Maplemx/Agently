@@ -1,5 +1,5 @@
 import pytest
-from agently.utils import Storage, AsyncStorage
+from agently.utils.Storage import Storage, AsyncStorage
 from sqlmodel import SQLModel, Field, Column, BLOB, TEXT, delete
 
 
