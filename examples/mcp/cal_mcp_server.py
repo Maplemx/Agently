@@ -1,4 +1,5 @@
 from fastmcp import FastMCP
+from typing import Any
 
 app = FastMCP("calculator")
 
@@ -6,10 +7,15 @@ app = FastMCP("calculator")
 @app.tool
 def add(first_number: float, second_number: float) -> float:
     """
-    加法计算器：计算{first_number}和{second_number}的和，给出保留2位小数的结果
+    Calculator for adding: return the sum of {first_number} and {second_number} with two decimal places.
     """
     return round(first_number + second_number, 2)
 
 
 if __name__ == "__main__":
-    app.run(show_banner=False)
+    app.run(
+        show_banner=False,
+        transport="http",
+        port=8080,
+    )
+    # app.run(show_banner=False)
