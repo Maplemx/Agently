@@ -13,12 +13,12 @@
 # limitations under the License.
 
 
-from typing import Literal, Callable, TypeAlias
+from typing import Any, Literal, Callable, TypeAlias
 from typing_extensions import TypedDict, NotRequired
 from pydantic import AnyUrl
 from httpx import Auth, AsyncClient
 
-ArgumentDesc: TypeAlias = type | str | tuple[str | type, str]
+ArgumentDesc: TypeAlias = type | str | tuple[str | type | Any, str]
 KwargsType: TypeAlias = dict[str, ArgumentDesc]
 ReturnType: TypeAlias = KwargsType | ArgumentDesc | dict[str, "ReturnType"] | list["ReturnType"]
 
