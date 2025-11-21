@@ -307,9 +307,7 @@ class AgentlyPromptGenerator(PromptGenerator):
         if isinstance(role_mapping, dict):
             merged_role_mapping.update(role_mapping)
 
-        prompt_text_list.append(
-            f"{ (merged_role_mapping['user'] if 'user' in merged_role_mapping else 'user').upper() }:"
-        )
+        prompt_text_list.append(f"{ (merged_role_mapping['user'] if 'user' in merged_role_mapping else 'user') }:")
 
         # system & developer
         if prompt_object.system:
@@ -368,7 +366,7 @@ class AgentlyPromptGenerator(PromptGenerator):
 
         prompt_text_list.extend(self._generate_main_prompt(prompt_object))
         prompt_text_list.append(
-            f"{ (merged_role_mapping['assistant'] if 'assistant' in merged_role_mapping else 'assistant').upper() }:"
+            f"{ (merged_role_mapping['assistant'] if 'assistant' in merged_role_mapping else 'assistant') }:"
         )
 
         return "\n".join(prompt_text_list)
@@ -398,12 +396,7 @@ class AgentlyPromptGenerator(PromptGenerator):
         if prompt_object.system:
             prompt_messages.append(
                 self._generate_yaml_prompt_message(
-                    str(
-                        prompt_title_mapping.get(
-                            'system',
-                            'SYSTEM',
-                        )
-                    ),
+                    "system",
                     prompt_object.system,
                     role_mapping=merged_role_mapping,
                 )
@@ -412,12 +405,7 @@ class AgentlyPromptGenerator(PromptGenerator):
         if prompt_object.developer:
             prompt_messages.append(
                 self._generate_yaml_prompt_message(
-                    str(
-                        prompt_title_mapping.get(
-                            'developer',
-                            'DEVELOPER DIRECTIONS',
-                        )
-                    ),
+                    "developer",
                     prompt_object.developer,
                     role_mapping=merged_role_mapping,
                 )
