@@ -99,7 +99,6 @@ class ModelResponse:
             self.plugin_manager,
             self.settings,
         )
-        self.get_result = self.result
         self.get_meta = self.result.get_meta
         self.async_get_meta = self.result.async_get_meta
         self.get_text = self.result.get_text
@@ -406,7 +405,7 @@ class ModelRequest:
         self.prompt.clear()
         return response
 
-    async def get_result(self):
+    def get_result(self):
         return self.get_response().result
 
     async def async_get_meta(self):
