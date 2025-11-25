@@ -351,13 +351,13 @@ class OpenAICompatible(ModelRequester):
         api_key = self.plugin_settings.get("api_key", None)
         if api_key is not None and auth["api_key"] == "None":
             auth["api_key"] = str(api_key)
-        if "api_key" in auth:
-            headers_with_auth = {**request_data.headers, "Authorization": f"Bearer { auth['api_key'] }"}
-        elif "headers" in auth and isinstance(auth["headers"], dict):
+        if "headers" in auth and isinstance(auth["headers"], dict):
             headers_with_auth = {**request_data.headers, **auth["headers"]}
         elif "body" in auth and isinstance(auth["body"], dict):
             headers_with_auth = request_data.headers.copy()
             request_data.data.update(**auth["body"])
+        if "api_key" in auth and auth["api_key"] != "None":
+            headers_with_auth = {**request_data.headers, "Authorization": f"Bearer { auth['api_key'] }"}
         else:
             headers_with_auth = request_data.headers.copy()
 
