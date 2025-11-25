@@ -1,8 +1,5 @@
-# Support Version: >=4.0.5.6
-
 from agently import Agently
-from agently.integrations.chromadb import ChromaData, ChromaEmbeddingFunction
-from chromadb import Client as ChromaDBClient
+from agently.integrations.chromadb import ChromaCollection
 
 embedding = Agently.create_agent()
 embedding.set_settings(
@@ -13,11 +10,14 @@ embedding.set_settings(
         "auth": "nothing",
         "model_type": "embeddings",
     },
-).set_settings("debug", False)
+)
 
-embedding_function = ChromaEmbeddingFunction(embedding_agent=embedding)
+collection = ChromaCollection(
+    collection_name="demo",
+    embedding_agent=embedding,
+)
 
-chroma_data = ChromaData(
+collection.add(
     [
         {
             "document": "Book about Dogs",
@@ -35,23 +35,8 @@ chroma_data = ChromaData(
             "document": "Book about birds",
             "metadata": {"book_name": "🐦‍⬛"},
         },
-    ],
+    ]
 )
 
-chromadb = ChromaDBClient()
-collection = chromadb.create_collection(
-    name="test",
-    get_or_create=True,
-    metadata={
-        "hnsw:space": "cosine",
-    },
-    configuration={
-        "embedding_function": embedding_function,
-    },
-)
-
-collection.add(**chroma_data.get_kwargs())
-print("[ADD]:\n", chroma_data.get_original_data())
-
-result = collection.query(query_texts=["Book about traffic"])
-print(result)
+results = collection.query("Things that can move really fast")
+print(results)
