@@ -1,0 +1,18 @@
+model_mappings:
+  small: qwen2.5-72b
+  large: a800-ernie4.5-300b
+model_settings:
+  ernie4.5-300b:
+    base_url: <Ernie4.5-300b-Base-URL>
+    api_key: <api_key>
+    model: en-45-turbo
+  ernie4.5-21b:
+    base_url: <Ernie4.5-21b-Base-URL>
+    model: ernie45-21b-a3b
+  qwen2.5-72b:
+    base_url: <Qwen2.5-72b-Base-URL>
+    api_key: <api_key>
+    model: qwen25-ncq12f
+service_settings:
+  host: 0.0.0.0
+  port: 15596

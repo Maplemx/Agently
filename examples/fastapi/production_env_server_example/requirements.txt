@@ -1,0 +1,3 @@
+Agently>=4.0.6.7
+fastapi>=0.122.0
+uvicorn>=0.38.0
