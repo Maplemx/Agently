@@ -188,6 +188,7 @@ class ConfigurePromptExtension(BaseAgent):
                 "Cannot execute YAML prompt configures, expect prompt configures as a dictionary data but got:"
                 f"{ prompt }"
             )
+        return self
 
     def load_json_prompt(self, path_or_content: str, mappings: dict[str, Any] | None = None):
         path = Path(path_or_content)
@@ -209,3 +210,4 @@ class ConfigurePromptExtension(BaseAgent):
                 "Cannot execute JSON prompt configures, expect prompt configures as a dictionary data but got:"
                 f"{ prompt }"
             )
+        return self
