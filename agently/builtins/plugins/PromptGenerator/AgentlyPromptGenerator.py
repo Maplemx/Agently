@@ -649,7 +649,12 @@ class AgentlyPromptGenerator(PromptGenerator):
                         }
                     )
 
-            return create_model(name, **fields, **validators)
+            return create_model(
+                name,
+                __config__={'extra': 'allow'},
+                **fields,
+                **validators,
+            )
         else:
             item_type = Any
             if len(schema) > 0:
