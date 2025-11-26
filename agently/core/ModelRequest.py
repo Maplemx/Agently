@@ -22,12 +22,13 @@ ContentKindTuple: TypeAlias = Literal["all", "delta", "original"]
 ContentKindStreaming: TypeAlias = Literal["instant", "streaming_parse"]
 
 from agently.core import Prompt, ExtensionHandlers
-from agently.utils import Settings, FunctionShifter, DataFormatter
+from agently.utils import Settings, FunctionShifter, DataFormatter, DataLocator
 
 if TYPE_CHECKING:
     from agently.core import PluginManager
     from agently.types.data import AgentlyModelResponseMessage, PromptStandardSlot, StreamingData, SerializableValue
     from agently.types.plugins import ModelRequester, ResponseParser
+    from pydantic import BaseModel
 
 
 class ModelResponseResult:
@@ -39,6 +40,7 @@ class ModelResponseResult:
         response_generator: AsyncGenerator["AgentlyModelResponseMessage", None],
         plugin_manager: "PluginManager",
         settings: Settings,
+        extension_handlers: ExtensionHandlers,
     ):
         self.agent_name = agent_name
         self.plugin_manager = plugin_manager
@@ -50,19 +52,145 @@ class ModelResponseResult:
                 str(self.settings["plugins.ResponseParser.activate"]),
             ),
         )
-        _response_parser = ResponseParser(agent_name, response_id, prompt, response_generator, self.settings)
+        self._response_id = response_id
+        self._extension_handlers = extension_handlers
+        self._response_parser = ResponseParser(agent_name, response_id, prompt, response_generator, self.settings)
         self.prompt = prompt
-        self.full_result_data = _response_parser.full_result_data
-        self.get_meta = _response_parser.get_meta
-        self.async_get_meta = _response_parser.async_get_meta
-        self.get_text = _response_parser.get_text
-        self.async_get_text = _response_parser.async_get_text
-        self.get_data = _response_parser.get_data
-        self.async_get_data = _response_parser.async_get_data
-        self.get_data_object = _response_parser.get_data_object
-        self.async_get_data_object = _response_parser.async_get_data_object
-        self.get_generator = _response_parser.get_generator
-        self.get_async_generator = _response_parser.get_async_generator
+        self.full_result_data = self._response_parser.full_result_data
+        self.get_meta = self._response_parser.get_meta
+        self.async_get_meta = self._response_parser.async_get_meta
+        self.get_text = self._response_parser.get_text
+        self.async_get_text = self._response_parser.async_get_text
+        # self.get_data = self._response_parser.get_data
+        # self.async_get_data = self._response_parser.async_get_data
+        # self.get_data_object = self._response_parser.get_data_object
+        # self.async_get_data_object = self._response_parser.async_get_data_object
+        self.get_data = FunctionShifter.syncify(self.async_get_data)
+        self.get_data_object = FunctionShifter.syncify(self.async_get_data_object)
+        self.get_generator = self._response_parser.get_generator
+        self.get_async_generator = self._response_parser.get_async_generator
+
+    @overload
+    async def async_get_data(
+        self,
+        *,
+        type: Literal['parsed'],
+        ensure_keys: list[str],
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        _retry_count: int = 0,
+    ) -> dict[str, Any]: ...
+
+    @overload
+    async def async_get_data(
+        self,
+        *,
+        type: Literal['original', 'parsed', 'all'] = "parsed",
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        _retry_count: int = 0,
+    ) -> Any: ...
+
+    async def async_get_data(
+        self,
+        *,
+        type: Literal['original', 'parsed', 'all'] = "parsed",
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        _retry_count: int = 0,
+    ) -> Any:
+        if type == "parsed" and ensure_keys:
+            try:
+                data = await self._response_parser.async_get_data(type=type)
+                for ensure_key in ensure_keys:
+                    EMPTY = object()
+                    if DataLocator.locate_path_in_dict(data, ensure_key, key_style, default=EMPTY) is EMPTY:
+                        raise
+                return data
+            except:
+                from agently.base import async_system_message
+
+                await async_system_message(
+                    "MODEL_REQUEST",
+                    {
+                        "agent_name": self.agent_name,
+                        "response_id": self._response_id,
+                        "content": {
+                            "stage": "No Target Data in Response, Preparing Retry",
+                            "detail": f"\n[Response]: { await self.async_get_text() }\n"
+                            f"[Retried Times]: { _retry_count }",
+                        },
+                    },
+                    self.settings,
+                )
+
+                if _retry_count < max_retries:
+                    return await ModelResponse(
+                        self.agent_name,
+                        self.plugin_manager,
+                        self.settings,
+                        self.prompt,
+                        self._extension_handlers,
+                    ).result.async_get_data(
+                        type=type,
+                        ensure_keys=ensure_keys,
+                        key_style=key_style,
+                        max_retries=max_retries,
+                        raise_ensure_failure=raise_ensure_failure,
+                        _retry_count=_retry_count + 1,
+                    )
+                else:
+                    if raise_ensure_failure:
+                        raise ValueError(
+                            f"Can not generate ensure keys { ensure_keys } within { max_retries } retires."
+                        )
+                    else:
+                        return await self._response_parser.async_get_data(type=type)
+        return await self._response_parser.async_get_data(type=type)
+
+    @overload
+    async def async_get_data_object(
+        self,
+        *,
+        ensure_keys: list[str],
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+    ) -> "BaseModel": ...
+
+    @overload
+    async def async_get_data_object(
+        self,
+        *,
+        ensure_keys: None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+    ) -> "BaseModel | None": ...
+
+    async def async_get_data_object(
+        self,
+        *,
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+    ):
+        if ensure_keys:
+            await self.async_get_data(
+                ensure_keys=ensure_keys,
+                key_style=key_style,
+                max_retries=max_retries,
+                _retry_count=0,
+                raise_ensure_failure=raise_ensure_failure,
+            )
+            return await self._response_parser.async_get_data_object()
+        return await self._response_parser.async_get_data_object()
 
 
 class ModelResponse:
@@ -98,6 +226,7 @@ class ModelResponse:
             self._get_response_generator(),
             self.plugin_manager,
             self.settings,
+            self.extension_handlers,
         )
         self.get_meta = self.result.get_meta
         self.async_get_meta = self.result.async_get_meta
@@ -418,11 +547,35 @@ class ModelRequest:
         self,
         *,
         type: Literal['original', 'parsed', 'all'] = "parsed",
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
     ):
-        return await self.get_response().async_get_data(type=type)
+        response = self.get_response()
+        return await response.async_get_data(
+            type=type,
+            ensure_keys=ensure_keys,
+            key_style=key_style,
+            max_retries=max_retries,
+            raise_ensure_failure=raise_ensure_failure,
+        )
 
-    async def async_get_data_object(self):
-        return await self.get_response().async_get_data_object()
+    async def async_get_data_object(
+        self,
+        *,
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+    ):
+        response = self.get_response()
+        return await response.async_get_data_object(
+            ensure_keys=ensure_keys,
+            key_style=key_style,
+            max_retries=max_retries,
+            raise_ensure_failure=raise_ensure_failure,
+        )
 
     @overload
     def get_generator(
