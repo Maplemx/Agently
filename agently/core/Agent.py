@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import uuid
+import yaml
+import json
 
 from typing import Any, TYPE_CHECKING
 
@@ -91,7 +93,7 @@ class BaseAgent:
         value: Any,
         mappings: dict[str, Any] | None = None,
     ):
-        self.prompt.set(key, value, mappings)
+        self.agent_prompt.set(key, value, mappings)
         return self
 
     def set_request_prompt(
@@ -104,7 +106,7 @@ class BaseAgent:
         return self
 
     def remove_agent_prompt(self, key: "PromptStandardSlot | str"):
-        self.prompt.set(key, None)
+        self.agent_prompt.set(key, None)
         return self
 
     def remove_request_prompt(self, key: "PromptStandardSlot | str"):
@@ -112,34 +114,34 @@ class BaseAgent:
         return self
 
     def reset_chat_history(self):
-        if "chat_history" in self.prompt:
-            self.prompt.set("chat_history", [])
+        if "chat_history" in self.agent_prompt:
+            self.agent_prompt.set("chat_history", [])
         return self
 
     def set_chat_history(self, chat_history: "list[dict[str, Any] | ChatMessage]"):
         self.reset_chat_history()
         if not isinstance(chat_history, list):
             chat_history = [chat_history]
-        self.prompt.set("chat_history", chat_history)
+        self.agent_prompt.set("chat_history", chat_history)
         return self
 
     def add_chat_history(self, chat_history: "list[dict[str, Any] | ChatMessage] | dict[str, Any] | ChatMessage"):
         if not isinstance(chat_history, list):
             chat_history = [chat_history]
-        self.prompt.set("chat_history", chat_history)
+        self.agent_prompt.set("chat_history", chat_history)
         return self
 
     def reset_action_results(self):
-        if "action_results" in self.prompt:
-            del self.prompt["action_results"]
+        if "action_results" in self.agent_prompt:
+            del self.agent_prompt["action_results"]
         return self
 
     def set_action_results(self, action_results: list[dict[str, Any]]):
-        self.prompt.set("action_results", action_results)
+        self.agent_prompt.set("action_results", action_results)
         return self
 
     def add_action_results(self, action: str, result: Any):
-        self.prompt.append("action_results", {action: result})
+        self.agent_prompt.append("action_results", {action: result})
         return self
 
     # Quick Prompt
@@ -151,7 +153,7 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("input", prompt, mappings)
+            self.agent_prompt.set("input", prompt, mappings)
         else:
             self.request.prompt.set("input", prompt, mappings)
         return self
@@ -164,8 +166,8 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("instruct", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
-            self.prompt.set("system.rule", prompt, mappings)
+            self.agent_prompt.set("instruct", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
+            self.agent_prompt.set("system.rule", prompt, mappings)
         else:
             self.request.prompt.set("instruct", ["{system.rule} ARE IMPORTANT RULES YOU SHALL FOLLOW!"])
             self.request.prompt.set("system.rule", prompt, mappings)
@@ -179,8 +181,8 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("instruct", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
-            self.prompt.set("system.your_role", prompt, mappings)
+            self.agent_prompt.set("instruct", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
+            self.agent_prompt.set("system.your_role", prompt, mappings)
         else:
             self.request.prompt.set("instruct", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
             self.request.prompt.set("system.your_role", prompt, mappings)
@@ -194,8 +196,8 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("instruct", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
-            self.prompt.set("system.user_info", prompt, mappings)
+            self.agent_prompt.set("instruct", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
+            self.agent_prompt.set("system.user_info", prompt, mappings)
         else:
             self.request.prompt.set("instruct", ["{system.user_info} IS IMPORTANT INFORMATION ABOUT USER!"])
             self.request.prompt.set("system.user_info", prompt, mappings)
@@ -209,7 +211,7 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("input", prompt, mappings)
+            self.agent_prompt.set("input", prompt, mappings)
         else:
             self.request.prompt.set("input", prompt, mappings)
         return self
@@ -222,7 +224,7 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("info", prompt, mappings)
+            self.agent_prompt.set("info", prompt, mappings)
         else:
             self.request.prompt.set("info", prompt, mappings)
         return self
@@ -235,7 +237,7 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("instruct", prompt, mappings)
+            self.agent_prompt.set("instruct", prompt, mappings)
         else:
             self.request.prompt.set("instruct", prompt, mappings)
         return self
@@ -248,7 +250,7 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("examples", prompt, mappings)
+            self.agent_prompt.set("examples", prompt, mappings)
         else:
             self.request.prompt.set("examples", prompt, mappings)
         return self
@@ -266,7 +268,7 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("output", prompt, mappings)
+            self.agent_prompt.set("output", prompt, mappings)
         else:
             self.request.prompt.set("output", prompt, mappings)
         return self
@@ -278,7 +280,29 @@ class BaseAgent:
         always: bool = False,
     ):
         if always:
-            self.prompt.set("options", options)
+            self.agent_prompt.set("options", options)
         else:
             self.request.prompt.set("options", options)
         return self
+
+    def to_json_prompt(self):
+        prompt_data = {
+            ".agent": self.agent_prompt.to_serializable_prompt_data(),
+            ".request": self.request_prompt.to_serializable_prompt_data(),
+        }
+        return json.dumps(
+            prompt_data,
+            indent=2,
+            ensure_ascii=False,
+        )
+
+    def to_yaml_prompt(self):
+        prompt_data = {
+            ".agent": self.agent_prompt.to_serializable_prompt_data(),
+            ".request": self.request_prompt.to_serializable_prompt_data(),
+        }
+        return yaml.safe_dump(
+            prompt_data,
+            indent=2,
+            allow_unicode=True,
+        )

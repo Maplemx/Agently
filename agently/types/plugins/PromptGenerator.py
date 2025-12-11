@@ -16,7 +16,7 @@ from typing import Any, Protocol, TYPE_CHECKING
 from .base import AgentlyPlugin
 
 if TYPE_CHECKING:
-    from agently.types.data import PromptModel
+    from agently.types.data import PromptModel, SerializableData
     from agently.core import Prompt
     from agently.utils import Settings
     from pydantic import BaseModel
@@ -130,3 +130,7 @@ class PromptGenerator(AgentlyPlugin, Protocol):
             - For list outputs: use `BaseModel(list=output_result)` to validate.
         """
         ...
+
+    def to_serializable_prompt_data(self, *args, **kwargs) -> "SerializableData": ...
+    def to_json_prompt(self, *args, **kwargs) -> str: ...
+    def to_yaml_prompt(self, *args, **kwargs) -> str: ...

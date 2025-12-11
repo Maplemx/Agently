@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+from textwrap import dedent
 from typing import Any, Literal, Mapping, Sequence, TYPE_CHECKING, cast, overload, TypeVar
 
 from agently.utils import RuntimeData, Settings
@@ -98,6 +99,9 @@ class Prompt(RuntimeData):
         self.to_messages = self.prompt_generator.to_messages
         self.to_prompt_object = self.prompt_generator.to_prompt_object
         self.to_output_model = self.prompt_generator.to_output_model
+        self.to_serializable_prompt_data = self.prompt_generator.to_serializable_prompt_data
+        self.to_json_prompt = self.prompt_generator.to_json_prompt
+        self.to_yaml_prompt = self.prompt_generator.to_yaml_prompt
 
     def _substitute_placeholder(self, obj: T, variable_mappings: dict[str, Any]) -> T | Any:
         if not isinstance(variable_mappings, dict):
@@ -157,6 +161,8 @@ class Prompt(RuntimeData):
         value: Any,
         mappings: dict[str, Any] | None = None,
     ):
+        if isinstance(value, str):
+            value = dedent(value.strip())
         if mappings is not None:
             super().set(
                 self._substitute_placeholder(key, mappings),
@@ -183,6 +189,8 @@ class Prompt(RuntimeData):
         value: Any,
         mappings: dict[str, Any] | None = None,
     ):
+        if isinstance(value, str):
+            value = dedent(value.strip())
         if mappings is not None:
             super().append(
                 self._substitute_placeholder(key, mappings),

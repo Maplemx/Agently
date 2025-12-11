@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import yaml
 
 from typing import (
@@ -38,6 +39,7 @@ from agently.utils import SettingsNamespace, DataFormatter
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
+    from agently.types.data import SerializableData
     from agently.core import Prompt
     from agently.utils import Settings
 
@@ -703,3 +705,52 @@ class AgentlyPromptGenerator(PromptGenerator):
                 "AgentlyOutput",
                 {"list": DataFormatter.sanitize(output_prompt, remain_type=True)},
             )
+
+    def _to_serializable_output_prompt(self, output_prompt_part: Any):
+        if not isinstance(output_prompt_part, (Mapping, Sequence)) or isinstance(output_prompt_part, str):
+            return output_prompt_part
+
+        if isinstance(output_prompt_part, Mapping):
+            result = {}
+            for key, value in output_prompt_part.items():
+                result[key] = self._to_serializable_output_prompt(value)
+            return result
+        else:
+            if isinstance(output_prompt_part, tuple):
+                match len(output_prompt_part):
+                    case 0:
+                        return []
+                    case 1:
+                        return {
+                            "$type": output_prompt_part[0],
+                        }
+                    case _:
+                        return {
+                            "$type": output_prompt_part[0],
+                            "$desc": ";".join(output_prompt_part[1:]),
+                        }
+            else:
+                return list(output_prompt_part)
+
+    def to_serializable_prompt_data(self, inherit: bool = False) -> "SerializableData":
+        prompt_data = self.prompt.get(
+            default={},
+            inherit=inherit,
+        )
+        if "output" in prompt_data:
+            prompt_data["output"] = self._to_serializable_output_prompt(prompt_data["output"])
+        return DataFormatter.sanitize(prompt_data)
+
+    def to_json_prompt(self, inherit: bool = False):
+        return json.dumps(
+            self.to_serializable_prompt_data(inherit),
+            indent=2,
+            ensure_ascii=False,
+        )
+
+    def to_yaml_prompt(self, inherit: bool = False):
+        return yaml.safe_dump(
+            self.to_serializable_prompt_data(inherit),
+            indent=2,
+            allow_unicode=True,
+        )
