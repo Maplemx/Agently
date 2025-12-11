@@ -98,7 +98,7 @@ class SystemMessageHooker(EventHooker):
                             and SystemMessageHooker._current_meta["row_id"] == message_data["response_id"]
                             and SystemMessageHooker._current_meta["stage"] == content["stage"]
                         ):
-                            print(color_text(content["detail"], color="gray"), end="")
+                            print(color_text(content["detail"], color="gray"), end="", flush=True)
                         else:
                             header = color_text(
                                 f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]",
