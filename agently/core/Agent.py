@@ -289,7 +289,7 @@ class BaseAgent:
     def get_prompt_text(self):
         return self.request_prompt.to_text()[6:][:-11]
 
-    def to_json_prompt(self):
+    def get_json_prompt(self):
         prompt_data = {
             ".agent": self.agent_prompt.to_serializable_prompt_data(),
             ".request": self.request_prompt.to_serializable_prompt_data(),
@@ -300,7 +300,7 @@ class BaseAgent:
             ensure_ascii=False,
         )
 
-    def to_yaml_prompt(self):
+    def get_yaml_prompt(self):
         prompt_data = {
             ".agent": self.agent_prompt.to_serializable_prompt_data(),
             ".request": self.request_prompt.to_serializable_prompt_data(),

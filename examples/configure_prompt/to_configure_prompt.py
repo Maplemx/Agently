@@ -40,8 +40,8 @@ agent = Agently.create_agent()
     )
 )
 
-yaml_prompt = agent.to_yaml_prompt()
-json_prompt = agent.to_json_prompt()
+yaml_prompt = agent.get_yaml_prompt()
+json_prompt = agent.get_json_prompt()
 
 print("[YAML PROMPT]:")
 print(yaml_prompt)
