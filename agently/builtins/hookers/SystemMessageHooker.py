@@ -17,6 +17,32 @@ from typing import TYPE_CHECKING
 
 from agently.types.plugins import EventHooker
 
+COLORS = {
+    "black": 30,
+    "red": 31,
+    "green": 32,
+    "yellow": 33,
+    "blue": 34,
+    "magenta": 35,
+    "cyan": 36,
+    "white": 37,
+    "gray": 90,
+}
+
+
+def color_text(text: str, color: str | None = None, bold: bool = False, underline: bool = False) -> str:
+    codes = []
+    if bold:
+        codes.append("1")
+    if underline:
+        codes.append("4")
+    if color and color in COLORS:
+        codes.append(str(COLORS[color]))
+    if not codes:
+        return text
+    return f"\x1b[{';'.join(codes)}m{text}\x1b[0m"
+
+
 if TYPE_CHECKING:
     from agently.types.data import EventMessage, AgentlySystemEvent
 
@@ -72,12 +98,18 @@ class SystemMessageHooker(EventHooker):
                             and SystemMessageHooker._current_meta["row_id"] == message_data["response_id"]
                             and SystemMessageHooker._current_meta["stage"] == content["stage"]
                         ):
-                            print(content["detail"], end="")
+                            print(color_text(content["detail"], color="gray"), end="")
                         else:
-                            print(
-                                f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
-                                end="",
+                            header = color_text(
+                                f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]",
+                                color="blue",
+                                bold=True,
                             )
+                            stage_label = color_text("Stage:", color="cyan", bold=True)
+                            stage_val = color_text(content["stage"], color="yellow", underline=True)
+                            detail_label = color_text("Detail:\n", color="cyan", bold=True)
+                            detail = color_text(content["detail"], color="green")
+                            print(f"{header}\n{stage_label} {stage_val}\n{detail_label}{detail}", end="")
                             SystemMessageHooker._current_meta["table_name"] = message_data["agent_name"]
                             SystemMessageHooker._current_meta["row_id"] = message_data["response_id"]
                             SystemMessageHooker._current_meta["stage"] = content["stage"]
@@ -99,28 +131,40 @@ class SystemMessageHooker(EventHooker):
                         },
                     )
                     if settings["runtime.show_model_logs"]:
+                        header = color_text(
+                            f"[Agent-{ message_data['agent_name'] }] - [Response-{ message_data['response_id'] }]",
+                            color="blue",
+                            bold=True,
+                        )
+                        stage_label = color_text("Stage:", color="cyan", bold=True)
+                        stage_val = color_text(content["stage"], color="yellow", underline=True)
+                        detail_label = color_text("Detail:\n", color="cyan", bold=True)
+                        detail = color_text(f"{content['detail']}", color="gray")
                         await event_center.async_emit(
                             "log",
                             {
                                 "level": "INFO",
-                                "content": f"[Agent-{ message_data['agent_name'] }] - [Response-{ message_data['response_id'] }]\nStage: { content['stage'] }\nDetail:\n{ content['detail'] }",
+                                "content": f"{header}\n{stage_label} {stage_val}\n{detail_label}{detail}",
                             },
                         )
             case "TOOL":
                 if settings["runtime.show_tool_logs"]:
+                    tool_title = color_text("[Tool Using Result]:", color="blue", bold=True)
+                    tool_body = color_text(str(message.content["data"]), color="gray")
                     await event_center.async_emit(
                         "log",
                         {
                             "level": "INFO",
-                            "content": f"[Tool Using Result]:\n{ message.content['data'] }",
+                            "content": f"{tool_title}\n{tool_body}",
                         },
                     )
             case "TRIGGER_FLOW":
                 if settings["runtime.show_trigger_flow_logs"]:
+                    trigger = color_text(f"[TriggerFlow] { message.content['data'] }", color="yellow", bold=True)
                     await event_center.async_emit(
                         "log",
                         {
                             "level": "INFO",
-                            "content": f"[TriggerFlow] { message.content['data'] }",
+                            "content": trigger,
                         },
                     )
