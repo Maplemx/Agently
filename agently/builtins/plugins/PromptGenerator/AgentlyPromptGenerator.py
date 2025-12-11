@@ -753,4 +753,5 @@ class AgentlyPromptGenerator(PromptGenerator):
             self.to_serializable_prompt_data(inherit),
             indent=2,
             allow_unicode=True,
+            sort_keys=False,
         )

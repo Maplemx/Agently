@@ -305,4 +305,5 @@ class BaseAgent:
             prompt_data,
             indent=2,
             allow_unicode=True,
+            sort_keys=False,
         )
