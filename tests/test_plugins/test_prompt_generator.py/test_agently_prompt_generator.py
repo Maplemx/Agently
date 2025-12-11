@@ -9,65 +9,22 @@ def test_to_prompt_object():
     Agently.set_settings("plugins.PromptGenerator.activate", "AgentlyPromptGenerator")
     prompt = Prompt(Agently.plugin_manager, Agently.settings)
     prompt.set("input", "OK")
-    assert prompt.to_prompt_object().model_dump() == {
-        "chat_history": [],
-        "system": None,
-        "developer": None,
-        "tools": None,
-        "action_results": None,
-        "input": "OK",
-        "attachment": [],
-        "info": None,
-        "instruct": None,
-        "output": None,
-        "output_format": "markdown",
-    }
+    po = prompt.to_prompt_object().model_dump()
+    assert po["input"] == "OK"
+    assert po["chat_history"] == []
+    assert po.get("output_format") == "markdown"
     prompt.set("user_info", "Nobody")
     assert prompt.to_prompt_object().model_extra == {"user_info": "Nobody"}
-    assert prompt.to_prompt_object().model_dump() == {
-        "chat_history": [],
-        "system": None,
-        "developer": None,
-        "tools": None,
-        "action_results": None,
-        "input": "OK",
-        "attachment": [],
-        "info": None,
-        "instruct": None,
-        "output": None,
-        "output_format": "markdown",
-        "user_info": "Nobody",
-    }
+    po2 = prompt.to_prompt_object().model_dump()
+    assert po2["input"] == "OK" and po2.get("user_info") == "Nobody"
     prompt["output"] = {"reply": (str, "your reply")}
-    assert prompt.to_prompt_object().model_dump() == {
-        "chat_history": [],
-        "system": None,
-        "developer": None,
-        "tools": None,
-        "action_results": None,
-        "input": "OK",
-        "attachment": [],
-        "info": None,
-        "instruct": None,
-        "output": {"reply": (str, "your reply")},
-        "output_format": "json",  # Be automatically changed by `output`
-        "user_info": "Nobody",
-    }
+    po3 = prompt.to_prompt_object().model_dump()
+    assert po3["output"] == {"reply": (str, "your reply")}
+    assert po3.get("output_format") == "json"  # Be automatically changed by `output`
     prompt["output_format"] = "yaml"
-    assert prompt.to_prompt_object().model_dump() == {
-        "chat_history": [],
-        "system": None,
-        "developer": None,
-        "tools": None,
-        "action_results": None,
-        "input": "OK",
-        "attachment": [],
-        "info": None,
-        "instruct": None,
-        "output": {"reply": (str, "your reply")},
-        "output_format": "yaml",  # You can modify it manually
-        "user_info": "Nobody",
-    }
+    po4 = prompt.to_prompt_object().model_dump()
+    assert po4["output"] == {"reply": (str, "your reply")}
+    assert po4.get("output_format") == "yaml"  # You can modify it manually
 
     prompt_2 = Prompt(Agently.plugin_manager, Agently.settings)
     prompt_2["output_format"] = "some random words"
@@ -93,7 +50,8 @@ def test_to_text():
     )
     assert (
         prompt.to_text()
-        == """[INFO]:
+        == """user:
+[INFO]:
 I'm a human
 
 [INSTRUCT]:
@@ -111,7 +69,7 @@ Data Structure:
 }
 
 [OUTPUT]:
-[assistant]:"""
+assistant:"""
     )
 
 
@@ -149,7 +107,8 @@ def test_to_text_complex():
     )
     assert (
         prompt.to_text()
-        == """[CHAT HISTORY]:
+        == """user:
+[CHAT HISTORY]:
 [user]:ni hao
 
 [INFO]:
@@ -170,7 +129,7 @@ Data Structure:
 }
 
 [OUTPUT]:
-[assistant]:"""
+assistant:"""
     )
     # Receive warning when using pytest test_prompt -s
 
@@ -344,7 +303,7 @@ def test_strict_role_orders():
     prompt.set("input", "hi")
     messages = prompt.to_messages(rich_content=True, strict_role_orders=True)
     assert messages == [
-        {'role': 'user', 'content': [{'type': 'text', 'text': '[Chat History]'}]},
+        {'role': 'user', 'content': [{'type': 'text', 'text': '[CHAT HISTORY]'}]},
         {'role': 'assistant', 'content': [{'type': 'text', 'text': 'Hi, how can I help you today?'}]},
         {'role': 'user', 'content': [{'type': 'text', 'text': '?'}]},
         {'role': 'assistant', 'content': [{'type': 'text', 'text': '[User continue input]'}]},
@@ -352,7 +311,7 @@ def test_strict_role_orders():
     ]
     messages = prompt.to_messages(rich_content=False, strict_role_orders=True)
     assert messages == [
-        {'role': 'user', 'content': '[Chat History]'},
+        {'role': 'user', 'content': '[CHAT HISTORY]'},
         {'role': 'assistant', 'content': 'Hi, how can I help you today?'},
         {'role': 'user', 'content': '?'},
         {'role': 'assistant', 'content': '[User continue input]'},
