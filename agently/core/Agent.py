@@ -285,6 +285,10 @@ class BaseAgent:
             self.request.prompt.set("options", options)
         return self
 
+    # Prompt
+    def get_prompt_text(self):
+        return self.request_prompt.to_text()[6:][:-11]
+
     def to_json_prompt(self):
         prompt_data = {
             ".agent": self.agent_prompt.to_serializable_prompt_data(),

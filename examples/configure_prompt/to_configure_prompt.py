@@ -52,4 +52,4 @@ agent_2 = Agently.create_agent()
 
 agent_2.load_yaml_prompt(yaml_prompt)
 print("[AGENT 2 PROMPT]:")
-print(agent_2.prompt.to_text())
+print(agent_2.get_prompt_text())
