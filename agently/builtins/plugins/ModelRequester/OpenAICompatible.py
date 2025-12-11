@@ -146,6 +146,10 @@ class OpenAICompatible(ModelRequester):
         self.model_type = cast(str, self.plugin_settings.get("model_type"))
         self._messenger = event_center.create_messenger(self.name)
 
+        # check if has attachment prompt
+        if self.prompt["attachment"]:
+            self.plugin_settings["rich_content"] = True
+
     @staticmethod
     def _on_register():
         pass

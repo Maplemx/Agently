@@ -523,6 +523,15 @@ class ModelRequest:
         self.prompt.set("output", prompt, mappings)
         return self
 
+    def attachment(
+        self,
+        prompt: list[dict[str, Any]],
+        mappings: dict[str, Any] | None = None,
+    ):
+        self.prompt.set("attachment", prompt, mappings)
+        return self
+
+    # Response & Result
     def get_response(self):
         response = ModelResponse(
             self.agent_name,

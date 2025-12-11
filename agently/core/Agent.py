@@ -273,6 +273,19 @@ class BaseAgent:
             self.request.prompt.set("output", prompt, mappings)
         return self
 
+    def attachment(
+        self,
+        prompt: list[dict[str, Any]],
+        mappings: dict[str, Any] | None = None,
+        *,
+        always: bool = False,
+    ):
+        if always:
+            self.agent_prompt.set("attachment", prompt, mappings)
+        else:
+            self.request_prompt.set("attachment", prompt, mappings)
+        return self
+
     def options(
         self,
         options: dict[str, Any],
