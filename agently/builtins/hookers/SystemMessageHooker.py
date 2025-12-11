@@ -102,7 +102,7 @@ class SystemMessageHooker(EventHooker):
                         else:
                             header = color_text(
                                 f"[Agent-{ message_data['agent_name'] }] - [Request-{ message_data['response_id'] }]",
-                                color="magenta",
+                                color="blue",
                                 bold=True,
                             )
                             stage_label = color_text("Stage:", color="cyan", bold=True)
@@ -133,7 +133,7 @@ class SystemMessageHooker(EventHooker):
                     if settings["runtime.show_model_logs"]:
                         header = color_text(
                             f"[Agent-{ message_data['agent_name'] }] - [Response-{ message_data['response_id'] }]",
-                            color="magenta",
+                            color="blue",
                             bold=True,
                         )
                         stage_label = color_text("Stage:", color="cyan", bold=True)
