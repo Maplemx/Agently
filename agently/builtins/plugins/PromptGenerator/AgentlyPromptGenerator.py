@@ -725,10 +725,16 @@ class AgentlyPromptGenerator(PromptGenerator):
                             "$type": output_prompt_part[0],
                         }
                     case _:
-                        return {
-                            "$type": output_prompt_part[0],
-                            "$desc": ";".join(output_prompt_part[1:]),
-                        }
+                        desc_text = ";".join([item for item in output_prompt_part[1:] if item])
+                        if desc_text:
+                            return {
+                                "$type": output_prompt_part[0],
+                                "$desc": desc_text,
+                            }
+                        else:
+                            return {
+                                "$type": output_prompt_part[0],
+                            }
             else:
                 return list(output_prompt_part)
 
