@@ -86,3 +86,10 @@ async def trigger_flow_websocket(ws: WebSocket):
         pass
     except:
         await ws.close()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    print("Start WebSocket Server on Port 15596...")
+    uvicorn.run(app, host="0.0.0.0", port=15596)
