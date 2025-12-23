@@ -13,6 +13,6 @@ async def say_bye(data: TriggerFlowEventData):
     return data.value
 
 
-flow.to(say_hello).to(say_bye)
+flow.to(say_hello).to(say_bye).end()
 execution = flow.create_execution()
 result = execution.start("Agently")
