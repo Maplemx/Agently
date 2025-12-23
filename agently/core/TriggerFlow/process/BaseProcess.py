@@ -213,15 +213,21 @@ class TriggerFlowBaseProcess:
 
     def to(
         self,
-        chunk: "TriggerFlowChunk | TriggerFlowHandler | str",
+        chunk: "TriggerFlowChunk | TriggerFlowHandler | str | tuple[str, TriggerFlowHandler]",
         side_branch: bool = False,
+        name: str | None = None,
     ):
         if isinstance(chunk, str):
             if chunk in self._blue_print.chunks:
                 chunk = self._blue_print.chunks[chunk]
             else:
                 raise NotImplementedError(f"Cannot find chunk named '{ chunk }'")
-        chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
+        elif isinstance(chunk, tuple):
+            chunk_name = chunk[0]
+            chunk_func = chunk[1]
+            chunk = TriggerFlowChunk(chunk_func, name=chunk_name)
+        else:
+            chunk = TriggerFlowChunk(chunk, name=name) if callable(chunk) else chunk
         self._blue_print.add_handler(
             self.trigger_type,
             self.trigger_event,
@@ -235,23 +241,33 @@ class TriggerFlowBaseProcess:
             **self._options,
         )
 
-    def side_branch(self, chunk: "TriggerFlowChunk | TriggerFlowHandler"):
-        return self.to(chunk, side_branch=True)
+    def side_branch(
+        self,
+        chunk: "TriggerFlowChunk | TriggerFlowHandler",
+        *,
+        name: str | None = None,
+    ):
+        return self.to(
+            chunk,
+            side_branch=True,
+            name=name,
+        )
 
     def batch(
         self,
-        *chunks: "TriggerFlowChunk | TriggerFlowHandler",
+        *chunks: "TriggerFlowChunk | TriggerFlowHandler | tuple[str, TriggerFlowHandler]",
         side_branch: bool = False,
     ):
         batch_trigger = f"Batch-{ uuid.uuid4().hex }"
         results = {}
-        chunks_to_wait = {}
+        triggers_to_wait = {}
+        trigger_to_chunk_name = {}
 
         async def wait_all_chunks(data: "TriggerFlowEventData"):
-            if data.event in chunks_to_wait:
-                results[data.event] = data.value
-                chunks_to_wait[data.event] = True
-            for done in chunks_to_wait.values():
+            if data.event in triggers_to_wait:
+                results[trigger_to_chunk_name[data.event]] = data.value
+                triggers_to_wait[data.event] = True
+            for done in triggers_to_wait.values():
                 if done is False:
                     return
             await data.async_emit(
@@ -261,8 +277,15 @@ class TriggerFlowBaseProcess:
             )
 
         for chunk in chunks:
-            chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
-            chunks_to_wait[chunk.name] = False
+            if isinstance(chunk, tuple):
+                chunk_name = chunk[0]
+                chunk_func = chunk[1]
+                chunk = TriggerFlowChunk(chunk_func, name=chunk_name)
+            else:
+                chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
+            triggers_to_wait[chunk.trigger] = False
+            trigger_to_chunk_name[chunk.trigger] = chunk.name
+            results[chunk.name] = None
             self._blue_print.add_handler(
                 self.trigger_type,
                 self.trigger_event,
