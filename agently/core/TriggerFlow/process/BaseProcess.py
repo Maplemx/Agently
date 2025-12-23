@@ -178,7 +178,7 @@ class TriggerFlowBaseProcess:
                                 if mode == "simple_or"
                                 else (data.trigger_type, data.trigger_event, data.value)
                             ),
-                            layer_marks=data.layer_marks.copy(),
+                            _layer_marks=data._layer_marks.copy(),
                         )
                     case "and":
                         if data.trigger_type in values and data.trigger_event in values[trigger_type]:  # type: ignore
@@ -191,7 +191,7 @@ class TriggerFlowBaseProcess:
                         await data.async_emit(
                             when_trigger,
                             values,
-                            layer_marks=data.layer_marks.copy(),
+                            _layer_marks=data._layer_marks.copy(),
                         )
 
             for trigger_type, trigger_event_dict in values.items():
@@ -257,7 +257,7 @@ class TriggerFlowBaseProcess:
             await data.async_emit(
                 batch_trigger,
                 results,
-                layer_marks=data.layer_marks.copy(),
+                _layer_marks=data._layer_marks.copy(),
             )
 
         for chunk in chunks:
@@ -299,13 +299,13 @@ class TriggerFlowBaseProcess:
                 await data.async_emit(
                     collect_trigger,
                     self._block_data.global_data.get(f"collections.{ collection_name}"),
-                    layer_marks=data.layer_marks.copy(),
+                    _layer_marks=data._layer_marks.copy(),
                 )
             elif mode == "filled_then_empty":
                 await data.async_emit(
                     collect_trigger,
                     self._block_data.global_data.get(f"collections.{ collection_name}"),
-                    layer_marks=data.layer_marks.copy(),
+                    _layer_marks=data._layer_marks.copy(),
                 )
                 del self._block_data.global_data[f"collections.{ collection_name}"]
 

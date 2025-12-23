@@ -97,7 +97,7 @@ class TriggerFlowExecution:
         self,
         trigger_event: str,
         value: Any = None,
-        layer_marks: list[str] | None = None,
+        _layer_marks: list[str] | None = None,
         *,
         trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
     ):
@@ -134,7 +134,7 @@ class TriggerFlowExecution:
                                 trigger_type=trigger_type,
                                 value=value,
                                 execution=self,
-                                layer_marks=layer_marks,
+                                _layer_marks=_layer_marks,
                             )
                         )
                     )

@@ -49,7 +49,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                         data.async_emit(
                             send_item_trigger,
                             item,
-                            data.layer_marks.copy(),
+                            data._layer_marks.copy(),
                         )
                     )
                     data.layer_out()
@@ -62,7 +62,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                 await data.async_emit(
                     send_item_trigger,
                     data.value,
-                    data.layer_marks.copy(),
+                    data._layer_marks.copy(),
                 )
                 data.layer_out()
 
@@ -103,7 +103,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                 await data.async_emit(
                     end_for_each_trigger,
                     list(for_each_results[for_each_instance_id].values()),
-                    data.layer_marks.copy(),
+                    data._layer_marks.copy(),
                 )
                 for_each_results.delete(for_each_instance_id)
 

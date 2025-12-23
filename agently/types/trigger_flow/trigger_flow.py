@@ -43,7 +43,7 @@ class TriggerFlowEventData:
         trigger_type: Literal["event", "runtime_data", "flow_data"],
         value: Any,
         execution: "TriggerFlowExecution",
-        layer_marks: list[str] | None = None,
+        _layer_marks: list[str] | None = None,
     ):
         self.trigger_event = trigger_event
         self.trigger_type = trigger_type
@@ -51,7 +51,7 @@ class TriggerFlowEventData:
         self.type = trigger_type
         self.value = value
         self.execution_id = execution.id
-        self.layer_marks = layer_marks if layer_marks is not None else []
+        self._layer_marks = _layer_marks if _layer_marks is not None else []
         self.settings = execution.settings
 
         self.get_flow_data = execution.get_flow_data
@@ -84,17 +84,17 @@ class TriggerFlowEventData:
 
     @property
     def upper_layer_mark(self):
-        return self.layer_marks[-2] if len(self.layer_marks) > 1 else None
+        return self._layer_marks[-2] if len(self._layer_marks) > 1 else None
 
     @property
     def layer_mark(self):
-        return self.layer_marks[-1] if len(self.layer_marks) > 0 else None
+        return self._layer_marks[-1] if len(self._layer_marks) > 0 else None
 
     def layer_in(self):
-        self.layer_marks.append(uuid.uuid4().hex)
+        self._layer_marks.append(uuid.uuid4().hex)
 
     def layer_out(self):
-        self.layer_marks = self.layer_marks[:-1] if len(self.layer_marks) > 0 else []
+        self._layer_marks = self._layer_marks[:-1] if len(self._layer_marks) > 0 else []
 
 
 TriggerFlowHandler = Callable[[TriggerFlowEventData], Any]

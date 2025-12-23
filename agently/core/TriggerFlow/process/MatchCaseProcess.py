@@ -58,7 +58,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                         await data.async_emit(
                             f"Match-{ match_id }-Case-{ case_id }",
                             data.value,
-                            layer_marks=data.layer_marks.copy(),
+                            _layer_marks=data._layer_marks.copy(),
                         )
                         return
                     elif mode == "hit_all":
@@ -71,7 +71,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                             data.async_emit(
                                 f"Match-{ match_id }-Case-{ case_id }",
                                 data.value,
-                                layer_marks=data.layer_marks.copy(),
+                                _layer_marks=data._layer_marks.copy(),
                             )
                         )
                         data.layer_out()
@@ -81,13 +81,13 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                     await data.async_emit(
                         f"Match-{ match_id }-Else",
                         data.value,
-                        layer_marks=data.layer_marks.copy(),
+                        _layer_marks=data._layer_marks.copy(),
                     )
                 else:
                     await data.async_emit(
                         f"Match-{ match_id }-Result",
                         data.value,
-                        layer_marks=data.layer_marks.copy(),
+                        _layer_marks=data._layer_marks.copy(),
                     )
 
         self.to(match_case)
@@ -164,7 +164,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                 await data.async_emit(
                     f"Match-{ match_id }-Result",
                     list(match_results.values()),
-                    layer_marks=data.layer_marks.copy(),
+                    _layer_marks=data._layer_marks.copy(),
                 )
                 del data._system_runtime_data[f"match_results.{ data.upper_layer_mark }"]
             else:
@@ -172,7 +172,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                 await data.async_emit(
                     f"Match-{ match_id }-Result",
                     data.value,
-                    layer_marks=data.layer_marks.copy(),
+                    _layer_marks=data._layer_marks.copy(),
                 )
 
         for trigger in branch_ends:
