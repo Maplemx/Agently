@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import datetime
 import warnings
 from typing import (
     Any,
     Literal,
     Mapping,
+    Sequence,
     Union,
     get_origin,
     get_args,
@@ -29,8 +31,11 @@ from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from agently.types.data import SerializableValue, KwargsType
+    from re import Pattern
 
 T = TypeVar("T")
+
+DEFAULT_PLACEHOLDER_PATTERN = re.compile(r"\$\{\s*([^}]+?)\s*\}")
 
 
 class DataFormatter:
@@ -246,3 +251,75 @@ class DataFormatter:
             return kwargs_format or None
 
         return None
+
+    @staticmethod
+    def substitute_placeholder(
+        obj: T,
+        variable_mappings: dict[str, Any],
+        *,
+        placeholder_pattern: "Pattern | None" = None,
+    ) -> T | Any:
+        if placeholder_pattern is None:
+            placeholder_pattern = DEFAULT_PLACEHOLDER_PATTERN
+
+        if not isinstance(variable_mappings, dict):
+            raise TypeError(f"Variable mappings require a dictionary but got: { variable_mappings }")
+
+        if isinstance(obj, str):
+            full_match = placeholder_pattern.fullmatch(obj)
+            if full_match:
+                key = full_match.group(1).strip()
+                return variable_mappings.get(key, obj)
+            else:
+
+                def replacer(match):
+                    key = match.group(1).strip()
+                    return str(variable_mappings.get(key, match.group(0)))
+
+                return placeholder_pattern.sub(replacer, obj)
+
+        if isinstance(obj, Mapping):
+            return {
+                DataFormatter.substitute_placeholder(
+                    key,
+                    variable_mappings,
+                    placeholder_pattern=placeholder_pattern,
+                ): DataFormatter.substitute_placeholder(
+                    value,
+                    variable_mappings,
+                    placeholder_pattern=placeholder_pattern,
+                )
+                for key, value in obj.items()
+            }
+
+        if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
+            if isinstance(obj, tuple):
+                return tuple(
+                    DataFormatter.substitute_placeholder(
+                        value,
+                        variable_mappings,
+                        placeholder_pattern=placeholder_pattern,
+                    )
+                    for value in obj
+                )
+            else:
+                return [
+                    DataFormatter.substitute_placeholder(
+                        value,
+                        variable_mappings,
+                        placeholder_pattern=placeholder_pattern,
+                    )
+                    for value in obj
+                ]
+
+        if isinstance(obj, set):
+            return {
+                DataFormatter.substitute_placeholder(
+                    value,
+                    variable_mappings,
+                    placeholder_pattern=placeholder_pattern,
+                )
+                for value in obj
+            }
+
+        return obj

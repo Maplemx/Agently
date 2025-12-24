@@ -14,9 +14,9 @@
 
 import re
 from textwrap import dedent
-from typing import Any, Literal, Mapping, Sequence, TYPE_CHECKING, cast, overload, TypeVar
+from typing import Any, Literal, TYPE_CHECKING, cast, overload, TypeVar
 
-from agently.utils import RuntimeData, Settings
+from agently.utils import RuntimeData, Settings, DataFormatter
 
 if TYPE_CHECKING:
     from agently.types.data.prompt import ChatMessage, PromptStandardSlot
@@ -80,8 +80,6 @@ class Prompt(RuntimeData):
     ):
         super().__init__(prompt_dict, parent=parent_prompt, name=name)
 
-        self._placeholder_pattern = re.compile(r"\$\{\s*([^}]+?)\s*\}")
-
         self.settings = Settings(
             name="Prompt-Settings",
             parent=parent_settings,
@@ -102,42 +100,6 @@ class Prompt(RuntimeData):
         self.to_serializable_prompt_data = self.prompt_generator.to_serializable_prompt_data
         self.to_json_prompt = self.prompt_generator.to_json_prompt
         self.to_yaml_prompt = self.prompt_generator.to_yaml_prompt
-
-    def _substitute_placeholder(self, obj: T, variable_mappings: dict[str, Any]) -> T | Any:
-        if not isinstance(variable_mappings, dict):
-            raise TypeError(f"Variable mappings require a dictionary but got: { variable_mappings }")
-
-        if isinstance(obj, str):
-            full_match = self._placeholder_pattern.fullmatch(obj)
-            if full_match:
-                key = full_match.group(1).strip()
-                return variable_mappings.get(key, obj)
-            else:
-
-                def replacer(match):
-                    key = match.group(1).strip()
-                    return str(variable_mappings.get(key, match.group(0)))
-
-                return self._placeholder_pattern.sub(replacer, obj)
-
-        if isinstance(obj, Mapping):
-            return {
-                self._substitute_placeholder(key, variable_mappings): self._substitute_placeholder(
-                    value, variable_mappings
-                )
-                for key, value in obj.items()
-            }
-
-        if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
-            if isinstance(obj, tuple):
-                return tuple(self._substitute_placeholder(value, variable_mappings) for value in obj)
-            else:
-                return [self._substitute_placeholder(value, variable_mappings) for value in obj]
-
-        if isinstance(obj, set):
-            return {self._substitute_placeholder(value, variable_mappings) for value in obj}
-
-        return obj
 
     @overload
     def set(
@@ -165,8 +127,8 @@ class Prompt(RuntimeData):
             value = dedent(value.strip())
         if mappings is not None:
             super().set(
-                self._substitute_placeholder(key, mappings),
-                self._substitute_placeholder(value, mappings),
+                DataFormatter.substitute_placeholder(key, mappings),
+                DataFormatter.substitute_placeholder(value, mappings),
             )
         else:
             super().set(key, value)
@@ -178,7 +140,7 @@ class Prompt(RuntimeData):
     ):
         if mappings is not None:
             super().update(
-                self._substitute_placeholder(new, mappings),
+                DataFormatter.substitute_placeholder(new, mappings),
             )
         else:
             super().update(new)
@@ -193,8 +155,8 @@ class Prompt(RuntimeData):
             value = dedent(value.strip())
         if mappings is not None:
             super().append(
-                self._substitute_placeholder(key, mappings),
-                self._substitute_placeholder(value, mappings),
+                DataFormatter.substitute_placeholder(key, mappings),
+                DataFormatter.substitute_placeholder(value, mappings),
             )
         else:
             super().append(key, value)
