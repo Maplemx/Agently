@@ -425,13 +425,12 @@ class ModelRequest:
             parent=parent_extension_handlers,
         )
 
+        self.set_settings = self.settings.set_settings
+
         self.get_meta = FunctionShifter.syncify(self.async_get_meta)
         self.get_text = FunctionShifter.syncify(self.async_get_text)
         self.get_data = FunctionShifter.syncify(self.async_get_data)
         self.get_data_object = FunctionShifter.syncify(self.async_get_data_object)
-
-    def set_settings(self, key: str, value: "SerializableValue"):
-        self.settings.set_settings(key, value)
 
     def set_prompt(
         self,

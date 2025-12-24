@@ -36,6 +36,8 @@ class PluginManager:
             parent=parent.plugins if parent is not None else None,
         )
 
+        self.set_settings = self.settings.set_settings
+
     def register(
         self,
         plugin_type: AgentlyPluginType,

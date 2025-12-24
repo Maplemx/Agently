@@ -60,6 +60,8 @@ class TriggerFlow:
 
         self.chunks = self._blue_print.chunks
 
+        self.set_settings = self.settings.set_settings
+
         self.get_flow_data = self._flow_data.get
         self.set_flow_data = FunctionShifter.syncify(self.async_set_flow_data)
         self.append_flow_data = FunctionShifter.syncify(self.async_append_flow_data)
@@ -73,10 +75,6 @@ class TriggerFlow:
 
         self.start_execution = FunctionShifter.syncify(self.async_start_execution)
         self.start = FunctionShifter.syncify(self.async_start)
-
-    def set_settings(self, key: str, value: "SerializableValue"):
-        self.settings.set_settings(key, value)
-        return self
 
     @overload
     def chunk(self, handler_or_name: "TriggerFlowHandler") -> TriggerFlowChunk: ...

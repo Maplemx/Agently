@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import json
 import yaml
 import toml
 from typing import TYPE_CHECKING, Literal, cast
-from agently.utils import SerializableRuntimeData, SerializableRuntimeDataNamespace
+from .SerializableRuntimeData import SerializableRuntimeData, SerializableRuntimeDataNamespace
+from .LazyImport import LazyImport
+from .DataFormatter import DataFormatter
 
 if TYPE_CHECKING:
     from agently.types.data import SerializableData, SerializableValue
@@ -114,7 +117,21 @@ class Settings(SerializableRuntimeData):
         else:
             raise TypeError(f"[Agently Settings] Cannot load parsed data, expect dictionary type, got: { type(data) }")
 
-    def set_settings(self, key: str, value: "SerializableValue"):
+    def set_settings(self, key: str, value: "SerializableValue", *, auto_load_env: bool = False):
+        if auto_load_env:
+            import os
+
+            LazyImport.import_package("dotenv")
+            from dotenv import load_dotenv, find_dotenv
+
+            load_dotenv(find_dotenv())
+
+            environ = dict(os.environ)
+            value = DataFormatter.substitute_placeholder(
+                value,
+                environ,
+                placeholder_pattern=re.compile(r"\$\{\s*ENV\.([^}]+?)\s*\}"),
+            )
         if key in self._path_mappings:
             self.update({str(self._path_mappings[key]): value})
             return self

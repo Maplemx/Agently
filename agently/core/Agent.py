@@ -66,6 +66,8 @@ class BaseAgent:
         self.request_prompt = self.request.prompt
         self.prompt = self.request_prompt
 
+        self.set_settings = self.settings.set_settings
+
         self.get_response = self.request.get_response
         self.get_result = self.request.get_result
         self.get_meta = self.request.get_meta
@@ -83,10 +85,6 @@ class BaseAgent:
         self.async_start = self.async_get_data
 
     # Basic Methods
-    def set_settings(self, key: str, value: "SerializableValue"):
-        self.settings.set_settings(key, value)
-        return self
-
     def set_agent_prompt(
         self,
         key: "PromptStandardSlot | str",

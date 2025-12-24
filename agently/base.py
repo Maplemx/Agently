@@ -14,7 +14,7 @@
 
 from typing import Any, Literal, Type, TYPE_CHECKING, TypeVar, Generic, cast
 
-from agently.utils import Settings, create_logger, FunctionShifter
+from agently.utils import Settings, create_logger, FunctionShifter, DataFormatter
 from agently.core import PluginManager, EventCenter, Tool, Prompt, ModelRequest, BaseAgent
 from agently._default_init import _load_default_settings, _load_default_plugins, _hook_default_event_handlers
 
@@ -117,6 +117,8 @@ class AgentlyMain(Generic[A]):
         self.tool = tool
         self.AgentType = AgentType
 
+        self.set_settings = self.settings.set_settings
+
     def set_debug_console(self, debug_console_status: Literal["ON", "OFF"]):
         match debug_console_status:
             case "OFF":
@@ -128,10 +130,6 @@ class AgentlyMain(Generic[A]):
 
     def set_log_level(self, log_level: "MessageLevel"):
         self.logger.setLevel(log_level)
-        return self
-
-    def set_settings(self, key: str, value: "SerializableValue"):
-        self.settings.set_settings(key, value)
         return self
 
     def create_prompt(self, name: str = "agently_prompt") -> Prompt:
