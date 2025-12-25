@@ -188,13 +188,18 @@ class ConfigurePromptExtension(BaseAgent):
                 prompt = yaml.safe_load(str(path_or_content))
             except yaml.YAMLError as e:
                 raise ValueError(f"Cannot load YAML content or file path not existed.\nError: { e }")
-        if isinstance(prompt, dict) and prompt_key_path is not None:
-            prompt = DataLocator.locate_path_in_dict(prompt, prompt_key_path)
-            if isinstance(prompt, dict):
-                self._execute_prompt_configure(prompt, mappings)
-        else:
+        if not isinstance(prompt, dict):
             raise TypeError(
                 "Cannot execute YAML prompt configures, expect prompt configures as a dictionary data but got:"
+                f"{ prompt }"
+            )
+        if prompt_key_path is not None:
+            prompt = DataLocator.locate_path_in_dict(prompt, prompt_key_path)
+        if isinstance(prompt, dict):
+            self._execute_prompt_configure(prompt, mappings)
+        else:
+            raise TypeError(
+                f"Cannot execute YAML prompt configures, expect prompt configures{ ' from [' + prompt_key_path + '] ' if prompt_key_path is not None else '' } as a dictionary data but got:"
                 f"{ prompt }"
             )
         return self
@@ -218,13 +223,18 @@ class ConfigurePromptExtension(BaseAgent):
                 prompt = json5.loads(str(path_or_content))
             except JSONDecodeError as e:
                 raise ValueError(f"Cannot load JSON content or file path not existed.\nError: { e }")
-        if isinstance(prompt, dict) and prompt_key_path is not None:
-            prompt = DataLocator.locate_path_in_dict(prompt, prompt_key_path)
-            if isinstance(prompt, dict):
-                self._execute_prompt_configure(prompt, mappings)
-        else:
+        if not isinstance(prompt, dict):
             raise TypeError(
                 "Cannot execute JSON prompt configures, expect prompt configures as a dictionary data but got:"
+                f"{ prompt }"
+            )
+        if prompt_key_path is not None:
+            prompt = DataLocator.locate_path_in_dict(prompt, prompt_key_path)
+        if isinstance(prompt, dict):
+            self._execute_prompt_configure(prompt, mappings)
+        else:
+            raise TypeError(
+                f"Cannot execute JSON prompt configures, expect prompt configures{ ' from [' + prompt_key_path + '] ' if prompt_key_path is not None else '' }as a dictionary data but got:"
                 f"{ prompt }"
             )
         return self
