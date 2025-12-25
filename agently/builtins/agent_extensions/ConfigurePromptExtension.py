@@ -21,6 +21,7 @@ from typing import Any
 from json import JSONDecodeError
 
 from agently.core import BaseAgent
+from agently.utils import DataLocator
 
 
 class ConfigurePromptExtension(BaseAgent):
@@ -168,7 +169,13 @@ class ConfigurePromptExtension(BaseAgent):
                                 variable_mappings,
                             )
 
-    def load_yaml_prompt(self, path_or_content: str, mappings: dict[str, Any] | None = None):
+    def load_yaml_prompt(
+        self,
+        path_or_content: str | Path,
+        mappings: dict[str, Any] | None = None,
+        *,
+        prompt_key_path: str | None = None,
+    ):
         path = Path(path_or_content)
         if path.exists() and path.is_file():
             try:
@@ -178,11 +185,13 @@ class ConfigurePromptExtension(BaseAgent):
                 raise ValueError(f"Cannot load YAML file '{ path_or_content }'.\nError: { e }")
         else:
             try:
-                prompt = yaml.safe_load(path_or_content)
+                prompt = yaml.safe_load(str(path_or_content))
             except yaml.YAMLError as e:
                 raise ValueError(f"Cannot load YAML content or file path not existed.\nError: { e }")
-        if isinstance(prompt, dict):
-            self._execute_prompt_configure(prompt, mappings)
+        if isinstance(prompt, dict) and prompt_key_path is not None:
+            prompt = DataLocator.locate_path_in_dict(prompt, prompt_key_path)
+            if isinstance(prompt, dict):
+                self._execute_prompt_configure(prompt, mappings)
         else:
             raise TypeError(
                 "Cannot execute YAML prompt configures, expect prompt configures as a dictionary data but got:"
@@ -190,7 +199,13 @@ class ConfigurePromptExtension(BaseAgent):
             )
         return self
 
-    def load_json_prompt(self, path_or_content: str, mappings: dict[str, Any] | None = None):
+    def load_json_prompt(
+        self,
+        path_or_content: str | Path,
+        mappings: dict[str, Any] | None = None,
+        *,
+        prompt_key_path: str | None = None,
+    ):
         path = Path(path_or_content)
         if path.exists() and path.is_file():
             try:
@@ -200,11 +215,13 @@ class ConfigurePromptExtension(BaseAgent):
                 raise ValueError(f"Cannot load JSON file '{ path_or_content }'.\nError: { e }")
         else:
             try:
-                prompt = json5.loads(path_or_content)
-            except yaml.YAMLError as e:
+                prompt = json5.loads(str(path_or_content))
+            except JSONDecodeError as e:
                 raise ValueError(f"Cannot load JSON content or file path not existed.\nError: { e }")
-        if isinstance(prompt, dict):
-            self._execute_prompt_configure(prompt, mappings)
+        if isinstance(prompt, dict) and prompt_key_path is not None:
+            prompt = DataLocator.locate_path_in_dict(prompt, prompt_key_path)
+            if isinstance(prompt, dict):
+                self._execute_prompt_configure(prompt, mappings)
         else:
             raise TypeError(
                 "Cannot execute JSON prompt configures, expect prompt configures as a dictionary data but got:"

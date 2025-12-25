@@ -1,0 +1,6 @@
+prompt_1:
+  .request:
+    instruct: Say "Mew" to everything
+prompt_2:
+  .request:
+    instruct: Response as a stereotype AI
