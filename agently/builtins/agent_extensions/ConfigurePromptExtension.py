@@ -175,11 +175,12 @@ class ConfigurePromptExtension(BaseAgent):
         mappings: dict[str, Any] | None = None,
         *,
         prompt_key_path: str | None = None,
+        encoding: str | None = "utf-8",
     ):
         path = Path(path_or_content)
         if path.exists() and path.is_file():
             try:
-                with path.open("r", encoding="utf-8") as file:
+                with path.open("r", encoding=encoding) as file:
                     prompt = yaml.safe_load(file)
             except yaml.YAMLError as e:
                 raise ValueError(f"Cannot load YAML file '{ path_or_content }'.\nError: { e }")
@@ -210,11 +211,12 @@ class ConfigurePromptExtension(BaseAgent):
         mappings: dict[str, Any] | None = None,
         *,
         prompt_key_path: str | None = None,
+        encoding: str | None = "utf-8",
     ):
         path = Path(path_or_content)
         if path.exists() and path.is_file():
             try:
-                with path.open("r", encoding="utf-8") as file:
+                with path.open("r", encoding=encoding) as file:
                     prompt = json5.load(file)
             except JSONDecodeError as e:
                 raise ValueError(f"Cannot load JSON file '{ path_or_content }'.\nError: { e }")
