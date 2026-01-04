@@ -24,7 +24,16 @@ if TYPE_CHECKING:
     from agently.types.data.serializable import SerializableValue
 
 AgentlyModelResponseEvent = Literal[
-    "error", "original_delta", "delta", "tool_calls", "original_done", "done", "meta", "extra"
+    "error",
+    "original_delta",
+    "reasoning_delta",
+    "delta",
+    "tool_calls",
+    "original_done",
+    "reasoning_done",
+    "done",
+    "meta",
+    "extra",
 ]
 
 AgentlyModelResponseMessage: TypeAlias = tuple[AgentlyModelResponseEvent, Any]

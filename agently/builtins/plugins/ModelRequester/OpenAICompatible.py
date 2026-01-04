@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 class ContentMapping(TypedDict):
     id: str | None
     role: str | None
+    reasoning: str | None
     delta: str | None
     tool_calls: str | None
     done: str | None
@@ -114,6 +115,7 @@ class OpenAICompatible(ModelRequester):
         "content_mapping": {
             "id": "id",
             "role": "choices[0].delta.role",
+            "reasoning": "choices[0].delta.reasoning_content",
             "delta": "choices[0].delta.content",
             "tool_calls": "choices[0].delta.tool_calls",
             "done": None,
@@ -124,6 +126,7 @@ class OpenAICompatible(ModelRequester):
             },
             "extra_done": None,
         },
+        "yield_extra_content_separately": True,
         "content_mapping_style": "dot",
         "timeout": {
             "connect": 30.0,
@@ -505,6 +508,7 @@ class OpenAICompatible(ModelRequester):
     async def broadcast_response(self, response_generator: AsyncGenerator) -> "AgentlyResponseGenerator":
         meta = {}
         message_record = {}
+        reasoning_buffer = ""
         content_buffer = ""
 
         content_mapping = cast(
@@ -516,6 +520,7 @@ class OpenAICompatible(ModelRequester):
         )
         id_mapping = content_mapping["id"]
         role_mapping = content_mapping["role"]
+        reasoning_mapping = content_mapping["reasoning"]
         delta_mapping = content_mapping["delta"]
         tool_calls_mapping = content_mapping["tool_calls"]
         done_mapping = content_mapping["done"]
@@ -523,6 +528,7 @@ class OpenAICompatible(ModelRequester):
         finish_reason_mapping = content_mapping["finish_reason"]
         extra_delta_mapping = content_mapping["extra_delta"]
         extra_done_mapping = content_mapping["extra_done"]
+        yield_extra_content_separately = self.plugin_settings.get("yield_extra_content_separately", True)
 
         content_mapping_style = str(self.plugin_settings.get("content_mapping_style"))
         if content_mapping_style not in ("dot", "slash"):
@@ -552,6 +558,15 @@ class OpenAICompatible(ModelRequester):
                     )
                     if role:
                         meta.update({"role": role})
+                if reasoning_mapping:
+                    reasoning = DataLocator.locate_path_in_dict(
+                        loaded_message,
+                        reasoning_mapping,
+                        style=content_mapping_style,
+                    )
+                    if reasoning:
+                        reasoning_buffer += str(reasoning)
+                        yield "reasoning_delta", reasoning
                 if delta_mapping:
                     delta = DataLocator.locate_path_in_dict(
                         loaded_message,
@@ -578,6 +593,8 @@ class OpenAICompatible(ModelRequester):
                         )
                         if extra_value:
                             yield "extra", {extra_key: extra_value}
+                            if yield_extra_content_separately:
+                                yield extra_key, extra_value  # type: ignore
             else:
                 done_content = None
                 if self.model_type == "embeddings" and done_mapping is None:
@@ -593,6 +610,17 @@ class OpenAICompatible(ModelRequester):
                     yield "done", done_content
                 else:
                     yield "done", content_buffer
+                reasoning_content = None
+                if reasoning_mapping:
+                    reasoning_content = DataLocator.locate_path_in_dict(
+                        message_record,
+                        reasoning_mapping,
+                        style=content_mapping_style,
+                    )
+                if reasoning_content:
+                    yield "reasoning_done", reasoning_content
+                else:
+                    yield "reasoning_done", reasoning_buffer
                 match self.model_type:
                     case "embeddings":
                         yield "original_done", message_record

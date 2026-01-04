@@ -589,58 +589,84 @@ class ModelRequest:
     def get_generator(
         self,
         type: Literal["instant", "streaming_parse"],
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> Generator["StreamingData", None, None]: ...
 
     @overload
     def get_generator(
         self,
         type: Literal["all"],
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> Generator[tuple[str, Any], None, None]: ...
 
     @overload
     def get_generator(
         self,
-        type: Literal["delta", "typed_delta", "original"],
+        type: Literal["delta", "specific", "original"],
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> Generator[str, None, None]: ...
 
     @overload
     def get_generator(
         self,
-        type: Literal["all", "original", "delta", "typed_delta", "instant", "streaming_parse"] | None = "delta",
+        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> Generator: ...
 
     def get_generator(
         self,
-        type: Literal["all", "original", "delta", "typed_delta", "instant", "streaming_parse"] | None = "delta",
+        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> Generator:
-        return self.get_response().get_generator(type=type)
+        return self.get_response().get_generator(
+            type=type,
+            specific=specific,
+        )
 
     @overload
     def get_async_generator(
         self,
         type: Literal["instant", "streaming_parse"],
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> AsyncGenerator["StreamingData", None]: ...
 
     @overload
     def get_async_generator(
         self,
         type: Literal["all"],
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> AsyncGenerator[tuple[str, Any], None]: ...
 
     @overload
     def get_async_generator(
         self,
-        type: Literal["delta", "typed_delta", "original"],
+        type: Literal["delta", "specific", "original"],
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> AsyncGenerator[str, None]: ...
 
     @overload
     def get_async_generator(
         self,
-        type: Literal["all", "original", "delta", "typed_delta", "instant", "streaming_parse"] | None = "delta",
+        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> AsyncGenerator: ...
 
     def get_async_generator(
         self,
-        type: Literal["all", "original", "delta", "typed_delta", "instant", "streaming_parse"] | None = "delta",
+        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> AsyncGenerator:
-        return self.get_response().get_async_generator(type=type)
+        return self.get_response().get_async_generator(
+            type=type,
+            specific=specific,
+        )

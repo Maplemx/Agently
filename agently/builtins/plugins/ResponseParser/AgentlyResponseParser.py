@@ -282,8 +282,10 @@ class AgentlyResponseParser(ResponseParser):
 
     async def get_async_generator(
         self,
-        type: Literal['all', 'delta', 'typed_delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
-        content: Literal['all', 'delta', 'typed_delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        type: Literal['all', 'delta', 'specific', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        content: Literal['all', 'delta', 'specific', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> AsyncGenerator:
         await self._ensure_consumer()
         parsed_generator = cast(GeneratorConsumer, self._response_consumer).get_async_generator()
@@ -300,11 +302,13 @@ class AgentlyResponseParser(ResponseParser):
                 case "delta":
                     if event == "delta":
                         yield data
-                case "typed_delta":
-                    if event == "delta":
-                        yield "delta", data
-                    elif event == "tool_calls":
-                        yield "tool_calls", data
+                case "specific":
+                    if specific is None:
+                        specific = ["delta"]
+                    elif isinstance(specific, str):
+                        specific = [specific]
+                    if event in specific:
+                        yield event, data
                 case "instant" | "streaming_parse":
                     if self._streaming_json_parser is not None:
                         streaming_parsed = None
@@ -325,8 +329,10 @@ class AgentlyResponseParser(ResponseParser):
 
     def get_generator(
         self,
-        type: Literal['all', 'delta', 'typed_delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
-        content: Literal['all', 'delta', 'typed_delta', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        type: Literal['all', 'delta', 'specific', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        content: Literal['all', 'delta', 'specific', 'original', 'instant', 'streaming_parse'] | None = "delta",
+        *,
+        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
     ) -> Generator:
         asyncio.run(self._ensure_consumer())
         parsed_generator = cast(GeneratorConsumer, self._response_consumer).get_generator()
@@ -343,11 +349,13 @@ class AgentlyResponseParser(ResponseParser):
                 case "delta":
                     if event == "delta":
                         yield data
-                case "typed_delta":
-                    if event == "delta":
-                        yield "delta", data
-                    elif event == "tool_calls":
-                        yield "tool_calls", data
+                case "specific":
+                    if specific is None:
+                        specific = ["delta"]
+                    elif isinstance(specific, str):
+                        specific = [specific]
+                    if event in specific:
+                        yield event, data
                 case "instant" | "streaming_parse":
                     if self._streaming_json_parser is not None:
                         streaming_parsed = None
