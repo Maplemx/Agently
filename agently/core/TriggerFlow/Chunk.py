@@ -30,9 +30,10 @@ class TriggerFlowChunk:
         *,
         name: str | None = None,
     ):
-        self.name = name if name is not None else uuid.uuid4().hex
+        self.id = uuid.uuid4().hex
+        self.name = name if name is not None else self.id
         self._handler = handler
-        self.trigger = f"Chunk[{ handler.__name__ }]-{ self.name }"
+        self.trigger = f"Chunk[{ handler.__name__ }]-{ self.id }"
 
     async def async_call(self, data: "TriggerFlowEventData"):
         result = await FunctionShifter.asyncify(self._handler)(data)
