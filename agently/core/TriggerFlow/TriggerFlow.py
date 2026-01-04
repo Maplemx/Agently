@@ -51,6 +51,7 @@ class TriggerFlow:
         self._skip_exceptions = skip_exceptions
         self._executions: dict[str, "TriggerFlowExecution"] = {}
         self._start_process = TriggerFlowProcess(
+            flow_chunk=self.chunk,
             trigger_event="START",
             blue_print=self._blue_print,
             block_data=TriggerFlowBlockData(

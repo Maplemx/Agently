@@ -17,7 +17,7 @@ import uuid
 from asyncio import Event
 from threading import Lock
 
-from typing import Any, Literal, TYPE_CHECKING, overload
+from typing import Callable, Any, Literal, TYPE_CHECKING, overload, cast
 from typing_extensions import Self
 
 
@@ -31,15 +31,18 @@ from agently.types.trigger_flow import TriggerFlowBlockData
 
 
 class TriggerFlowBaseProcess:
+
     def __init__(
         self,
         *,
+        flow_chunk,
         trigger_event: str,
         blue_print: "TriggerFlowBluePrint",
         block_data: "TriggerFlowBlockData",
         trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
         **options,
     ):
+        self._flow_chunk = flow_chunk
         self.trigger_event = trigger_event
         self.trigger_type: Literal["event", "runtime_data", "flow_data"] = trigger_type
         self._blue_print = blue_print
@@ -55,6 +58,7 @@ class TriggerFlowBaseProcess:
         **options,
     ):
         return type(self)(
+            flow_chunk=self._flow_chunk,
             trigger_event=trigger_event,
             trigger_type=trigger_type,
             blue_print=blue_print,
@@ -112,8 +116,12 @@ class TriggerFlowBaseProcess:
         if isinstance(trigger_or_triggers, TriggerFlowChunk):
             trigger_or_triggers = trigger_or_triggers.trigger
         if isinstance(trigger_or_triggers, str):
+            if trigger_or_triggers in self._blue_print.chunks:
+                trigger = self._blue_print.chunks[trigger_or_triggers].trigger
+            else:
+                trigger = trigger_or_triggers
             return self._new(
-                trigger_event=trigger_or_triggers,
+                trigger_event=trigger,
                 trigger_type="event",
                 blue_print=self._blue_print,
                 block_data=TriggerFlowBlockData(
@@ -225,9 +233,10 @@ class TriggerFlowBaseProcess:
         elif isinstance(chunk, tuple):
             chunk_name = chunk[0]
             chunk_func = chunk[1]
-            chunk = TriggerFlowChunk(chunk_func, name=chunk_name)
+            chunk = self._flow_chunk(chunk_name)(chunk_func)
         else:
-            chunk = TriggerFlowChunk(chunk, name=name) if callable(chunk) else chunk
+            chunk = self._flow_chunk(name or chunk.__name__)(chunk) if callable(chunk) else chunk
+        assert isinstance(chunk, TriggerFlowChunk)
         self._blue_print.add_handler(
             self.trigger_type,
             self.trigger_event,
@@ -280,9 +289,9 @@ class TriggerFlowBaseProcess:
             if isinstance(chunk, tuple):
                 chunk_name = chunk[0]
                 chunk_func = chunk[1]
-                chunk = TriggerFlowChunk(chunk_func, name=chunk_name)
+                chunk = self._flow_chunk(chunk_name)(chunk_func)
             else:
-                chunk = TriggerFlowChunk(chunk) if callable(chunk) else chunk
+                chunk = self._flow_chunk(chunk.__name__)(chunk) if callable(chunk) else chunk
             triggers_to_wait[chunk.trigger] = False
             trigger_to_chunk_name[chunk.trigger] = chunk.name
             results[chunk.name] = None
