@@ -150,5 +150,8 @@ demo_*
 # VSCode
 .vscode
 
+# IDEA
+.idea
+
 # MacOS DS_Store
 .DS_Store
