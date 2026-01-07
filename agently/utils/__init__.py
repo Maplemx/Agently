@@ -27,3 +27,4 @@ from .DataLocator import DataLocator
 from .GeneratorConsumer import GeneratorConsumer
 from .StreamingJSONCompleter import StreamingJSONCompleter
 from .StreamingJSONParser import StreamingJSONParser
+from .PythonSandbox import PythonSandbox
