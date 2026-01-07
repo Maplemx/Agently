@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - docs
+<<<<<<< HEAD
+=======
+
+>>>>>>> dev
 jobs:
   build-windows:
     runs-on: windows-latest

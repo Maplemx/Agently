@@ -78,7 +78,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["instant", "streaming_parse"],
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> AsyncGenerator["StreamingData", None]: ...
 
     @overload
@@ -86,7 +86,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["all"],
         *,
-        specific: list[str] | str,
+        specific: list[str] | str | None = None,
     ) -> AsyncGenerator[tuple[str, Any], None]: ...
 
     @overload
@@ -94,7 +94,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["delta", "specific", "original"],
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> AsyncGenerator[str, None]: ...
 
     @overload
@@ -102,14 +102,14 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> AsyncGenerator: ...
 
     def get_async_generator(
         self,
         type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> AsyncGenerator:
         """
         'instant' is Agently v3 compatible for 'streaming_parse'
@@ -121,7 +121,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["instant", "streaming_parse"],
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> Generator["StreamingData", None, None]: ...
 
     @overload
@@ -129,7 +129,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["all"],
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> Generator[tuple[str, Any], None, None]: ...
 
     @overload
@@ -137,7 +137,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["delta", "specific", "original"],
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> Generator[str, None, None]: ...
 
     @overload
@@ -145,14 +145,14 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> Generator: ...
 
     def get_generator(
         self,
         type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
         *,
-        specific: list[str] | str | None,
+        specific: list[str] | str | None = None,
     ) -> Generator:
         """
         'instant' is Agently v3 compatible for 'streaming_parse'
