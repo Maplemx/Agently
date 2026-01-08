@@ -22,6 +22,101 @@ if TYPE_CHECKING:
 
 class DataLocator:
     @staticmethod
+    def _locate_path_parts(
+        result: Any,
+        path_parts: list[str],
+        *,
+        style: Literal["dot", "slash"],
+        default: Any,
+    ):
+        if not path_parts:
+            return result
+        path_part = path_parts[0]
+        remaining = path_parts[1:]
+        if style == "dot":
+            if "[" in path_part:
+                path_key_and_index = path_part.split("[")
+                path_key = path_key_and_index[0]
+                path_index = path_key_and_index[1][:-1]
+                if isinstance(result, Mapping):
+                    result = result.get(path_key, default)
+                else:
+                    return default
+                if path_index in ("*", ""):
+                    if not isinstance(result, str) and isinstance(result, Sequence):
+                        values = []
+                        for item in result:
+                            value = DataLocator._locate_path_parts(
+                                item,
+                                remaining,
+                                style=style,
+                                default=default,
+                            )
+                            if value is default:
+                                return default
+                            values.append(value)
+                        return values
+                    return default
+                try:
+                    index = int(path_index)
+                except Exception:
+                    return default
+                if not isinstance(result, str) and isinstance(result, Sequence):
+                    try:
+                        return DataLocator._locate_path_parts(
+                            result[index],
+                            remaining,
+                            style=style,
+                            default=default,
+                        )
+                    except Exception:
+                        return default
+                return default
+            else:
+                if isinstance(result, Mapping):
+                    return DataLocator._locate_path_parts(
+                        result.get(path_part, default),
+                        remaining,
+                        style=style,
+                        default=default,
+                    )
+                return default
+        else:
+            if path_part == "*":
+                if not isinstance(result, str) and isinstance(result, Sequence):
+                    values = []
+                    for item in result:
+                        value = DataLocator._locate_path_parts(
+                            item,
+                            remaining,
+                            style=style,
+                            default=default,
+                        )
+                        if value is default:
+                            return default
+                        values.append(value)
+                    return values
+                return default
+            if isinstance(result, Mapping):
+                return DataLocator._locate_path_parts(
+                    result.get(path_part, default),
+                    remaining,
+                    style=style,
+                    default=default,
+                )
+            if not isinstance(result, str) and isinstance(result, Sequence):
+                try:
+                    return DataLocator._locate_path_parts(
+                        result[int(path_part)],
+                        remaining,
+                        style=style,
+                        default=default,
+                    )
+                except Exception:
+                    return default
+            return default
+
+    @staticmethod
     def locate_path_in_dict(
         original_dict: dict,
         path: str,
@@ -34,42 +129,24 @@ class DataLocator:
         match style:
             case "dot":
                 try:
-                    result = original_dict
                     path_parts = path.split(".")
-                    for path_part in path_parts:
-                        if "[" in path_part:
-                            path_key_and_index = path_part.split("[")
-                            path_key = path_key_and_index[0]
-                            path_index = int(path_key_and_index[1][:-1])
-                            if isinstance(result, Mapping):
-                                result = result[path_key]
-                            else:
-                                return default
-                            if not isinstance(result, str) and isinstance(result, Sequence):
-                                result = result[path_index]
-                            else:
-                                return default
-                        else:
-                            if isinstance(result, Mapping):
-                                result = result[path_part]
-                            else:
-                                return default
-                    return result
+                    return DataLocator._locate_path_parts(
+                        original_dict,
+                        path_parts,
+                        style="dot",
+                        default=default,
+                    )
                 except Exception:
                     return default
             case "slash":
-                result = original_dict
-                path_parts = path.split("/")
                 try:
-                    for path_part in path_parts:
-                        if path_part:
-                            if isinstance(result, Mapping):
-                                result = result[path_part]
-                            elif not isinstance(result, str) and isinstance(result, Sequence):
-                                result = result[int(path_part)]
-                            else:
-                                return default
-                    return result
+                    path_parts = [part for part in path.split("/") if part]
+                    return DataLocator._locate_path_parts(
+                        original_dict,
+                        path_parts,
+                        style="slash",
+                        default=default,
+                    )
                 except Exception:
                     return default
 

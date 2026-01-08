@@ -227,7 +227,7 @@ class TriggerFlow:
         self,
         initial_value: Any = None,
         *,
-        timeout: int | None = 10,
+        timeout: float | None = 10.0,
         concurrency: int | None = None,
     ):
         execution = self.create_execution(concurrency=concurrency)

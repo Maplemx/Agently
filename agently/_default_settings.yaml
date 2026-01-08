@@ -43,6 +43,7 @@ runtime:
   show_model_logs: False
   show_tool_logs: False
   show_trigger_flow_logs: False
+  httpx_log_level: "WARNING"
 plugins:
   ToolManager:
     activate: AgentlyToolManager

@@ -103,7 +103,7 @@ class Search:
         ] = "us-en",
         options: dict[str, Any] | None = None,
     ):
-        LazyImport.import_package("ddgs")
+        LazyImport.import_package("ddgs", version_constraint=">=9.10.0")
         from ddgs import DDGS
 
         self.proxy = proxy

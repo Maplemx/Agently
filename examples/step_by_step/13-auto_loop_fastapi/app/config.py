@@ -1,0 +1,4 @@
+import os
+
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "DEEPSEEK_API_KEY")
+SEARCH_PROXY = os.getenv("SEARCH_PROXY", "http://127.0.0.1:55758")

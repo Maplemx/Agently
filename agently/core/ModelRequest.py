@@ -156,6 +156,11 @@ class ModelResponseResult:
     @overload
     async def async_get_data_object(
         self,
+    ) -> "BaseModel | None": ...
+
+    @overload
+    async def async_get_data_object(
+        self,
         *,
         ensure_keys: list[str],
         key_style: Literal["dot", "slash"] = "dot",
@@ -467,7 +472,7 @@ class ModelRequest:
         prompt: Any,
         mappings: dict[str, Any] | None = None,
     ):
-        self.prompt.set("system", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
+        self.prompt.set("system", ["YOU MUST REACT AND RESPOND AS {system.your_role}!"])
         self.prompt.set("system.your_role", prompt, mappings)
         return self
 

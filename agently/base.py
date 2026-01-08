@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from typing import Any, Literal, Type, TYPE_CHECKING, TypeVar, Generic, cast
 
 from agently.utils import Settings, create_logger, FunctionShifter, DataFormatter
@@ -37,6 +38,10 @@ _hook_default_event_handlers(event_center)
 async_system_message = event_center.async_system_message
 system_message = event_center.system_message
 logger = create_logger()
+httpx_level_name = settings.get("runtime.httpx_log_level", "WARNING")
+httpx_level = getattr(logging, str(httpx_level_name).upper(), logging.WARNING)
+logging.getLogger("httpx").setLevel(httpx_level)
+logging.getLogger("httpcore").setLevel(httpx_level)
 tool = Tool(plugin_manager, settings)
 _agently_messenger = event_center.create_messenger("Agently")
 
@@ -70,11 +75,13 @@ settings.update_mappings(
                     "runtime.show_model_logs": True,
                     "runtime.show_tool_logs": True,
                     "runtime.show_trigger_flow_logs": True,
+                    "runtime.httpx_log_level": "INFO",
                 },
                 False: {
                     "runtime.show_model_logs": False,
                     "runtime.show_tool_logs": False,
                     "runtime.show_trigger_flow_logs": False,
+                    "runtime.httpx_log_level": "WARNING",
                 },
             }
         }
@@ -117,7 +124,16 @@ class AgentlyMain(Generic[A]):
         self.tool = tool
         self.AgentType = AgentType
 
-        self.set_settings = self.settings.set_settings
+        def set_settings(key: str, value: "SerializableValue", *, auto_load_env: bool = False):
+            self.settings.set_settings(key, value, auto_load_env=auto_load_env)
+            if key in ("runtime.httpx_log_level", "debug"):
+                level_name = self.settings.get("runtime.httpx_log_level", "WARNING")
+                level = getattr(logging, str(level_name).upper(), logging.WARNING)
+                logging.getLogger("httpx").setLevel(level)
+                logging.getLogger("httpcore").setLevel(level)
+            return self
+
+        self.set_settings = set_settings
 
     def set_debug_console(self, debug_console_status: Literal["ON", "OFF"]):
         match debug_console_status:

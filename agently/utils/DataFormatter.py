@@ -56,15 +56,21 @@ class DataFormatter:
             if issubclass(value, BaseModel):
                 extracted_value = {}
                 for name, field in value.model_fields.items():
+                    annotation = field.annotation
+                    if hasattr(field, "rebuild_annotation"):
+                        try:
+                            annotation = field.rebuild_annotation()
+                        except Exception:
+                            annotation = field.annotation
                     extracted_value.update(
                         {
                             name: (
                                 (
-                                    DataFormatter.sanitize(field.annotation, remain_type=remain_type),
+                                    DataFormatter.sanitize(annotation, remain_type=remain_type),
                                     field.description,
                                 )
                                 if field.description
-                                else (DataFormatter.sanitize(field.annotation, remain_type=remain_type),)
+                                else (DataFormatter.sanitize(annotation, remain_type=remain_type),)
                             )
                         }
                     )
