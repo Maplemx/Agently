@@ -99,13 +99,19 @@ class TriggerFlow:
             self._blue_print.chunks[handler_or_name.__name__] = chunk
             return chunk
 
-    def create_execution(self, *, skip_exceptions: bool | None = None):
+    def create_execution(
+        self,
+        *,
+        skip_exceptions: bool | None = None,
+        concurrency: int | None = None,
+    ):
         execution_id = uuid.uuid4().hex
         skip_exceptions = skip_exceptions if skip_exceptions is not None else self._skip_exceptions
         execution = self._blue_print.create_execution(
             self,
             execution_id=execution_id,
             skip_exceptions=skip_exceptions,
+            concurrency=concurrency,
         )
         self._executions[execution_id] = execution
         return execution
@@ -118,8 +124,14 @@ class TriggerFlow:
             if execution.id in self._executions:
                 del self._executions[execution.id]
 
-    async def async_start_execution(self, initial_value: Any, *, wait_for_result: bool = False):
-        execution = self.create_execution()
+    async def async_start_execution(
+        self,
+        initial_value: Any,
+        *,
+        wait_for_result: bool = False,
+        concurrency: int | None = None,
+    ):
+        execution = self.create_execution(concurrency=concurrency)
         await execution.async_start(initial_value, wait_for_result=wait_for_result)
         return execution
 
@@ -192,8 +204,9 @@ class TriggerFlow:
         *,
         wait_for_result: bool = True,
         timeout: int | None = 10,
+        concurrency: int | None = None,
     ):
-        execution = await self.async_start_execution(initial_value)
+        execution = await self.async_start_execution(initial_value, concurrency=concurrency)
         if wait_for_result:
             return await execution.async_get_result(timeout=timeout)
 
@@ -202,8 +215,9 @@ class TriggerFlow:
         initial_value: Any = None,
         *,
         timeout: int | None = 10,
+        concurrency: int | None = None,
     ):
-        execution = self.create_execution()
+        execution = self.create_execution(concurrency=concurrency)
         return execution.get_async_runtime_stream(
             initial_value,
             timeout=timeout,
@@ -214,8 +228,9 @@ class TriggerFlow:
         initial_value: Any = None,
         *,
         timeout: int | None = 10,
+        concurrency: int | None = None,
     ):
-        execution = self.create_execution()
+        execution = self.create_execution(concurrency=concurrency)
         return execution.get_runtime_stream(
             initial_value,
             timeout=timeout,

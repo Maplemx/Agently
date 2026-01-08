@@ -132,6 +132,7 @@ class TriggerFlowBluePrint:
         *,
         execution_id: str | None = None,
         skip_exceptions: bool = False,
+        concurrency: int | None = None,
     ):
         handlers_snapshot: TriggerFlowAllHandlers = {
             "event": {k: v.copy() for k, v in self._handlers["event"].items()},
@@ -143,6 +144,7 @@ class TriggerFlowBluePrint:
             trigger_flow=trigger_flow,
             id=execution_id,
             skip_exceptions=skip_exceptions,
+            concurrency=concurrency,
         )
 
     def copy(self, *, name: str | None = None):
