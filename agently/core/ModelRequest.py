@@ -467,7 +467,7 @@ class ModelRequest:
         prompt: Any,
         mappings: dict[str, Any] | None = None,
     ):
-        self.prompt.set("system", ["YOU MUST REACT AND RESPOND AS {system.role}!"])
+        self.prompt.set("system", ["YOU MUST REACT AND RESPOND AS {system.your_role}!"])
         self.prompt.set("system.your_role", prompt, mappings)
         return self
 
