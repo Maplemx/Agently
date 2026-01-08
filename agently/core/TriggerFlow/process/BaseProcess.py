@@ -294,16 +294,20 @@ class TriggerFlowBaseProcess:
                 chunk = self._flow_chunk(chunk_name)(chunk_func)
             else:
                 chunk = self._flow_chunk(chunk.__name__)(chunk) if callable(chunk) else chunk
+            typed_chunk = cast(TriggerFlowChunk, chunk)
             triggers_to_wait[chunk.trigger] = False
             trigger_to_chunk_name[chunk.trigger] = chunk.name
             results[chunk.name] = None
 
             if semaphore is None:
-                handler = chunk.async_call
+                handler = typed_chunk.async_call
             else:
-                async def handler(data: "TriggerFlowEventData", _chunk=chunk):
-                    async with semaphore:
-                        return await _chunk.async_call(data)
+                def make_handler(bound_chunk: TriggerFlowChunk):
+                    async def handler(data: "TriggerFlowEventData"):
+                        async with semaphore:
+                            return await bound_chunk.async_call(data)
+                    return handler
+                handler = make_handler(typed_chunk)
 
             self._blue_print.add_handler(
                 self.trigger_type,
