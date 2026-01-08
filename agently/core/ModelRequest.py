@@ -156,6 +156,11 @@ class ModelResponseResult:
     @overload
     async def async_get_data_object(
         self,
+    ) -> "BaseModel | None": ...
+
+    @overload
+    async def async_get_data_object(
+        self,
         *,
         ensure_keys: list[str],
         key_style: Literal["dot", "slash"] = "dot",
