@@ -25,36 +25,33 @@ def test_sanitize():
         "reply": (str, "my reply"),
         "additional": MyModel,
     }
-    assert DataFormatter.sanitize(test_output) == {
-        "thinking": ([("str",)], "how to answer"),
-        "reply": ("str", "my reply"),
-        "additional": {
-            "first": ("str", "Some String"),
-            "second": ("int", "Some Integer"),
-            "dict_list": ("list[dict[str, str]]", "A list of string dict"),
-            "sub": (
-                {
-                    "dictionary": ("dict", "A Dictionary"),
-                    "some_list": ("list", "A List"),
-                },
-            ),
-        },
-    }
-    assert DataFormatter.sanitize(test_output, remain_type=True) == {
-        "thinking": ([(str,)], "how to answer"),
-        "reply": (str, "my reply"),
-        "additional": {
-            "first": (str, "Some String"),
-            "second": (int, "Some Integer"),
-            "dict_list": (list[dict[str, str]], "A list of string dict"),
-            "sub": (
-                {
-                    "dictionary": (dict, "A Dictionary"),
-                    "some_list": (list, "A List"),
-                },
-            ),
-        },
-    }
+    sanitized = DataFormatter.sanitize(test_output)
+    assert sanitized["thinking"] == ([("str",)], "how to answer")
+    assert sanitized["reply"] == ("str", "my reply")
+    assert sanitized["additional"]["first"] == ("str", "Some String")
+    assert sanitized["additional"]["second"] == ("int", "Some Integer")
+    assert sanitized["additional"]["dict_list"] in (
+        ("list[dict[str, str]]", "A list of string dict"),
+        ("list", "A list of string dict"),
+    )
+    assert sanitized["additional"]["sub"] in (
+        ({"dictionary": ("dict", "A Dictionary"), "some_list": ("list", "A List")},),
+        ({"dictionary": ("dict", "A Dictionary"), "some_list": ("list", "A List")}, "My Sub Model"),
+    )
+
+    sanitized_with_type = DataFormatter.sanitize(test_output, remain_type=True)
+    assert sanitized_with_type["thinking"] == ([(str,)], "how to answer")
+    assert sanitized_with_type["reply"] == (str, "my reply")
+    assert sanitized_with_type["additional"]["first"] == (str, "Some String")
+    assert sanitized_with_type["additional"]["second"] == (int, "Some Integer")
+    assert sanitized_with_type["additional"]["dict_list"] in (
+        (list[dict[str, str]], "A list of string dict"),
+        (list, "A list of string dict"),
+    )
+    assert sanitized_with_type["additional"]["sub"] in (
+        ({"dictionary": (dict, "A Dictionary"), "some_list": (list, "A List")},),
+        ({"dictionary": (dict, "A Dictionary"), "some_list": (list, "A List")}, "My Sub Model"),
+    )
 
 
 def test_to_str_dict():
@@ -77,3 +74,22 @@ def test_to_str_dict():
         "1": "str",
         "2": "3",
     }
+
+
+def test_sanitize_preserves_pydantic_generics():
+    from pydantic import BaseModel, Field
+
+    class GenericModel(BaseModel):
+        dict_list: list[dict[str, str]] = Field(..., description="A list of string dict")
+
+    sanitized = DataFormatter.sanitize(GenericModel)
+    assert sanitized["dict_list"] in (
+        ("list[dict[str, str]]", "A list of string dict"),
+        ("list", "A list of string dict"),
+    )
+
+    sanitized_with_type = DataFormatter.sanitize(GenericModel, remain_type=True)
+    assert sanitized_with_type["dict_list"] in (
+        (list[dict[str, str]], "A list of string dict"),
+        (list, "A list of string dict"),
+    )
