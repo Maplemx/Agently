@@ -17,6 +17,7 @@ flow.batch(
     ("echo_2", echo),
     ("echo_3", echo),
     ("echo_4", echo),
+    concurrency=2,
 ).end()
 execution = flow.create_execution()
 result = execution.start("Agently")
