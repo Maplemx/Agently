@@ -12,7 +12,7 @@ async def handle(data: TriggerFlowEventData):
 
 flow_1 = TriggerFlow()
 
-flow_1.for_each().to(handle).end_for_each().to(lambda data: data.value).end()
+flow_1.for_each(concurrency=2).to(handle).end_for_each().to(lambda data: data.value).end()
 
 execution_1 = flow_1.create_execution()
 result = execution_1.start(

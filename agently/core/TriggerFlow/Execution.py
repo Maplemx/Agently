@@ -16,6 +16,7 @@
 import uuid
 import asyncio
 import warnings
+from contextvars import ContextVar
 
 from typing import Any, Literal, TYPE_CHECKING
 
@@ -37,6 +38,7 @@ class TriggerFlowExecution:
         trigger_flow: "TriggerFlow",
         id: str | None = None,
         skip_exceptions: bool = False,
+        concurrency: int | None = None,
     ):
         # Basic Attributions
         self.id = id if id is not None else uuid.uuid4().hex
@@ -45,6 +47,11 @@ class TriggerFlowExecution:
         self._runtime_data = RuntimeData()
         self._system_runtime_data = RuntimeData()
         self._skip_exceptions = skip_exceptions
+        self._concurrency_semaphore = asyncio.Semaphore(concurrency) if concurrency and concurrency > 0 else None
+        self._concurrency_depth = ContextVar(
+            f"trigger_flow_execution_concurrency_depth_{ self.id }",
+            default=0,
+        )
 
         # Settings
         self.settings = Settings(
@@ -126,19 +133,29 @@ class TriggerFlowExecution:
                     },
                     self.settings,
                 )
-                tasks.append(
-                    asyncio.ensure_future(
-                        FunctionShifter.asyncify(handler)(
-                            TriggerFlowEventData(
-                                trigger_event=trigger_event,
-                                trigger_type=trigger_type,
-                                value=value,
-                                execution=self,
-                                _layer_marks=_layer_marks,
-                            )
-                        )
+                async def run_handler(handler_func):
+                    if self._concurrency_semaphore is None:
+                        return await handler_func
+                    depth = self._concurrency_depth.get()
+                    token = self._concurrency_depth.set(depth + 1)
+                    try:
+                        if depth > 0:
+                            return await handler_func
+                        async with self._concurrency_semaphore:
+                            return await handler_func
+                    finally:
+                        self._concurrency_depth.reset(token)
+
+                handler_task = FunctionShifter.asyncify(handler)(
+                    TriggerFlowEventData(
+                        trigger_event=trigger_event,
+                        trigger_type=trigger_type,
+                        value=value,
+                        execution=self,
+                        _layer_marks=_layer_marks,
                     )
                 )
+                tasks.append(asyncio.ensure_future(run_handler(handler_task)))
 
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=self._skip_exceptions)

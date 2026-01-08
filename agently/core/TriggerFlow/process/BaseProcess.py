@@ -14,7 +14,7 @@
 
 
 import uuid
-from asyncio import Event
+from asyncio import Event, Semaphore
 from threading import Lock
 
 from typing import Callable, Any, Literal, TYPE_CHECKING, overload, cast
@@ -266,11 +266,13 @@ class TriggerFlowBaseProcess:
         self,
         *chunks: "TriggerFlowChunk | TriggerFlowHandler | tuple[str, TriggerFlowHandler]",
         side_branch: bool = False,
+        concurrency: int | None = None,
     ):
         batch_trigger = f"Batch-{ uuid.uuid4().hex }"
         results = {}
         triggers_to_wait = {}
         trigger_to_chunk_name = {}
+        semaphore = Semaphore(concurrency) if concurrency and concurrency > 0 else None
 
         async def wait_all_chunks(data: "TriggerFlowEventData"):
             if data.event in triggers_to_wait:
@@ -295,10 +297,18 @@ class TriggerFlowBaseProcess:
             triggers_to_wait[chunk.trigger] = False
             trigger_to_chunk_name[chunk.trigger] = chunk.name
             results[chunk.name] = None
+
+            if semaphore is None:
+                handler = chunk.async_call
+            else:
+                async def handler(data: "TriggerFlowEventData", _chunk=chunk):
+                    async with semaphore:
+                        return await _chunk.async_call(data)
+
             self._blue_print.add_handler(
                 self.trigger_type,
                 self.trigger_event,
-                chunk.async_call,
+                handler,
             )
             self._blue_print.add_event_handler(chunk.trigger, wait_all_chunks)
 
