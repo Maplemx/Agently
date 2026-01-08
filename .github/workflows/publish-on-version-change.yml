@@ -1,0 +1,66 @@
+name: Publish on version change
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - pyproject.toml
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect version change
+        id: version_check
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+          import tomllib
+          
+          def read_version_from_text(text: str) -> str:
+              data = tomllib.loads(text)
+              project = data.get("project", {})
+              if "version" in project:
+                  return project["version"]
+              tool_poetry = data.get("tool", {}).get("poetry", {})
+              return tool_poetry["version"]
+          
+          with open("pyproject.toml", "rb") as f:
+              current = read_version_from_text(f.read().decode("utf-8"))
+          
+          before = os.environ.get("GITHUB_EVENT_BEFORE", "")
+          if not before or before == "0000000000000000000000000000000000000000":
+              print("publish=true", file=open(os.environ["GITHUB_OUTPUT"], "a"))
+              sys.exit(0)
+          
+          try:
+              previous_text = subprocess.check_output(
+                  ["git", "show", f"{before}:pyproject.toml"],
+                  text=True,
+              )
+              previous = read_version_from_text(previous_text)
+          except Exception:
+              print("publish=true", file=open(os.environ["GITHUB_OUTPUT"], "a"))
+              sys.exit(0)
+          
+          publish = "true" if current != previous else "false"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              print(f"publish={publish}", file=f)
+          PY
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+      - name: Install Poetry
+        if: steps.version_check.outputs.publish == 'true'
+        run: pipx install poetry
+      - name: Publish
+        if: steps.version_check.outputs.publish == 'true'
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
+        run: poetry publish --build
