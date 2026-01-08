@@ -592,10 +592,20 @@ class AgentlyPromptGenerator(PromptGenerator):
         def ensure_list_and_cast(v: Any, target_type: type):
             if not isinstance(v, list):
                 v = [v]
-            return [
-                (target_type(item) if target_type is not Any and not isinstance(item, target_type) else item)
-                for item in v
-            ]
+            casted = []
+            for item in v:
+                if target_type is Any or isinstance(item, target_type):
+                    casted.append(item)
+                    continue
+                if isinstance(item, Mapping) and isinstance(target_type, type):
+                    if hasattr(target_type, "model_validate"):
+                        casted.append(target_type.model_validate(item))
+                        continue
+                    if hasattr(target_type, "parse_obj"):
+                        casted.append(target_type.parse_obj(item))
+                        continue
+                casted.append(target_type(item))
+            return casted
 
         if isinstance(schema, Mapping):
             for field_name, field_type_schema in schema.items():
