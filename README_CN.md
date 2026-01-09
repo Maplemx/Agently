@@ -50,10 +50,17 @@ pip install -U agently
 克隆本仓库安装：
 
 ```shell
-clone git@github.com:AgentEra/Agently.git
+git clone git@github.com:AgentEra/Agently.git
 cd Agently
 pip install -e .
 ```
+
+## 文档与示例
+
+- Docs (EN): https://agentera.github.io/Agently/en/
+- 文档（中文）: https://agentera.github.io/Agently/zh/
+- Step-by-step 教程：`examples/step_by_step/`
+- Auto Loop FastAPI（SSE/WS/POST，支持 Docker）：`examples/step_by_step/13-auto_loop_fastapi/`
 
 ## 什么是Agently？
 
@@ -118,11 +125,11 @@ response = agent.get_response()
 response_text = response.get_text()
 
 # 获取模型的解析后结果（结合output结构化控制使用）
-response_dict = response.get_result()
+response_data = response.get_data()
 
 # 获取模型的流式输出
-# 通过content参数决定输出的内容
-response_generator = response.get_generator(content="delta")
+# 通过type参数决定输出的内容
+response_generator = response.get_generator(type="delta")
 
 for delta in response_generator:
     print(delta, end="", flush=True)
@@ -131,7 +138,7 @@ for delta in response_generator:
 甚至，Agently框架允许开发者使用Instant模式在模型输出尚未完全结束的时候，消费框架实时解析的结构化输出：
 
 ```python
-instant_response_generator = response.get_generator(content="instant")
+instant_response_generator = response.get_generator(type="instant")
 
 use_tool = False
 
@@ -159,7 +166,160 @@ I can check the current time for you. Please specify a timezone (e.g., 'America/
 [NO NEED TO USE TOOL!]
 ```
 
-## [更多功能说明还在路上...]
+### 模型服务兼容（本地 / 云端 / 代理）
+
+Agently 通过统一的 `OpenAICompatible` 配置屏蔽服务差异，并支持工程化常见配置（例如 `full_url`、自定义 headers 鉴权等）。
+
+- 最小示例：
+```python
+from agently import Agently
+
+Agently.set_settings(
+    "OpenAICompatible",
+    {
+        "base_url": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "auth": "DEEPSEEK_API_KEY",
+    },
+)
+```
+
+- 示例配置：`examples/model_configures/`
+- Step-by-step：`examples/step_by_step/01-settings.py`
+
+### 结构化输出稳定性（ensure_keys + 自动重试）
+
+批量任务中，关键字段缺失会导致脚本失败。Agently 提供 `ensure_keys` + 自动重试，支持列表字段通配路径，适合工程落地的稳定性要求。
+
+- 最小示例：
+```python
+from agently import Agently
+
+agent = Agently.create_agent()
+result = (
+    agent.input("给我 3 个待办事项")
+    .output({"todos": [("str", "todo item")]})
+    .start(ensure_keys=["todos[*]"], max_retries=2, raise_ensure_failure=False)
+)
+print(result)
+```
+
+- Step-by-step：`examples/step_by_step/03-output_format_control.py`
+
+### 流式体验（delta / instant / typed_delta）
+
+Agently 的流式输出面向真实应用：降低等待焦虑、提前暴露决策、按字段分发到不同 UI 区域。
+
+- 最小示例：
+```python
+from agently import Agently
+
+agent = Agently.create_agent()
+response = agent.input("用一段话解释递归").get_response()
+for delta in response.get_generator(type="delta"):
+    print(delta, end="", flush=True)
+print()
+```
+
+- Step-by-step：`examples/step_by_step/06-streaming.py`
+- 参考写法：`examples/basic/streaming_print.py`
+
+### 工具调用（内置 + 自定义 + 可追踪）
+
+Tools 让模型可控地调用外部函数，并支持：\n- 内置 `Search` / `Browse`\n- 装饰器注册自定义工具\n- 从 response 的 extra 里追踪 tool call
+
+- 最小示例：
+```python
+from agently import Agently
+
+agent = Agently.create_agent()
+
+@agent.tool_func
+def add(*, a: int, b: int) -> int:
+    return a + b
+
+agent.use_tools(add)
+print(agent.input("用 add 工具计算 12 + 34").start())
+```
+
+- Step-by-step：`examples/step_by_step/07-tools.py`
+
+### 工作流编排（TriggerFlow）
+
+TriggerFlow 是 Agently 的事件驱动编排引擎，支持：\n- 分支（`when` / `if_condition` / `match`）\n- 并发上限（`batch` / `for_each`）\n- 循环（`emit` + `when`）\n- 运行态流式事件（`put_into_stream`）
+
+- 最小示例：
+```python
+from agently import TriggerFlow
+
+flow = TriggerFlow()
+flow.to(lambda d: f"Hello, {d.value}").end()
+print(flow.start("Agently"))
+```
+
+- TriggerFlow 系列：`examples/step_by_step/11-triggerflow-01_basics.py`
+
+### 知识库（embedding + 向量库）
+
+Agently 支持知识库接入（例如 Chroma）用于检索增强，并支持 metadata 追溯来源。
+
+- 最小示例：
+```python
+from agently import Agently
+from agently.integrations.chromadb import ChromaCollection
+
+embedding = Agently.create_agent()
+embedding.set_settings(
+    "OpenAICompatible",
+    {
+        "model": "qwen3-embedding:0.6b",
+        "base_url": "http://127.0.0.1:11434/v1/",
+        "auth": "nothing",
+        "model_type": "embeddings",
+    },
+)
+kb = ChromaCollection(collection_name="demo", embedding_agent=embedding)
+kb.add([{"document": "Agently 是一个 GenAI 应用开发框架。", "metadata": {"source": "demo"}}])
+print(kb.query("Agently 是什么？"))
+```
+
+- Step-by-step：`examples/step_by_step/09-knowledge_base.py`
+
+### 服务化（FastAPI + Docker）
+
+仓库提供 docker-ready 的 FastAPI 工程，将 Auto Loop 以三种接口形式对外提供：\n- SSE 流式\n- WebSocket\n- POST 请求
+
+- 最小示例：
+```shell
+cd examples/step_by_step/13-auto_loop_fastapi
+uvicorn app.main:app --reload
+```
+
+- 工程：`examples/step_by_step/13-auto_loop_fastapi/`
+
+### 推荐学习路线（从零到能做项目）
+
+建议按 step-by-step 顺序跑通：
+- Settings → `examples/step_by_step/01-settings.py`
+- Prompt 方法 → `examples/step_by_step/02-prompt_methods.py`
+- 输出控制 → `examples/step_by_step/03-output_format_control.py`
+- 流式输出 → `examples/step_by_step/06-streaming.py`
+- Tools → `examples/step_by_step/07-tools.py`
+- TriggerFlow → `examples/step_by_step/11-triggerflow-01_basics.py`
+- Auto Loop → `examples/step_by_step/12-auto_loop.py`
+
+## Agently Helper（桌面工具）
+
+Agently Helper 是一个帮助你快速理解与测试 Agently 能力的桌面工具（无需先搭建完整工程）：
+- 多模型管理与切换
+- 不同 Prompt 方式间切换
+- 结构化输出
+- 流式输出
+
+- Windows：https://1drv.ms/u/c/13d5207d1b13e4d3/IQC9XITZl83hR5vU9Z_t-0oKAd3jtMh_fYRypp7T2k8JhCY?e=I72GVH
+- macOS（Apple 芯片）：https://1drv.ms/u/c/13d5207d1b13e4d3/IQBhdxYw9Ev1R6qTWb-esVK2AY8PwCxnBHLNuf06Ic4w7sw?e=unMjaD
+- macOS（Intel 芯片）：https://1drv.ms/u/c/13d5207d1b13e4d3/IQDqUPSqRq7LR7gpCjK60FOSASl4PBsRZPGtHvBAA63U_js?e=EmwVMA
+- Linux：https://1drv.ms/u/c/13d5207d1b13e4d3/IQDVenHvItjFTqnlv294MPD9AUQDvkAKwvBcNufEXSl1nAs?e=Ti5aJ7
 
 ## 💬 WeChat Group（加入微信群）
 
