@@ -126,14 +126,7 @@ response_text = response.get_text()
 # Get parsed structured data
 response_data = response.get_data()
 
-# Streamed output
-for delta in response.get_generator(type="delta"):
-    print(delta, end="", flush=True)
-```
-
-Or use the instant parsing mode:
-
-```python
+# Instant parsing mode (structured streaming)
 instant_response_generator = response.get_generator(type="instant")
 
 use_tool = False
@@ -204,16 +197,39 @@ print(result)
 
 ### Streaming UX (delta / instant / typed_delta)
 
-Agently streaming is designed for real applications: reduce waiting, expose decisions early, and route structured fields to different UI regions.
+Agently streaming is designed for real applications: reduce waiting, expose decisions early, and route structured fields to different UI regions. For example in a “companion robot” HCI scenario, you often want to mix user-facing text with machine/behavior commands, and consume them as soon as they are parsed.
 
 - Minimal example:
 ```python
 from agently import Agently
 
 agent = Agently.create_agent()
-response = agent.input("Explain recursion in one paragraph.").get_response()
-for delta in response.get_generator(type="delta"):
-    print(delta, end="", flush=True)
+response = (
+    agent.input("Act as a companion robot: greet me and propose a small action you can do next.")
+    .output(
+        {
+            "thinking": ("str", "internal planning (not for users)"),
+            "say": ("str", "what the user sees/hears"),
+            "actions": [("str", "robot action command(s) for your app to execute")],
+        }
+    )
+    .get_response()
+)
+
+say_label_printed = False
+
+def execute_action(action: str) -> None:
+    # In real apps, route this to your robot controller / UI event bus.
+    print(f"\n[action] {action}")
+
+for msg in response.get_generator(type="instant"):
+    if msg.path == "say" and msg.delta:
+        if not say_label_printed:
+            print("[say] ", end="")
+            say_label_printed = True
+        print(msg.delta, end="", flush=True)
+    if msg.path.startswith("actions[") and msg.is_complete:
+        execute_action(msg.value)
 print()
 ```
 
