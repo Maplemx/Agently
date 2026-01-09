@@ -77,9 +77,28 @@ We believe GenAI is not a generational replacement for current systems but a pow
 
 Our mission is to build the best developer experience (DX) for GenAI application engineers.
 
+## From Demo to Production
+
+In real teams, the hardest part is rarely “can the model answer?”—it’s whether the system can survive real traffic, real data, and real dependencies while staying testable, observable, and maintainable. Agently is built to pull LLM uncertainty back inside an engineering boundary.
+
+- **Contract-first structured outputs (framework-native, provider-agnostic)**: define schemas with `output()`, enforce critical paths with `ensure_keys`, and parse/repair in the framework pipeline (no hard dependency on provider-specific `response_format` / JSON-schema switches). This keeps interfaces stable even when you switch models or inference servers.
+- **Tool planning + traceability without vendor lock-in**: deciding whether to use a tool, selecting a tool, and building kwargs is a built-in planning step in the framework, not something that requires function-calling support. Every run leaves evidence in `extra` (`tool_logs` / tool calls) for debugging and audit.
+- **Workflow orchestration you can maintain**: TriggerFlow translates visual “low-code graphs” (n8n/Dify/Coze style) into readable code with events, branching, joins, loops, and concurrency limits. Combined with Instant-mode partial node capture + signal-driven execution, you can do real-time UX like “companion robot speaks while actions trigger”.
+- **Grounded answers with citations**: KB retrieval results are structured (`id/document/metadata`) and can be turned into enforced citations (e.g. `source_id` + `quote`) so answers are traceable and reviewable.
+
 ## Core Features Overview
 
+These are the production pain points we keep seeing across teams:
+- **“I asked for JSON, got a paragraph.”** Missing keys, format drift, extra prose → broken parsers.
+- **Tools that work… until they don’t.** Failures become hard to reproduce, debug, and audit.
+- **Low-code graphs that outgrow themselves.** More branches, more state, less confidence to change.
+- **RAG without accountability.** You can’t answer: “Which doc supports this claim?”
+
+Agently turns them into engineering primitives you can ship with confidence: schema-first outputs (`output()` + `ensure_keys`), Instant-mode structured streaming, framework-native tool planning with traces, TriggerFlow orchestration, and KB grounding with citations.
+
 ### Structured and Streamed Output Control for LLMs
+
+Schema-first outputs are often the difference between a demo and an API: you define what the system must return, and the framework enforces it at runtime.
 
 Agently allows you to control and consume model outputs using a developer-centric pattern:
 
@@ -238,7 +257,14 @@ print()
 
 ### Tools (built-in + custom + traceable)
 
-Tools let the model call external functions deterministically. Agently supports:\n- built-in `Search` / `Browse`\n- custom tools via decorator\n- tool call tracing from response metadata
+When a project grows from 1 tool to 20 tools, “it worked yesterday” isn’t enough—you need predictable planning and a trail you can audit.
+
+Tools let the model call external functions deterministically. Agently supports:
+- built-in `Search` / `Browse`
+- custom tools via decorator
+- tool call tracing from response metadata (`extra`)
+
+Unlike workflows that rely on provider-side function calling, Agently can run a framework-native “tool planning” step even on plain chat endpoints, so tool orchestration stays portable across most modern models.
 
 - Minimal example:
 ```python
@@ -258,7 +284,13 @@ print(agent.input("Use the add tool to calculate 12 + 34.").start())
 
 ### Workflow Orchestration (TriggerFlow)
 
-TriggerFlow is Agently’s event-driven workflow engine, designed for:\n- branching (`when`, `if_condition`, `match`)\n- concurrency limits (`batch`, `for_each`)\n- loops (`emit` + `when`)\n- runtime stream events (`put_into_stream`)
+TriggerFlow is for the moment your workflow stops being a sketch: you need events, joins, loops, concurrency limits, and long-term maintainability (including migrating from n8n/Dify/Coze-style graphs into code).
+
+TriggerFlow is Agently’s event-driven workflow engine, designed for:
+- branching (`when`, `if_condition`, `match`)
+- concurrency limits (`batch`, `for_each`)
+- loops (`emit` + `when`)
+- runtime stream events (`put_into_stream`)
 
 - Minimal example:
 ```python
@@ -272,6 +304,8 @@ print(flow.start("Agently"))
 - TriggerFlow series: `examples/step_by_step/11-triggerflow-01_basics.py`
 
 ### Knowledge Base (embeddings + vector DB)
+
+In enterprise RAG, the question is rarely “can we retrieve?”—it’s “can we cite and defend the answer?”.
 
 Agently integrates KB pipelines (e.g., Chroma) to ground responses with real documents and metadata.
 
@@ -299,7 +333,10 @@ print(kb.query("What is Agently?"))
 
 ### Deployment Templates (FastAPI, Docker)
 
-For engineering delivery, the repo includes a docker-ready FastAPI project that exposes Auto Loop through:\n- SSE streaming\n- WebSocket\n- POST
+For engineering delivery, the repo includes a docker-ready FastAPI project that exposes Auto Loop through:
+- SSE streaming
+- WebSocket
+- POST
 
 - Minimal example:
 ```shell
