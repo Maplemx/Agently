@@ -126,16 +126,9 @@ response_text = response.get_text()
 
 # 获取模型的解析后结果（结合output结构化控制使用）
 response_data = response.get_data()
-
-# 获取模型的流式输出
-# 通过type参数决定输出的内容
-response_generator = response.get_generator(type="delta")
-
-for delta in response_generator:
-    print(delta, end="", flush=True)
 ```
 
-甚至，Agently框架允许开发者使用Instant模式在模型输出尚未完全结束的时候，消费框架实时解析的结构化输出：
+在真实应用中，我们更推荐 Instant 模式：在模型输出尚未完全结束的时候，就可以消费框架实时解析的结构化输出，并把“用户可见的文本”和“行为/指令”分发到不同模块（比如：对话窗口、函数调用、UI 动画/卡片、机器人动作控制器等）：
 
 ```python
 instant_response_generator = response.get_generator(type="instant")
@@ -210,14 +203,39 @@ print(result)
 
 Agently 的流式输出面向真实应用：降低等待焦虑、提前暴露决策、按字段分发到不同 UI 区域。
 
+比如在“陪伴机器人”的人机交互场景里，我们通常希望“说的话”和“动作/行为指令”混合生成，并且一旦解析到行为指令就立即执行，以提升交互的行动流畅度。
+
 - 最小示例：
 ```python
 from agently import Agently
 
 agent = Agently.create_agent()
-response = agent.input("用一段话解释递归").get_response()
-for delta in response.get_generator(type="delta"):
-    print(delta, end="", flush=True)
+response = (
+    agent.input("请扮演一个陪伴机器人：先向我打招呼，然后提出一个你接下来可以做的小动作。")
+    .output(
+        {
+            "thinking": ("str", "内部规划（不展示给用户）"),
+            "say": ("str", "给用户看的/听的内容"),
+            "actions": [("str", "动作/行为指令（由应用层执行）")],
+        }
+    )
+    .get_response()
+)
+
+say_label_printed = False
+
+def execute_action(action: str) -> None:
+    # 真实应用里，这里通常是发给机器人控制器 / UI 事件总线
+    print(f"\n[action] {action}")
+
+for msg in response.get_generator(type="instant"):
+    if msg.path == "say" and msg.delta:
+        if not say_label_printed:
+            print("[say] ", end="")
+            say_label_printed = True
+        print(msg.delta, end="", flush=True)
+    if msg.path.startswith("actions[") and msg.is_complete:
+        execute_action(msg.value)
 print()
 ```
 
