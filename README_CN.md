@@ -70,9 +70,28 @@ Agently GenAI应用开发框架希望为GenAI应用开发者带来易学、易�
 
 因此，我们希望持续打造Agently GenAI应用开发框架及扩展套件，为所有GenAI应用开发者提供最重视开发者体验（Development Experience）的代码级开发解决方案。让每一个GenAI时代的开发者，都能够轻松、便利地将GenAI能力带入自己的应用之中。
 
+## 从 Demo 到生产：Agently 在解决什么
+
+在真实企业里，最难的往往不是“模型能不能回答”，而是系统能不能在真实流量、真实数据、真实依赖下稳定运行——能被测试、能被运维、能被持续迭代。Agently 4 的目标是把 LLM 的不确定性收进工程边界，让智能体从“灵感产品”变成“可靠系统”。
+
+- **结构化输出（框架内置，和模型接口能力解耦）**：用 `output()` 定义契约，用 `ensure_keys` 兜住关键字段，并由框架在运行时完成解析/对齐/重试，不强依赖某些模型服务端的 `response_format/json_schema` 之类“专用开关”。这让你切换模型、切换推理服务时依然能保住接口契约。
+- **工具调用规划 + 可追踪（不被 function calling 绑定）**：在 Agently 里，“要不要用工具、用哪个工具、参数怎么组装”是内置的规划步骤，不要求厂商接口必须支持 function calling / tool calling；每次执行都会在 `extra`（`tool_logs` / tool calls）里留下证据链，方便排障与审计。
+- **TriggerFlow 可维护编排（低代码迁移到代码服务）**：把 n8n / Dify / Coze 这类可视化编排的“节点/连线/分支/汇聚/并发/循环”自然迁移为可评审、可测试、可持续维护的代码服务；配合 Instant 模式实时截取结构化节点 + 信号驱动触发，实现低代码难稳定表达的复杂实时编排。
+- **知识库对齐与可溯源**：检索结果是结构化的（`id/document/metadata`），可以要求模型输出带 `source_id` + `quote` 的引用清单，让答案可审计、可复盘。
+
 ## 核心功能速览
 
+这些“从 Demo 到生产”的典型难题，你大概率见过：
+- **要 JSON，给你一段散文**：字段缺失、格式漂移、夹杂解释，解析链路一到线上就崩。
+- **工具越接越多越难维护**：能跑，但复现不了；出错后只能“猜模型在想什么”。
+- **低代码流程越画越乱**：最初很好用，后来分支/状态/复用/版本管理把团队拖住。
+- **接了知识库仍然不敢用**：业务问“依据是哪段？”工程师答不上来，合规更不敢放行。
+
+Agently 把这些问题收敛成可落地的工程能力：`output()` + `ensure_keys` 的契约化结构化输出、Instant 模式结构化流式消费、框架内置的工具规划与追踪、TriggerFlow 事件驱动编排，以及可溯源的知识库引用输出。
+
 ### 对大型语言模型流式输出、结构化输出的控制和消费
+
+“先定契约，再生成”往往是智能体工程化的分水岭：你先把输出结构写清楚，框架在运行时把它变成稳定可解析的数据（并且不强依赖模型服务端是否支持 `response_format/json_schema`）。
 
 使用Agently框架特别设计的，符合代码开发思维习惯的模型输出提示控制方案，能够让工程师拥有灵活而强大的模型输出控制能力：
 
@@ -244,7 +263,14 @@ print()
 
 ### 工具调用（内置 + 自定义 + 可追踪）
 
-Tools 让模型可控地调用外部函数，并支持：\n- 内置 `Search` / `Browse`\n- 装饰器注册自定义工具\n- 从 response 的 extra 里追踪 tool call
+当工具从 1 个增长到 20 个时，“昨天还能跑”远远不够：你需要可控的规划过程，以及能复盘、能审计的证据链（而不是被模型服务端 function calling 绑死）。
+
+Tools 让模型可控地调用外部函数，并支持：
+- 内置 `Search` / `Browse`
+- 装饰器注册自定义工具
+- 从 response 的 `extra` 里追踪 tool call
+
+不同于依赖模型服务端 function calling 的方案，Agently 可以在普通 chat 接口上执行框架内置的“工具规划”步骤，让工具编排能力更容易跨模型迁移。
 
 - 最小示例：
 ```python
@@ -264,7 +290,13 @@ print(agent.input("用 add 工具计算 12 + 34").start())
 
 ### 工作流编排（TriggerFlow）
 
-TriggerFlow 是 Agently 的事件驱动编排引擎，支持：\n- 分支（`when` / `if_condition` / `match`）\n- 并发上限（`batch` / `for_each`）\n- 循环（`emit` + `when`）\n- 运行态流式事件（`put_into_stream`）
+很多团队会先用 n8n / Dify / Coze 把流程跑通；真正的挑战发生在第二阶段：流程变复杂、要持续维护、要上线迭代。这时 TriggerFlow 把“节点/连线/分支/汇聚/并发/循环”自然翻译成可测试、可评审、可持续维护的代码服务。
+
+TriggerFlow 是 Agently 的事件驱动编排引擎，支持：
+- 分支（`when` / `if_condition` / `match`）
+- 并发上限（`batch` / `for_each`）
+- 循环（`emit` + `when`）
+- 运行态流式事件（`put_into_stream`）
 
 - 最小示例：
 ```python
@@ -278,6 +310,8 @@ print(flow.start("Agently"))
 - TriggerFlow 系列：`examples/step_by_step/11-triggerflow-01_basics.py`
 
 ### 知识库（embedding + 向量库）
+
+在企业场景里，RAG 的关键问题往往不是“能不能检索到”，而是“答案是否对齐知识库、是否能给出可审计的引用来源”。
 
 Agently 支持知识库接入（例如 Chroma）用于检索增强，并支持 metadata 追溯来源。
 
@@ -305,7 +339,10 @@ print(kb.query("Agently 是什么？"))
 
 ### 服务化（FastAPI + Docker）
 
-仓库提供 docker-ready 的 FastAPI 工程，将 Auto Loop 以三种接口形式对外提供：\n- SSE 流式\n- WebSocket\n- POST 请求
+仓库提供 docker-ready 的 FastAPI 工程，将 Auto Loop 以三种接口形式对外提供：
+- SSE 流式
+- WebSocket
+- POST 请求
 
 - 最小示例：
 ```shell
