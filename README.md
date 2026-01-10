@@ -57,8 +57,7 @@ pip install -e .
 
 ## Documentation
 
-- Docs (EN): https://agentera.github.io/Agently/en/
-- 文档（中文）: https://agentera.github.io/Agently/zh/
+- Docs Site: https://agentera.github.io/Agently/en/
 - Step-by-step tutorials: `examples/step_by_step/`
 - Auto Loop FastAPI (SSE/WS/POST, Docker-ready): `examples/step_by_step/13-auto_loop_fastapi/`
 
@@ -211,6 +210,10 @@ result = (
 )
 print(result)
 ```
+```text
+Output (qwen2.5:7b):
+{'todos': ['Schedule morning exercise routine', 'Prepare presentation slides for the meeting', 'Respond to emails from clients']}
+```
 
 - Step-by-step: `examples/step_by_step/03-output_format_control.py`
 
@@ -251,6 +254,11 @@ for msg in response.get_generator(type="instant"):
         execute_action(msg.value)
 print()
 ```
+```text
+Output (qwen2.5:7b):
+[say] Hello! Nice to meet you. How about we start with some light conversation? Do you have any favorite hobbies or interests that we could talk about?
+[action] initiate_conversation
+```
 
 - Step-by-step: `examples/step_by_step/06-streaming.py`
 - Reference patterns: `examples/basic/streaming_print.py`
@@ -279,6 +287,19 @@ def add(*, a: int, b: int) -> int:
 agent.use_tools(add)
 print(agent.input("Use the add tool to calculate 12 + 34.").start())
 ```
+```text
+Output (qwen2.5:7b):
+The sum of 12 and 34 is calculated as follows:
+
+12
++34
+-----
+46
+
+Therefore, the result of 12 + 34 is **46**. 
+
+No external sources were used in this calculation.
+```
 
 - Step-by-step: `examples/step_by_step/07-tools.py`
 
@@ -299,6 +320,10 @@ from agently import TriggerFlow
 flow = TriggerFlow()
 flow.to(lambda d: f"Hello, {d.value}").end()
 print(flow.start("Agently"))
+```
+```text
+Output (qwen2.5:7b):
+Hello, Agently
 ```
 
 - TriggerFlow series: `examples/step_by_step/11-triggerflow-01_basics.py`

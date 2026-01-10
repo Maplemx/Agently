@@ -57,8 +57,7 @@ pip install -e .
 
 ## 文档与示例
 
-- Docs (EN): https://agentera.github.io/Agently/en/
-- 文档（中文）: https://agentera.github.io/Agently/zh/
+- 文档站（中文）: https://agentera.github.io/Agently/zh/
 - Step-by-step 教程：`examples/step_by_step/`
 - Auto Loop FastAPI（SSE/WS/POST，支持 Docker）：`examples/step_by_step/13-auto_loop_fastapi/`
 
@@ -215,6 +214,10 @@ result = (
 )
 print(result)
 ```
+```text
+运行结果（qwen2.5:7b）：
+{'todos': ['购买超市购物清单上的所有物品', '与李经理确认项目截止日期', '整理办公室个人文件']}
+```
 
 - Step-by-step：`examples/step_by_step/03-output_format_control.py`
 
@@ -257,6 +260,11 @@ for msg in response.get_generator(type="instant"):
         execute_action(msg.value)
 print()
 ```
+```text
+运行结果（qwen2.5:7b）：
+[say] 您好！我是您的陪伴机器人，今天有什么可以帮到您的呢？我接下来可以给您讲一个笑话。
+[action] 讲述笑话
+```
 
 - Step-by-step：`examples/step_by_step/06-streaming.py`
 - 参考写法：`examples/basic/streaming_print.py`
@@ -285,6 +293,12 @@ def add(*, a: int, b: int) -> int:
 agent.use_tools(add)
 print(agent.input("用 add 工具计算 12 + 34").start())
 ```
+```text
+运行结果（qwen2.5:7b）：
+执行加法操作: 46
+
+使用 `add` 工具计算 \(12 + 34\) 的结果为 46。如果您需要进一步的数学帮助或有其他计算需求，欢迎继续提问！
+```
 
 - Step-by-step：`examples/step_by_step/07-tools.py`
 
@@ -305,6 +319,10 @@ from agently import TriggerFlow
 flow = TriggerFlow()
 flow.to(lambda d: f"Hello, {d.value}").end()
 print(flow.start("Agently"))
+```
+```text
+运行结果（qwen2.5:7b）：
+Hello, Agently
 ```
 
 - TriggerFlow 系列：`examples/step_by_step/11-triggerflow-01_basics.py`
