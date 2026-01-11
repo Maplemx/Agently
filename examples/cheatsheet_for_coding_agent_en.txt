@@ -1,0 +1,193 @@
+# Agently Development Cheatsheet (Agent-Ready)
+
+Use this page as a compact memory aid for building new intelligent workflows with Agently. It summarizes the key practices from the docs and examples, and highlights the Auto Loop production pattern.
+
+## Agent-Readable Map (TL;DR)
+```yaml
+goal: build reliable AI workflows with controllable output + tool + memory + orchestration
+primitives:
+  settings: Agently.set_settings + agent.set_settings
+  prompt: input + instruct + info + output
+  output_control: typed schema + ensure_keys + retries
+  response: get_text/get_data + get_generator(type=instant/typed_delta/specific)
+  tools: built-in Search/Browse + custom tool_func
+  knowledge_base: ChromaCollection + embeddings agent + query -> info
+  memory: chat_history + runtime memo
+  triggerflow: to/when/emit + runtime_data + runtime_stream
+patterns:
+  plan_tool_reply_loop: plan -> tool -> plan -> reply -> memo -> loop
+  search_then_browse: search -> select urls -> browse -> summarize
+  rag: query knowledge base -> inject -> answer
+  form_interview: role -> question -> intent -> validate -> store -> loop
+```
+
+## Core API Map (what to use when)
+
+### Settings (models, auth, debug)
+- Global defaults: `Agently.set_settings(...)`
+- Per-agent overrides: `agent.set_settings(...)`
+- Use `OpenAICompatible` to switch providers without changing request logic.
+
+```python
+from agently import Agently
+
+Agently.set_settings(
+    "OpenAICompatible",
+    {
+        "base_url": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "auth": "YOUR_API_KEY",
+        "options": {"temperature": 0.7},
+    },
+)
+agent = Agently.create_agent()
+```
+
+### Prompt composition
+Use structured prompt slots, not a single concatenated prompt:
+- `input(...)`: the user task
+- `instruct(...)`: constraints / decision logic
+- `info(...)`: tool list, knowledge base results, or task context
+- `output(...)`: machine-readable schema
+
+### Role & tone control
+- Use `agent.role(..., always=True)` to keep a stable persona and purpose.
+- Include empathy and purpose in the role description for customer flows.
+
+### Output control (schema + reliability)
+Define explicit structure and enforce it:
+```python
+result = (
+    agent.input("Summarize this repo")
+    .output(
+        {
+            "summary": ("str", "short summary"),
+            "risks": [("str", "risk item")],
+        }
+    )
+    .start(ensure_keys=["summary", "risks[*]"], max_retries=2)
+)
+```
+
+### Response consumption
+- `response.get_text()` for raw text
+- `response.get_data()` for parsed structured data
+- `response.get_generator(type="instant")` to stream structured fields
+
+Instant events provide:
+`path`, `wildcard_path`, `delta`, `value`, `is_complete`
+
+```python
+response = (
+    agent.input("Explain recursion")
+    .output({"answer": ("str", "final answer")})
+    .get_response()
+)
+for msg in response.get_generator(type="instant"):
+    if msg.path == "answer" and msg.delta:
+        print(msg.delta, end="", flush=True)
+print()
+```
+
+### Tools (built-in + custom)
+- Built-in: `Search` / `Browse` (proxy may be required)
+- Custom tools: `@agent.tool_func` + `agent.use_tools(...)`
+- Tool calls are traceable via response metadata or `type="specific"` streaming.
+
+### Knowledge Base (RAG)
+Use Chroma integration and an embeddings agent; build once and reuse:
+```python
+from agently.integrations.chromadb import ChromaCollection
+
+embedding = Agently.create_agent()
+embedding.set_settings(
+    "OpenAICompatible",
+    {
+        "model": "qwen3-embedding:0.6b",
+        "base_url": "http://127.0.0.1:11434/v1/",
+        "auth": "nothing",
+        "model_type": "embeddings",
+    },
+)
+collection = ChromaCollection(collection_name="agently_examples", embedding_agent=embedding)
+```
+
+### Chat history vs memo
+- `agent.set_chat_history([...])` for multi-turn continuity.
+- Use runtime memo (TriggerFlow `runtime_data`) for stable preferences/constraints.
+
+### TriggerFlow essentials
+Event-driven orchestration with runtime-scoped data:
+- `flow.to(...)` linear flow
+- `flow.when("Event")` branch on signals
+- `data.async_emit("Event", value)` to trigger
+- `data.put_into_stream(...)` for runtime streaming
+- `data.get_runtime_data(...)` / `data.set_runtime_data(...)` (prefer over `flow_data`)
+
+## Auto Loop pattern (from `examples/step_by_step/12-auto_loop.py`)
+**Goal:** plan -> tool -> plan -> reply -> memo -> loop
+
+**Key ideas from the example:**
+- Build a knowledge base once per process, reuse across turns.
+- Keep `done_plans`, `kb_results`, and `memo` in runtime data.
+- Stream planning decisions immediately via `instant` events.
+- Cap steps to avoid infinite loops.
+
+**Minimal flow sketch:**
+```python
+flow = TriggerFlow()
+flow.to(start_loop)
+flow.when("Loop").to(get_input)
+flow.when("UserInput").to(prepare_context).to(ensure_kb).to(make_next_plan)
+(
+    flow.when("Plan")
+    .if_condition(lambda d: d.value.get("type") == "final")
+    .to(reply)
+    .to(update_memo)
+    .else_condition()
+    .to(use_tool)
+    .to(make_next_plan)
+    .end_condition()
+)
+for event in flow.get_runtime_stream("start", timeout=None):
+    print(event, end="", flush=True)
+```
+
+## Practical recipes
+
+### 1) Search → Browse → Answer
+1. Search with keywords (`Search.search` / `Search.search_news`)
+2. Select URLs
+3. Browse pages
+4. Summarize and reply
+
+### 2) RAG answer
+1. Query knowledge base with user question
+2. Attach results to `info(...)`
+3. Generate structured response
+
+### 3) Mixed “say + actions” output (instant)
+Use two output fields: one for user-facing content, one for app actions.
+
+### 4) Interview form loop
+1. Generate question with role + field context
+2. Classify intent (answer/unknown/refuse/exit/ask_suggestion)
+3. Validate value; retry or skip after a limit
+4. Support `reset` and `exit` anytime
+
+## Reliability checklist
+- Define output schema and use `ensure_keys` for critical fields.
+- Keep knowledge base initialization outside the turn loop.
+- Stream only once per label (avoid tagging every token).
+- Prefer `runtime_data` for execution-scoped memory.
+- Always cap loop steps and handle tool failures.
+- Validate form inputs and skip after retries.
+
+## Pointers
+- Auto Loop: `examples/step_by_step/12-auto_loop.py`
+- Streaming: `examples/step_by_step/06-streaming.py`
+- Tools: `examples/step_by_step/07-tools.py`
+- TriggerFlow series: `examples/step_by_step/11-triggerflow-01_basics.py`
+- FastAPI Service: `examples/step_by_step/13-auto_loop_fastapi/`
+- Interview example: `examples/ai_coding_using_Agently/preorder_interview_reset_form.py`
+- AI coding guide: `examples/ai_coding_using_Agently/ai_coding_guide_with_agently.md`

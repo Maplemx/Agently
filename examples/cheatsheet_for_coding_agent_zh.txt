@@ -1,0 +1,192 @@
+# Agently 开发速查表（Agent 可读版）
+
+这份速查表用于快速回忆 Agently 的关键能力与实践要点，结合文档与示例，并重点总结 Auto Loop 的实战实现方式，方便后续自动构建更多智能工作流。
+
+## Agent-Readable Map（TL;DR）
+```yaml
+目标: 用可控输出 + 工具 + 记忆 + 编排构建可靠工作流
+核心能力:
+  settings: Agently.set_settings + agent.set_settings
+  prompt: input + instruct + info + output
+  output_control: 结构化输出 + ensure_keys + 自动重试
+  response: get_text/get_data + get_generator(type=instant/typed_delta/specific)
+  tools: 内置 Search/Browse + 自定义 tool_func
+  knowledge_base: ChromaCollection + embeddings agent + query -> info
+  memory: chat_history + runtime memo
+  triggerflow: to/when/emit + runtime_data + runtime_stream
+模式:
+  plan_tool_reply_loop: 规划 -> 工具 -> 规划 -> 回复 -> 记忆 -> 循环
+  search_then_browse: 搜索 -> 选链接 -> 浏览 -> 总结
+  rag: 查询KB -> 注入 -> 回答
+  form_interview: 角色 -> 提问 -> 意图 -> 校验 -> 入库 -> 循环
+```
+
+## 核心 API 速记（用在什么时候）
+
+### 设置（模型 / 鉴权 / Debug）
+- 全局：`Agently.set_settings(...)`
+- 单实例覆盖：`agent.set_settings(...)`
+- `OpenAICompatible` 屏蔽服务差异，切换模型不改请求逻辑。
+
+```python
+from agently import Agently
+
+Agently.set_settings(
+    "OpenAICompatible",
+    {
+        "base_url": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "auth": "YOUR_API_KEY",
+        "options": {"temperature": 0.7},
+    },
+)
+agent = Agently.create_agent()
+```
+
+### Prompt 组合方式
+用结构化 Prompt 片段代替单个长提示：
+- `input(...)`：用户任务
+- `instruct(...)`：约束 / 决策逻辑
+- `info(...)`：工具列表、knowledge base 检索结果、上下文
+- `output(...)`：结构化输出要求
+
+### 角色与语气控制
+- 使用 `agent.role(..., always=True)` 固定角色与目的。
+- 在角色描述中加入同理心，适合客服或访谈场景。
+
+### 输出控制（结构化 + 稳定性）
+```python
+result = (
+    agent.input("总结这个项目")
+    .output(
+        {
+            "summary": ("str", "简短总结"),
+            "risks": [("str", "风险项")],
+        }
+    )
+    .start(ensure_keys=["summary", "risks[*]"], max_retries=2)
+)
+```
+
+### 结果消费
+- `response.get_text()`：原始输出
+- `response.get_data()`：结构化结果
+- `response.get_generator(type="instant")`：结构化流式输出
+
+Instant 事件包含：
+`path`, `wildcard_path`, `delta`, `value`, `is_complete`
+
+```python
+response = (
+    agent.input("解释递归")
+    .output({"answer": ("str", "最终回答")})
+    .get_response()
+)
+for msg in response.get_generator(type="instant"):
+    if msg.path == "answer" and msg.delta:
+        print(msg.delta, end="", flush=True)
+print()
+```
+
+### 工具调用（内置 + 自定义）
+- 内置：`Search` / `Browse`（可能需要代理）
+- 自定义：`@agent.tool_func` + `agent.use_tools(...)`
+- 结果追踪：response extra 或 `type="specific"` 流式事件
+
+### 知识库（RAG）
+Chroma + embeddings agent；初始化一次，长期复用：
+```python
+from agently.integrations.chromadb import ChromaCollection
+
+embedding = Agently.create_agent()
+embedding.set_settings(
+    "OpenAICompatible",
+    {
+        "model": "qwen3-embedding:0.6b",
+        "base_url": "http://127.0.0.1:11434/v1/",
+        "auth": "nothing",
+        "model_type": "embeddings",
+    },
+)
+collection = ChromaCollection(collection_name="agently_examples", embedding_agent=embedding)
+```
+
+### 记忆体系
+- `agent.set_chat_history([...])`：多轮对话上下文
+- 运行态 memo（TriggerFlow runtime_data）：保存偏好/约束
+
+### TriggerFlow 要点
+事件驱动编排 + 运行态数据：
+- `flow.to(...)`：线性编排
+- `flow.when("Event")`：事件分支
+- `data.async_emit("Event", value)`：发送信号
+- `data.put_into_stream(...)`：运行态流式输出
+- `data.get_runtime_data(...)` / `data.set_runtime_data(...)`（优先使用）
+
+## Auto Loop 模式（来自 `examples/step_by_step/12-auto_loop.py`）
+**目标：** 规划 -> 工具 -> 规划 -> 回复 -> 记忆 -> 循环
+
+**示例关键点：**
+- knowledge base 在进程级初始化一次，跨回合复用。
+- `done_plans` / `kb_results` / `memo` 存在 runtime data。
+- 用 `instant` 事件实时输出规划过程。
+- 设定 step 上限避免死循环。
+
+**最小流程骨架：**
+```python
+flow = TriggerFlow()
+flow.to(start_loop)
+flow.when("Loop").to(get_input)
+flow.when("UserInput").to(prepare_context).to(ensure_kb).to(make_next_plan)
+(
+    flow.when("Plan")
+    .if_condition(lambda d: d.value.get("type") == "final")
+    .to(reply)
+    .to(update_memo)
+    .else_condition()
+    .to(use_tool)
+    .to(make_next_plan)
+    .end_condition()
+)
+for event in flow.get_runtime_stream("start", timeout=None):
+    print(event, end="", flush=True)
+```
+
+## 实用配方
+
+### 1）Search → Browse → Answer
+1. Search 生成链接
+2. 选链接
+3. Browse 读取内容
+4. 总结并回答
+
+### 2）RAG 方案
+1. knowledge base 查询
+2. 结果放入 `info(...)`
+3. 结构化输出
+
+### 3）“说话 + 行为”混合输出
+用两个输出字段，把“用户可见内容”和“动作/指令”分离，并用 Instant 流式消费。
+
+### 4）表单访谈循环
+1. 基于角色与字段生成问题
+2. 先分类意图（回答/未知/拒绝/退出/寻求建议）
+3. 校验输入，不通过则重问或跳过
+4. 支持 `reset` 和 `exit`
+
+## 稳定性检查清单
+- 明确输出结构，并用 `ensure_keys` 锁关键字段
+- knowledge base 初始化放到循环外部
+- 流式输出只在首个 token 打标签
+- 多轮记忆优先放在 runtime_data
+- 设定最大步数 + 工具失败兜底
+- 表单字段加校验，超过次数后可跳过
+
+## 参考入口
+- Auto Loop：`examples/step_by_step/12-auto_loop.py`
+- Streaming：`examples/step_by_step/06-streaming.py`
+- Tools：`examples/step_by_step/07-tools.py`
+- TriggerFlow 系列：`examples/step_by_step/11-triggerflow-01_basics.py`
+- FastAPI 服务：`examples/step_by_step/13-auto_loop_fastapi/`
+- 访谈示例：`examples/ai_coding_using_Agently/preorder_interview_reset_form.py`
+- AI 编码指南：`examples/ai_coding_using_Agently/ai_coding_guide_with_agently.md`
