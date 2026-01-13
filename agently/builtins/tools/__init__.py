@@ -15,3 +15,4 @@
 
 from .Search import Search
 from .Browse import Browse
+from .Cmd import Cmd
