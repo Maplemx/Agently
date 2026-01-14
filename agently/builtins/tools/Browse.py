@@ -12,18 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+from agently.types.plugins import BuiltInTool
 from agently.utils import LazyImport
 
 
-class Browse:
-
+class Browse(BuiltInTool):
     def __init__(
         self,
         proxy: str | None = None,
         timeout: int | None = None,
         headers: dict[str, str] | None = None,
     ):
+        self.tool_info_list = [
+            {
+                "name": "browse",
+                "desc": "Browse the page at {url}",
+                "kwargs": {"url": ("str", "Accessible URL")},
+                "func": self.browse,
+            }
+        ]
+
         LazyImport.import_package("httpx")
         LazyImport.import_package("bs4", install_name="beautifulsoup4")
         self.proxy = proxy

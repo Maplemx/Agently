@@ -19,7 +19,6 @@ from agently.utils import LazyImport, FunctionShifter
 
 
 class Search:
-
     def __init__(
         self,
         *,
@@ -103,6 +102,33 @@ class Search:
         ] = "us-en",
         options: dict[str, Any] | None = None,
     ):
+        self.tool_info_list = [
+            {
+                "name": "search",
+                "desc": "Search the web with {query}",
+                "kwargs": {"query": [("str", "search query")]},
+                "func": self.search,
+            },
+            {
+                "name": "search_news",
+                "desc": "Search news with {query}",
+                "kwargs": {"query": [("str", "search query")]},
+                "func": self.search_news,
+            },
+            {
+                "name": "search_wikipedia",
+                "desc": "Search wikipedia with {query}",
+                "kwargs": {"query": [("str", "search query")]},
+                "func": self.search_wikipedia,
+            },
+            {
+                "name": "search_arxiv",
+                "desc": "Search arXiv with {query}",
+                "kwargs": {"query": [("str", "search query")]},
+                "func": self.search_arxiv,
+            },
+        ]
+
         LazyImport.import_package("ddgs", version_constraint=">=9.10.0")
         from ddgs import DDGS
 

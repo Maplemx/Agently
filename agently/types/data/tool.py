@@ -40,3 +40,12 @@ class MCPConfig(TypedDict):
 
 class MCPConfigs(TypedDict):
     mcpServers: dict[str, MCPConfig]
+
+
+class ToolInfo(TypedDict, total=False):
+    name: str
+    desc: str
+    kwargs: dict[str, Any]
+    func: Callable[..., Any]
+    returns: ReturnType
+    tags: str | list[str]

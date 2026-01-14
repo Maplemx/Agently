@@ -18,8 +18,10 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from agently.types.plugins import BuiltInTool
 
-class Cmd:
+
+class Cmd(BuiltInTool):
     def __init__(
         self,
         *,
@@ -28,6 +30,19 @@ class Cmd:
         timeout: int = 20,
         env: dict[str, str] | None = None,
     ):
+        self.tool_info_list = [
+            {
+                "name": "cmd",
+                "desc": "Run a shell command with allowlist checks.",
+                "kwargs": {
+                    "cmd": ("str | list[str]", "Command to run"),
+                    "workdir": ("str | None", "Working directory"),
+                    "allow_unsafe": ("bool", "Allow command outside allowlist"),
+                },
+                "func": self.run,
+            }
+        ]
+
         self.allowed_cmd_prefixes = set(
             allowed_cmd_prefixes
             if allowed_cmd_prefixes is not None
