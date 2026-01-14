@@ -71,4 +71,5 @@ from .tool import (
     ReturnType,
     MCPConfig,
     MCPConfigs,
+    ToolInfo,
 )
