@@ -57,7 +57,7 @@ pip install -e .
 
 ## Documentation
 
-- Docs Site: https://agentera.github.io/Agently/en/
+- Docs Site: https://agentera.github.io/Agently/
 - Step-by-step tutorials: `examples/step_by_step/`
 - Auto Loop FastAPI (SSE/WS/POST, Docker-ready): `examples/step_by_step/13-auto_loop_fastapi/`
 
