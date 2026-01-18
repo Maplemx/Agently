@@ -61,10 +61,6 @@ class ModelResponseResult:
         self.async_get_meta = self._response_parser.async_get_meta
         self.get_text = self._response_parser.get_text
         self.async_get_text = self._response_parser.async_get_text
-        # self.get_data = self._response_parser.get_data
-        # self.async_get_data = self._response_parser.async_get_data
-        # self.get_data_object = self._response_parser.get_data_object
-        # self.async_get_data_object = self._response_parser.async_get_data_object
         self.get_data = FunctionShifter.syncify(self.async_get_data)
         self.get_data_object = FunctionShifter.syncify(self.async_get_data_object)
         self.get_generator = self._response_parser.get_generator
