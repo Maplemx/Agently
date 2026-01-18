@@ -1,6 +1,7 @@
 import pytest
 
 import asyncio
+from pathlib import Path
 from agently import Agently
 
 
@@ -47,7 +48,8 @@ def test_tool():
 def test_use_mcp():
     tool = Agently.tool
 
-    tool.use_mcp("./cal_mcp_server.py")
+    server_script = Path(__file__).with_name("cal_mcp_server.py")
+    tool.use_mcp(str(server_script))
 
     result = tool.call_tool("add", kwargs={"first_number": 1, "second_number": 2})
     assert result["result"] == 3
