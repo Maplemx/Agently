@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     )
     from chromadb.api.collection_configuration import CreateCollectionConfiguration
     from chromadb.api import ClientAPI
-    from agently.core import BaseAgent
+    from agently.base import Agent
 
 
 class ChromaDataDictOptional(TypedDict, total=False):
@@ -57,7 +57,7 @@ class ChromaData:
         original_data: ChromaDataDict | list[ChromaDataDict],
         *,
         embedding_function: "Callable[[str | list[str]], Embeddings] | None" = None,
-        agent: "BaseAgent | None" = None,
+        agent: "Agent | None" = None,
     ):
         self._original_data = original_data if isinstance(original_data, list) else [original_data]
         if embedding_function:
@@ -157,7 +157,7 @@ class ChromaEmbeddingFunction(EmbeddingFunction):
     def __init__(
         self,
         *,
-        embedding_agent: "BaseAgent",
+        embedding_agent: "Agent",
     ):
         def embedding_function_by_agent(texts: list[str]) -> "Embeddings":
             return embedding_agent.input(texts).start()
@@ -180,7 +180,7 @@ class ChromaCollection:
         schema: "Schema | None" = None,
         configuration: "CreateCollectionConfiguration | None" = None,
         metadata: dict[str, Any] | None = None,
-        embedding_agent: "BaseAgent | None" = None,
+        embedding_agent: "Agent | None" = None,
         data_loader: "DataLoader[Loadable] | None" = None,
         get_or_create: bool = False,
         hnsw_space: Literal["l2", "cosine", "ip"] = "cosine",
