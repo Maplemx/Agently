@@ -52,8 +52,13 @@ ChatMessageContent = TextMessageContent | AttachmentMessageContent
 ChatMessageContentAdapter = TypeAdapter(Annotated[ChatMessageContent, Field(union_mode="left_to_right")])
 
 
+class ChatMessageDict(TypedDict):
+    role: Literal["system", "developer", "tool", "user", "assistant"] | str
+    content: str | list[dict[str, Any] | ChatMessageContent]
+
+
 class ChatMessage(BaseModel):
-    role: str = "user"
+    role: Literal["system", "developer", "tool", "user", "assistant"] | str = "user"
     content: str | list[dict[str, Any] | ChatMessageContent]
 
     model_config = ConfigDict(extra="allow")
