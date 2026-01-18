@@ -76,8 +76,9 @@ class FunctionShifter:
 
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            assert inspect.isfunction(func)
-            return await asyncio.to_thread(func, *args, **kwargs)
+            if not callable(func):
+                raise TypeError(f"Expected a callable, got {type(func)}")
+            return await asyncio.to_thread(func, *args, **kwargs)  # type: ignore
 
         return wrapper
 
