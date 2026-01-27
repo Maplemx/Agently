@@ -29,7 +29,7 @@
 <hr />
 
 <p align="center">
-    <b><a href = "https://github.com/AgentEra/Agently/discussions">💬 官方Github Discussions讨论区</a> - 来这里讨论任何关于Agently的话题</b>
+    <b><a href = "https://Agently.cn">💥 Agently官方网站</a> - 最详尽的Agently介绍文档&官方资讯</b>
 </p>
 
 <hr />
@@ -57,9 +57,8 @@ pip install -e .
 
 ## 文档与示例
 
-- 文档站（中文）: https://agentera.github.io/Agently/zh/
-- Step-by-step 教程：`examples/step_by_step/`
-- Auto Loop FastAPI（SSE/WS/POST，支持 Docker）：`examples/step_by_step/13-auto_loop_fastapi/`
+- 文档站（中文）: https://Agently.cn/docs
+- 适合循序渐进学习的代码样例：`examples/step_by_step/`
 
 ## 什么是Agently？
 
