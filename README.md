@@ -30,7 +30,7 @@
 <hr />
 
 <p align="center">
-    <b><a href = "https://github.com/AgentEra/Agently/discussions">💬 Official Github Discussion Forum</a> - Welcome to Share Anything about Agently with Us</b>
+    <b><a href = "https://github.com/AgentEra/Agently/discussions">💥 Official WebSite</a> - Everything about Agently and what's coming next</b>
 </p>
 
 <hr />
@@ -57,7 +57,7 @@ pip install -e .
 
 ## Documentation
 
-- Docs Site: https://agentera.github.io/Agently/
+- Docs Site: https://Agently.tech/docs
 - Step-by-step tutorials: `examples/step_by_step/`
 - Auto Loop FastAPI (SSE/WS/POST, Docker-ready): `examples/step_by_step/13-auto_loop_fastapi/`
 
