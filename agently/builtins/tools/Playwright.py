@@ -14,9 +14,37 @@
 
 from pathlib import Path
 from typing import Any, Literal
+import re
+import unicodedata
+from urllib.parse import urljoin, urlparse
 
 from agently.types.plugins import BuiltInTool
 from agently.utils import LazyImport
+
+_URL_PUNCT_TRANSLATION = str.maketrans(
+    {
+        "。": ".",
+        "，": ",",
+        "；": ";",
+        "！": "!",
+        "？": "?",
+        "（": "(",
+        "）": ")",
+        "【": "[",
+        "】": "]",
+        "《": "<",
+        "》": ">",
+        "「": '"',
+        "」": '"',
+        "『": '"',
+        "』": '"',
+        "“": '"',
+        "”": '"',
+        "‘": "'",
+        "’": "'",
+        "、": "/",
+    }
+)
 
 
 class Playwright(BuiltInTool):
@@ -27,6 +55,11 @@ class Playwright(BuiltInTool):
         timeout: int = 30000,
         proxy: str | None = None,
         user_agent: str | None = None,
+        response_mode: Literal["markdown", "text"] = "markdown",
+        max_content_length: int = 8000,
+        include_links: bool = False,
+        max_links: int = 120,
+        screenshot_path: str | None = None,
     ):
         self.tool_info_list = [
             {
@@ -34,10 +67,6 @@ class Playwright(BuiltInTool):
                 "desc": "Open {url} in a browser with Playwright and return rendered page info.",
                 "kwargs": {
                     "url": ("str", "Target URL"),
-                    "wait_until": ("str", "Navigation wait strategy"),
-                    "timeout": ("int | None", "Timeout in milliseconds"),
-                    "max_text_length": ("int", "Max body text length in return result"),
-                    "screenshot_path": ("str | None", "Optional screenshot output path"),
                 },
                 "func": self.open,
             }
@@ -47,31 +76,41 @@ class Playwright(BuiltInTool):
         self.timeout = timeout
         self.proxy = proxy
         self.user_agent = user_agent
+        self.wait_until: Literal["domcontentloaded"] = "domcontentloaded"
+        self.response_mode = response_mode
+        self.max_content_length = max_content_length
+        self.include_links = include_links
+        self.max_links = max_links
+        self.screenshot_path = screenshot_path
+
+    def _normalize_url(self, url: str) -> str:
+        normalized = unicodedata.normalize("NFKC", str(url or "")).strip()
+        normalized = normalized.translate(_URL_PUNCT_TRANSLATION)
+        normalized = normalized.replace("\u3000", " ")
+        normalized = re.sub(r"[\r\n\t]+", "", normalized)
+        normalized = normalized.strip(' "\'`')
+        normalized = re.sub(r"[,;:!?]+$", "", normalized)
+        return normalized
 
     async def open(
         self,
         url: str,
-        wait_until: Literal["commit", "domcontentloaded", "load", "networkidle"] = "domcontentloaded",
-        timeout: int | None = None,
-        max_text_length: int = 4000,
-        screenshot_path: str | None = None,
     ) -> dict[str, Any]:
         """
         Open a URL with Playwright and collect rendered page details.
 
         Args:
             url: Target URL.
-            wait_until: Playwright wait strategy.
-            timeout: Timeout in milliseconds; defaults to tool timeout.
-            max_text_length: Max length of returned body text.
-            screenshot_path: Save screenshot when provided.
+            Output and navigation behavior are configured at class initialization.
 
         Returns:
-            Dictionary with page status, final URL, title and text.
+            Dictionary with page status, final URL and one `content` field.
         """
         from playwright.async_api import async_playwright
 
-        page_timeout = timeout if timeout is not None else self.timeout
+        requested_url = str(url or "")
+        url = self._normalize_url(requested_url)
+        page_timeout = self.timeout
         screenshot_output = None
 
         try:
@@ -88,32 +127,97 @@ class Playwright(BuiltInTool):
                         context_kwargs["user_agent"] = self.user_agent
                     context = await browser.new_context(**context_kwargs)
                     page = await context.new_page()
-                    response = await page.goto(url, wait_until=wait_until, timeout=page_timeout)
+                    response = await page.goto(url, wait_until=self.wait_until, timeout=page_timeout)
                     title = await page.title()
-                    body_text = await page.locator("body").inner_text(timeout=page_timeout)
-                    body_text = " ".join(body_text.split())
-                    if max_text_length > 0 and len(body_text) > max_text_length:
-                        body_text = f"{body_text[:max_text_length]}..."
 
-                    if screenshot_path:
-                        screenshot_output = Path(screenshot_path).expanduser().resolve()
+                    if self.response_mode == "text":
+                        content = await page.locator("body").inner_text(timeout=page_timeout)
+                        content = " ".join(content.split())
+                    else:
+                        content = await page.evaluate(
+                            """
+                            () => {
+                                const root = document.body.cloneNode(true);
+                                root.querySelectorAll("script,style,noscript,svg").forEach((el) => el.remove());
+                                root.querySelectorAll("a[href]").forEach((a) => {
+                                    const href = a.href || "";
+                                    const text = (a.textContent || "").trim().replace(/\\s+/g, " ");
+                                    const markdownLink = text ? `[${text}](${href})` : href;
+                                    a.replaceWith(document.createTextNode(markdownLink));
+                                });
+                                return (root.innerText || "")
+                                    .replace(/\\u00a0/g, " ")
+                                    .replace(/[ \\t]+\\n/g, "\\n")
+                                    .replace(/\\n{3,}/g, "\\n\\n")
+                                    .trim();
+                            }
+                            """
+                        )
+                        content = " ".join(str(content).split())
+                    if self.max_content_length > 0 and len(content) > self.max_content_length:
+                        content = f"{content[:self.max_content_length]}..."
+
+                    links = None
+                    if self.include_links:
+                        raw_links = await page.eval_on_selector_all(
+                            "a[href]",
+                            """
+                            (elements) => elements.map((item) => ({
+                                href: item.getAttribute("href") || "",
+                                text: (item.textContent || "").trim(),
+                            }))
+                            """,
+                        )
+                        links = []
+                        seen_links: set[str] = set()
+                        for item in raw_links:
+                            if not isinstance(item, dict):
+                                continue
+                            href = str(item.get("href", "")).strip()
+                            if not href or href.startswith("#") or href.lower().startswith("javascript:"):
+                                continue
+                            absolute_url = urljoin(page.url, href)
+                            parsed = urlparse(absolute_url)
+                            if parsed.scheme not in ("http", "https"):
+                                continue
+                            if absolute_url in seen_links:
+                                continue
+                            seen_links.add(absolute_url)
+
+                            link_text = " ".join(str(item.get("text", "")).split())
+                            if self.max_links <= 0 or len(links) < self.max_links:
+                                links.append(
+                                    {
+                                        "url": absolute_url,
+                                        "text": link_text,
+                                    }
+                                )
+
+                    if self.screenshot_path:
+                        screenshot_output = Path(self.screenshot_path).expanduser().resolve()
                         screenshot_output.parent.mkdir(parents=True, exist_ok=True)
                         await page.screenshot(path=str(screenshot_output), full_page=True)
 
-                    return {
+                    result = {
                         "ok": True,
-                        "requested_url": url,
+                        "requested_url": requested_url,
+                        "normalized_url": url,
                         "url": page.url,
                         "status": response.status if response else None,
                         "title": title,
-                        "text": body_text,
+                        "content_format": self.response_mode,
+                        "content": content,
                         "screenshot_path": str(screenshot_output) if screenshot_output else None,
                     }
+                    if links is not None:
+                        result["links"] = links
+                    return result
                 finally:
                     await browser.close()
         except Exception as e:
             return {
                 "ok": False,
-                "requested_url": url,
+                "requested_url": requested_url,
+                "normalized_url": url,
                 "error": str(e),
             }
