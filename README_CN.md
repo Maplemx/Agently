@@ -118,7 +118,7 @@ agent.activate_session(session_id="demo_user_1001")
 # 可选：按长度上限自动裁剪上下文窗口
 agent.set_settings("session.max_length", 12000)
 
-# 可选：自定义策略（analysis -> execution）
+# 可选：自定义策略（analysis -> resize）
 session = agent.activated_session
 assert session is not None
 
@@ -131,7 +131,7 @@ def keep_last_six(full_context, context_window, memo, session_settings):
     return None, list(context_window[-6:]), memo
 
 session.register_analysis_handler(analysis_handler)
-session.register_execution_handlers("keep_last_six", keep_last_six)
+session.register_resize_handler("keep_last_six", keep_last_six)
 ```
 
 ### 5) 🔧 工具调用与日志

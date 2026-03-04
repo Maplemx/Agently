@@ -173,3 +173,39 @@ def test_session_extension_finally_runs_after_result_ready(monkeypatch):
     assert "hello" in str(history[0].content)
     assert history[1].role == "assistant"
     assert "hello" in str(history[1].content)
+
+
+@pytest.mark.asyncio
+async def test_session_extension_register_analysis_and_resize_handler():
+    agent = Agently.create_agent()
+    agent.activate_session(session_id="session-extension-custom-resize")
+    assert agent.activated_session is not None
+
+    called = {"analysis": 0, "resize": 0}
+
+    async def analysis_handler(full_context, context_window, memo, session_settings):
+        _ = (full_context, memo, session_settings)
+        called["analysis"] += 1
+        if len(context_window) > 0:
+            return "drop_window"
+        return None
+
+    async def resize_handler(full_context, context_window, memo, session_settings):
+        _ = (context_window, session_settings)
+        called["resize"] += 1
+        return full_context, [], memo
+
+    agent.register_session_analysis_handler(analysis_handler)
+    agent.register_session_resize_handler("drop_window", resize_handler)
+
+    agent.add_chat_history({"role": "user", "content": "hello"})
+
+    assert called["analysis"] >= 1
+    assert called["resize"] >= 1
+    assert agent.activated_session.context_window == []
+
+
+def test_session_extension_register_resize_handler_rejects_empty_strategy():
+    agent = Agently.create_agent()
+    with pytest.raises(ValueError):
+        agent.register_session_resize_handler("", lambda *_: None)

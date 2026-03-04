@@ -14,18 +14,16 @@
 
 from uuid import uuid4
 
-from typing import TYPE_CHECKING, Any, Sequence
-
-import yaml
+from typing import TYPE_CHECKING, Sequence
 
 from agently.core import BaseAgent, Session
-from agently.utils import DataLocator
 
 if TYPE_CHECKING:
     from agently.core import Prompt
     from agently.core.ModelRequest import ModelResponseResult
     from agently.types.data import ChatMessage, ChatMessageDict
     from agently.utils import Settings
+    from agently.types.plugins import SessionAnalysisHandler, SessionResizeHandler
 
 
 class SessionExtension(BaseAgent):
@@ -35,8 +33,43 @@ class SessionExtension(BaseAgent):
         self.activated_session: Session | None = None
         self.settings.setdefault("session.input_keys", None, inherit=True)
         self.settings.setdefault("session.reply_keys", None, inherit=True)
+
+        self.__session_analysis_handler: "SessionAnalysisHandler | None" = None
+        self.__session_resize_handlers: dict[str, "SessionResizeHandler"] = {}
+
         self.extension_handlers.append("request_prefixes", self._session_request_prefix)
         self.extension_handlers.append("finally", self._session_finally)
+
+    def register_session_analysis_handler(self, handler: "SessionAnalysisHandler"):
+        """
+        Register analysis handler for session resize planning.
+
+        Signature:
+            `(full_context, context_window, memo, session_settings) -> str | None`.
+        """
+        self.__session_analysis_handler = handler
+        for session in self.sessions.values():
+            session.register_analysis_handler(handler)
+        return self
+
+    def register_session_resize_handler(self, strategy_name: str, handler: "SessionResizeHandler"):
+        """
+        Register resize handler for a strategy.
+
+        Signature:
+            `(full_context, context_window, memo, session_settings) -> (new_full_context, new_context_window, new_memo)`.
+        """
+        if not isinstance(strategy_name, str) or strategy_name.strip() == "":
+            raise ValueError("strategy_name must be a non-empty string.")
+        self.__session_resize_handlers[strategy_name] = handler
+        for session in self.sessions.values():
+            session.register_resize_handler(strategy_name, handler)
+        return self
+
+    def __bind_session_resize_pipeline(self, session: Session):
+        session.register_analysis_handler(self.__session_analysis_handler)
+        for strategy_name, handler in self.__session_resize_handlers.items():
+            session.register_resize_handler(strategy_name, handler)
 
     def _refill_agent_chat_history_with_session(self):
         if self.activated_session is None:
@@ -58,6 +91,8 @@ class SessionExtension(BaseAgent):
                 settings=self.settings,
             )
             self.sessions[session_id] = self.activated_session
+
+        self.__bind_session_resize_pipeline(self.activated_session)
         return self._refill_agent_chat_history_with_session()
 
     def deactivate_session(self):
@@ -99,116 +134,18 @@ class SessionExtension(BaseAgent):
         self.activated_session.clean_context_window()
         return self._refill_agent_chat_history_with_session()
 
-    def _normalize_keys(self, keys: Any):
-        if keys is None:
-            return None
-        if isinstance(keys, str):
-            return [keys]
-        if isinstance(keys, Sequence):
-            return [str(key) for key in keys if key is not None]
-        return []
-
-    def _extract_by_path(self, data: Any, key: str):
-        sentinel = object()
-        if isinstance(data, dict):
-            if key in data:
-                return True, data[key]
-            style = "slash" if "/" in key else "dot"
-            value = DataLocator.locate_path_in_dict(data, key, style=style, default=sentinel)
-            if value is not sentinel:
-                return True, value
-        return False, None
-
-    def _extract_input_value(self, prompt_data: dict[str, Any], key: str):
-        key = key.strip()
-        if key == "":
-            return False, None
-
-        if key == ".request":
-            return True, prompt_data
-
-        if key.startswith(".request."):
-            return self._extract_by_path(prompt_data, key[len(".request.") :])
-
-        if key == ".agent":
-            return True, self.agent_prompt.to_serializable_prompt_data()
-
-        if key.startswith(".agent."):
-            return self._extract_by_path(
-                self.agent_prompt.to_serializable_prompt_data(),
-                key[len(".agent.") :],
-            )
-
-        found, value = self._extract_by_path(prompt_data, key)
-        if found:
-            return found, value
-
-        input_data = prompt_data.get("input")
-        if isinstance(input_data, dict):
-            if key.startswith("input."):
-                return self._extract_by_path(input_data, key[len("input.") :])
-            return self._extract_by_path(input_data, key)
-
-        return False, None
-
-    def _format_value(self, value: Any):
-        if isinstance(value, str):
-            return value
-        if isinstance(value, (int, float, bool)) or value is None:
-            return str(value)
-        try:
-            return yaml.safe_dump(value, allow_unicode=True, sort_keys=False).rstrip("\n")
-        except Exception:
-            return str(value)
-
-    def _format_keyed_content(self, items: list[tuple[str, Any]]):
-        lines: list[str] = []
-        for key, value in items:
-            lines.append(f"[{ key }]:")
-            lines.append(self._format_value(value))
-        return "\n".join(lines).strip()
-
-    async def _session_request_prefix(self, prompt: "Prompt", _: "Settings"):
-        if self.activated_session is None:
-            return
-        if "chat_history" in prompt:
-            del prompt["chat_history"]
-        prompt.set("chat_history", self.activated_session.context_window)
-        if self.activated_session.memo is not None:
-            prompt.set("CHAT SESSION MEMO", self.activated_session.memo)
+    async def _session_request_prefix(self, prompt: "Prompt", _settings: "Settings"):
+        Session.apply_request_prefix(prompt, self.activated_session)
 
     async def _session_finally(self, result: "ModelResponseResult", settings: "Settings"):
         if self.activated_session is None:
             return
 
-        input_keys = self._normalize_keys(settings.get("session.input_keys", None))
-        reply_keys = self._normalize_keys(settings.get("session.reply_keys", None))
-
-        user_content: str | None = None
-        if input_keys is None:
-            user_content = str(result.prompt.to_text())
-        else:
-            prompt_data = result.prompt.to_serializable_prompt_data()
-            user_items: list[tuple[str, Any]] = []
-            for input_key in input_keys:
-                found, value = self._extract_input_value(dict(prompt_data), input_key)
-                if found:
-                    user_items.append((input_key, value))
-            if user_items:
-                user_content = self._format_keyed_content(user_items)
-
-        assistant_content: str | None = None
-        result_data = await result.async_get_data()
-        if reply_keys is None:
-            assistant_content = self._format_value(result_data)
-        else:
-            assistant_items: list[tuple[str, Any]] = []
-            for reply_key in reply_keys:
-                found, value = self._extract_by_path(result_data, reply_key)
-                if found:
-                    assistant_items.append((reply_key, value))
-            if assistant_items:
-                assistant_content = self._format_keyed_content(assistant_items)
+        user_content, assistant_content = await Session.resolve_finally_contents(
+            result,
+            settings,
+            self.agent_prompt,
+        )
 
         if user_content is not None and user_content != "":
             self.add_chat_history({"role": "user", "content": user_content})

@@ -68,3 +68,23 @@ def test_session_yaml_export_and_load_by_path():
     assert loaded.id == "session-2"
     assert len(loaded.context_window) == 1
     assert loaded.context_window[0].content == "content-from-yaml"
+
+
+@pytest.mark.asyncio
+async def test_session_legacy_execution_aliases():
+    session = Session(auto_resize=False)
+    await session.async_add_chat_history({"role": "user", "content": "hello"})
+
+    async def execution_handler(full_context, context_window, memo, session_settings):
+        _ = (full_context, context_window, session_settings)
+        return None, [], memo
+
+    with pytest.warns(DeprecationWarning):
+        session.register_execution_handlers("legacy_drop", execution_handler)
+
+    assert "legacy_drop" in session._resize_handlers
+    assert "legacy_drop" in session._execution_handlers
+
+    with pytest.warns(DeprecationWarning):
+        await session.async_execute_strategy("legacy_drop")
+    assert len(session.context_window) == 0

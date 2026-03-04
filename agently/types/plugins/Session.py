@@ -43,7 +43,7 @@ StandardAnalysisHandler = Callable[
     Awaitable[str | None],
 ]
 
-ExecutionHandler = Callable[
+ResizeHandler = Callable[
     [
         "Sequence[ChatMessage]",
         "Sequence[ChatMessage]",
@@ -64,7 +64,7 @@ ExecutionHandler = Callable[
     ],
 ]
 
-StandardExecutionHandler = Callable[
+StandardResizeHandler = Callable[
     [
         "Sequence[ChatMessage]",
         "Sequence[ChatMessage]",
@@ -79,3 +79,7 @@ StandardExecutionHandler = Callable[
         ]
     ],
 ]
+
+# Backward-compatible aliases.
+ExecutionHandler = ResizeHandler
+StandardExecutionHandler = StandardResizeHandler

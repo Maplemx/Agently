@@ -28,13 +28,18 @@ from agently.types.data import ChatMessage, ChatMessageDict
 from agently.utils import FunctionShifter, Settings, SettingsNamespace, DataLocator
 
 if TYPE_CHECKING:
+    from agently.core import Prompt
+    from agently.core.ModelRequest import ModelResponseResult
     from agently.types.data import SerializableValue
     from agently.types.plugins import (
         AnalysisHandler,
         ExecutionHandler,
+        ResizeHandler,
         StandardAnalysisHandler,
         StandardExecutionHandler,
+        StandardResizeHandler,
     )
+    from agently.utils import Settings
 
 
 class Session:
@@ -56,9 +61,10 @@ class Session:
         self.session_settings = SettingsNamespace(self.settings, "session")
         self.session_settings.setdefault("max_length", None)
         self._analysis_handler: "StandardAnalysisHandler" = self._default_analysis_handler
-        self._execution_handlers: "dict[str, StandardExecutionHandler]" = {
-            "simple_cut": self._simple_cut_execution_handler,
+        self._resize_handlers: "dict[str, StandardResizeHandler]" = {
+            "simple_cut": self._simple_cut_resize_handler,
         }
+        self._execution_handlers: "dict[str, StandardExecutionHandler]" = self._resize_handlers
         self._full_context: list[ChatMessage] = []
         self._context_window: list[ChatMessage] = []
         self._memo = None
@@ -69,6 +75,7 @@ class Session:
         self.clean_window_context = self.clean_context_window
         self.add_chat_history = FunctionShifter.syncify(self.async_add_chat_history)
         self.analyze_context = FunctionShifter.syncify(self.async_analyze_context)
+        self.run_resize_strategy = FunctionShifter.syncify(self.async_run_resize_strategy)
         self.execute_strategy = FunctionShifter.syncify(self.async_execute_strategy)
         self.resize = FunctionShifter.syncify(self.async_resize)
         self.to_json = self.get_json_session
@@ -89,7 +96,7 @@ class Session:
             return "simple_cut"
         return None
 
-    async def _simple_cut_execution_handler(
+    async def _simple_cut_resize_handler(
         self,
         full_context: Sequence[ChatMessage],
         context_window: Sequence[ChatMessage],
@@ -136,51 +143,25 @@ class Session:
             length += len(str(message.model_dump()))
         return length
 
-    def register_analysis_handler(self, analysis_handler: "AnalysisHandler"):
-        """
-        Register analysis handler to Session
+    def register_analysis_handler(self, analysis_handler: "AnalysisHandler | None"):
+        if analysis_handler is None:
+            self._analysis_handler = self._default_analysis_handler
+        else:
+            self._analysis_handler = FunctionShifter.asyncify(analysis_handler)
+        return self
 
-        :param analysis_handler:
-
-            - input params:
-
-                - full_context <list[ChatMessage]>: Messages contains full context since this session created.
-                - context_window <list[ChatMessage]>: Messages of current context window.
-                - memo <SerializableValue>: Memo content of this session.
-                - session_settings <SettingsNamespace>: Namespace "session" of settings that inherit from global settings or the agent's settings which this session is attached to.
-
-            - output:
-
-                - str | None: message controlling execution strategy name or None(do nothing)
-        """
-        self._analysis_handler = FunctionShifter.asyncify(analysis_handler)
+    def register_resize_handler(self, strategy_name: str, resize_handler: "ResizeHandler"):
+        self._resize_handlers[strategy_name] = FunctionShifter.asyncify(resize_handler)
         return self
 
     def register_execution_handlers(self, strategy_name: str, execution_handler: "ExecutionHandler"):
-        """
-        Register analysis handler to Session
-
-        :param strategy_name: message controlling execution strategy name
-
-        :param execution_handler:
-
-            - input params:
-
-                - full_context <list[ChatMessage]>: Messages contains full context since this session created.
-                - context_window <list[ChatMessage]>: Messages of current context window.
-                - memo <SerializableValue>: Memo content of this session.
-                - session_settings <SettingsNamespace>: Namespace "session" of settings that inherit from global settings or the agent's settings which this session is attached to.
-
-            - output:
-
-                - Tuple[list[ChatMessage | ChatMessageDict], list[ChatMessage | ChatMessageDict], SerializableValue]
-                - Tuple items in orders:
-                    - New full context messages or None(no update)
-                    - New context window messages or None(no update)
-                    - New memo data or None(no update)
-        """
-        self._execution_handlers[strategy_name] = FunctionShifter.asyncify(execution_handler)
-        return self
+        warn(
+            "Session.register_execution_handlers() is deprecated and will be removed in a future version; "
+            "use Session.register_resize_handler() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.register_resize_handler(strategy_name, execution_handler)
 
     def _to_standard_chat_messages(self, chat_messages: Sequence[ChatMessage | ChatMessageDict]):
         return [
@@ -261,9 +242,9 @@ class Session:
             self.session_settings,
         )
 
-    async def async_execute_strategy(self, strategy_name: str):
-        if strategy_name in self._execution_handlers:
-            new_full_context, new_context_window, new_memo = await self._execution_handlers[strategy_name](
+    async def async_run_resize_strategy(self, strategy_name: str):
+        if strategy_name in self._resize_handlers:
+            new_full_context, new_context_window, new_memo = await self._resize_handlers[strategy_name](
                 self._full_context,
                 self._context_window,
                 self._memo,
@@ -276,14 +257,21 @@ class Session:
             if new_memo is not None:
                 self._memo = new_memo
         else:
-            warn(
-                f"Can not find strategy '{ strategy_name }' in execution handlers dictionary in Session <{ self.id }>."
-            )
+            warn(f"Can not find strategy '{ strategy_name }' in resize handlers dictionary in Session <{ self.id }>.")
+
+    async def async_execute_strategy(self, strategy_name: str):
+        warn(
+            "Session.async_execute_strategy() is deprecated and will be removed in a future version; "
+            "use Session.async_run_resize_strategy() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        await self.async_run_resize_strategy(strategy_name)
 
     async def async_resize(self):
         strategy_name = await self.async_analyze_context()
         if strategy_name is not None:
-            await self.async_execute_strategy(strategy_name)
+            await self.async_run_resize_strategy(strategy_name)
 
     @property
     def full_context(self):
@@ -295,7 +283,139 @@ class Session:
 
     @property
     def memo(self):
-        return self._memo
+        try:
+            return self._memo.copy()  # type: ignore
+        except:
+            return self._memo
+
+    @staticmethod
+    def _normalize_session_keys(keys: Any):
+        if keys is None:
+            return None
+        if isinstance(keys, str):
+            return [keys]
+        if isinstance(keys, Sequence):
+            return [str(key) for key in keys if key is not None]
+        return []
+
+    @staticmethod
+    def _extract_by_path(data: Any, key: str):
+        sentinel = object()
+        if isinstance(data, dict):
+            if key in data:
+                return True, data[key]
+            style = "slash" if "/" in key else "dot"
+            value = DataLocator.locate_path_in_dict(data, key, style=style, default=sentinel)
+            if value is not sentinel:
+                return True, value
+        return False, None
+
+    @staticmethod
+    def _extract_input_value(
+        prompt_data: dict[str, Any],
+        key: str,
+        agent_prompt_data: dict[str, Any],
+    ):
+        key = key.strip()
+        if key == "":
+            return False, None
+
+        if key == ".request":
+            return True, prompt_data
+
+        if key.startswith(".request."):
+            return Session._extract_by_path(prompt_data, key[len(".request.") :])
+
+        if key == ".agent":
+            return True, agent_prompt_data
+
+        if key.startswith(".agent."):
+            return Session._extract_by_path(
+                agent_prompt_data,
+                key[len(".agent.") :],
+            )
+
+        found, value = Session._extract_by_path(prompt_data, key)
+        if found:
+            return found, value
+
+        input_data = prompt_data.get("input")
+        if isinstance(input_data, dict):
+            if key.startswith("input."):
+                return Session._extract_by_path(input_data, key[len("input.") :])
+            return Session._extract_by_path(input_data, key)
+
+        return False, None
+
+    @staticmethod
+    def _format_session_value(value: Any):
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float, bool)) or value is None:
+            return str(value)
+        try:
+            return yaml.safe_dump(value, allow_unicode=True, sort_keys=False).rstrip("\n")
+        except Exception:
+            return str(value)
+
+    @staticmethod
+    def _format_session_keyed_content(items: list[tuple[str, Any]]):
+        lines: list[str] = []
+        for key, value in items:
+            lines.append(f"[{ key }]:")
+            lines.append(Session._format_session_value(value))
+        return "\n".join(lines).strip()
+
+    @staticmethod
+    def apply_request_prefix(
+        prompt: "Prompt",
+        activated_session: "Session | None",
+    ):
+        if activated_session is None:
+            return
+        if "chat_history" in prompt:
+            del prompt["chat_history"]
+        prompt.set("chat_history", activated_session.context_window)
+        if activated_session.memo is not None:
+            prompt.set("CHAT SESSION MEMO", activated_session.memo)
+
+    @staticmethod
+    async def resolve_finally_contents(
+        result: "ModelResponseResult",
+        settings: "Settings",
+        agent_prompt: "Prompt",
+    ) -> tuple[str | None, str | None]:
+        input_keys = Session._normalize_session_keys(settings.get("session.input_keys", None))
+        reply_keys = Session._normalize_session_keys(settings.get("session.reply_keys", None))
+
+        user_content: str | None = None
+        if input_keys is None:
+            user_content = str(result.prompt.to_text())
+        else:
+            prompt_data = result.prompt.to_serializable_prompt_data()
+            agent_prompt_data = agent_prompt.to_serializable_prompt_data()
+            user_items: list[tuple[str, Any]] = []
+            for input_key in input_keys:
+                found, value = Session._extract_input_value(dict(prompt_data), input_key, dict(agent_prompt_data))
+                if found:
+                    user_items.append((input_key, value))
+            if user_items:
+                user_content = Session._format_session_keyed_content(user_items)
+
+        assistant_content: str | None = None
+        result_data = await result.async_get_data()
+        if reply_keys is None:
+            assistant_content = Session._format_session_value(result_data)
+        else:
+            assistant_items: list[tuple[str, Any]] = []
+            for reply_key in reply_keys:
+                found, value = Session._extract_by_path(result_data, reply_key)
+                if found:
+                    assistant_items.append((reply_key, value))
+            if assistant_items:
+                assistant_content = Session._format_session_keyed_content(assistant_items)
+
+        return user_content, assistant_content
 
     def _to_serializable_chat_messages(
         self,

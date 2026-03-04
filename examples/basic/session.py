@@ -132,7 +132,7 @@ def session_custom_handlers():
         return None, list(context_window[-2:]), {"strategy": "keep_last_two"}
 
     session.register_analysis_handler(analysis_handler)
-    session.register_execution_handlers("keep_last_two", keep_last_two_handler)
+    session.register_resize_handler("keep_last_two", keep_last_two_handler)
 
     agent.add_chat_history({"role": "user", "content": "turn-1"})
     agent.add_chat_history({"role": "assistant", "content": "turn-2"})
@@ -176,7 +176,7 @@ def session_custom_handlers_with_real_request():
         return None, kept, {"strategy": "keep_last_four", "kept_count": len(kept)}
 
     session.register_analysis_handler(analysis_handler)
-    session.register_execution_handlers("keep_last_four", keep_last_four_handler)
+    session.register_resize_handler("keep_last_four", keep_last_four_handler)
 
     print("[Turn 1]")
     agent.input("Remember my favorite city is Chengdu.").streaming_print()
@@ -232,7 +232,7 @@ def session_custom_handlers_with_memo_in_real_request():
         return None, kept, new_memo["key_points"]
 
     session.register_analysis_handler(analysis_handler)
-    session.register_execution_handlers("keep_last_four", keep_last_four_handler)
+    session.register_resize_handler("keep_last_four", keep_last_four_handler)
 
     print("[Turn 1]")
     agent.input("Remember my favorite city is Chengdu.").streaming_print()
