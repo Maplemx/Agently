@@ -83,3 +83,9 @@ StandardResizeHandler = Callable[
 # Backward-compatible aliases.
 ExecutionHandler = ResizeHandler
 StandardExecutionHandler = StandardResizeHandler
+
+# Extension-level aliases.
+SessionAnalysisHandler = AnalysisHandler
+StandardSessionAnalysisHandler = StandardAnalysisHandler
+SessionResizeHandler = ResizeHandler
+StandardSessionResizeHandler = StandardResizeHandler

@@ -23,13 +23,11 @@ from .Session import (
     AnalysisHandler,
     ExecutionHandler,
     ResizeHandler,
+    SessionAnalysisHandler,
+    SessionResizeHandler,
     StandardExecutionHandler,
+    StandardSessionAnalysisHandler,
+    StandardSessionResizeHandler,
     StandardResizeHandler,
     StandardAnalysisHandler,
-)
-from .SessionExtension import (
-    SessionAnalysisHandler,
-    StandardSessionAnalysisHandler,
-    SessionResizeHandler,
-    StandardSessionResizeHandler,
 )
