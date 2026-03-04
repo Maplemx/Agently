@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, cast
 from typing_extensions import TypedDict
 
@@ -149,10 +151,11 @@ class Tool:
         self.use_mcp = self.tool_manager.use_mcp
         self.async_use_mcp = self.tool_manager.async_use_mcp
 
-        self._plan_analysis_handler: "StandardToolPlanAnalysisHandler | None" = None
-        self._tool_execution_handler: "StandardToolExecutionHandler | None" = None
+        self._plan_analysis_handler: "StandardToolPlanAnalysisHandler | None" = self._default_plan_analysis_handler
+        self._tool_execution_handler: "StandardToolExecutionHandler | None" = self._default_tool_execution_handler
 
         self.plan_and_execute = FunctionShifter.syncify(self.async_plan_and_execute)
+        self.generate_tool_command = FunctionShifter.syncify(self.async_generate_tool_command)
 
     def set_loop_options(
         self,
@@ -177,17 +180,201 @@ class Tool:
 
     def register_plan_analysis_handler(self, handler: "ToolPlanAnalysisHandler | None"):
         if handler is None:
-            self._plan_analysis_handler = None
+            self._plan_analysis_handler = self._default_plan_analysis_handler
         else:
             self._plan_analysis_handler = FunctionShifter.asyncify(handler)
         return self
 
     def register_tool_execution_handler(self, handler: "ToolExecutionHandler | None"):
         if handler is None:
-            self._tool_execution_handler = None
+            self._tool_execution_handler = self._default_tool_execution_handler
         else:
             self._tool_execution_handler = FunctionShifter.asyncify(handler)
         return self
+
+    @staticmethod
+    def _is_next_action_path(path: Any) -> bool:
+        if not isinstance(path, str):
+            return False
+        normalized = path.strip()
+        if normalized.startswith("$"):
+            normalized = normalized[1:]
+        normalized = normalized.lstrip("./")
+        return normalized == "next_action"
+
+    @staticmethod
+    async def _try_close_response_stream(response: Any):
+        result = getattr(response, "result", None)
+        parser = getattr(result, "_response_parser", None)
+        consumer = getattr(parser, "_response_consumer", None)
+        close = getattr(consumer, "close", None)
+        if callable(close):
+            maybe_coroutine = close()
+            if asyncio.iscoroutine(maybe_coroutine):
+                await maybe_coroutine
+
+    async def _default_plan_analysis_handler(
+        self,
+        prompt: "Prompt",
+        settings: "Settings",
+        tool_list: list[dict[str, Any]],
+        done_plans: list["ToolExecutionRecord"],
+        last_round_records: list["ToolExecutionRecord"],
+        round_index: int,
+        max_rounds: int | None,
+        agent_name: str,
+    ) -> "ToolPlanDecision":
+        from agently.core import ModelRequest
+
+        tool_plan_request = ModelRequest(
+            self.plugin_manager,
+            parent_settings=settings,
+            agent_name=agent_name,
+        )
+        tool_plan_request.input(
+            {
+                "user_input": prompt.get("input"),
+                "user_extra_requirement": prompt.get("instruct"),
+                "available_tools": tool_list,
+            }
+        ).info(
+            {
+                "done_plans": done_plans,
+                "last_round_result": last_round_records,
+                "round_index": round_index,
+                "max_rounds": max_rounds,
+            }
+        ).instruct(
+            [
+                "Plan next actions to respond to {input.user_input} with {input.available_tools}.",
+                "Decide this round action first via 'next_action': 'execute' or 'response'.",
+                "If next_action is 'response', return empty 'execution_commands'.",
+                "If next_action is 'execute', return one or more 'execution_commands' for parallel execution.",
+                "Each command must include 'todo_suggestion' for next round decision making.",
+                "Use {info.done_plans}, {info.last_round_result}, {info.round_index}, and {info.max_rounds} for decision.",
+            ]
+        ).output(
+            {
+                "next_action": ("'execute' | 'response'", "This round action decision."),
+                "execution_commands": [
+                    {
+                        "purpose": (str, "What this tool call collects or verifies."),
+                        "tool_name": (str, "Must in {input.available_tools.[].name}"),
+                        "tool_kwargs": (dict, "kwargs dict as {input.available_tools.[].kwargs} of {tool_name}"),
+                        "todo_suggestion": (str, "Suggestion for next round's next_action decision."),
+                    }
+                ],
+            }
+        )
+        tool_plan_response = tool_plan_request.get_response()
+        async for instant in tool_plan_response.get_async_generator(type="instant"):
+            if not instant.is_complete:
+                continue
+            if not self._is_next_action_path(instant.path):
+                continue
+            if isinstance(instant.value, str) and instant.value.strip().lower() == "response":
+                await self._try_close_response_stream(tool_plan_response)
+                return {
+                    "next_action": "response",
+                    "execution_commands": [],
+                }
+            break
+        result = await tool_plan_response.result.async_get_data()
+        if not isinstance(result, dict):
+            return {"next_action": "response", "execution_commands": []}
+        return cast("ToolPlanDecision", result)
+
+    async def _default_tool_execution_handler(
+        self,
+        tool_commands: list["ToolCommand"],
+        _settings: "Settings",
+        async_call_tool,
+        done_plans: list["ToolExecutionRecord"],
+        round_index: int,
+        concurrency: int | None,
+        agent_name: str,
+    ) -> list["ToolExecutionRecord"]:
+        _ = (done_plans, round_index, agent_name)
+        if len(tool_commands) == 0:
+            return []
+
+        semaphore = asyncio.Semaphore(concurrency) if isinstance(concurrency, int) and concurrency > 0 else None
+
+        async def run_command(tool_command: "ToolCommand") -> "ToolExecutionRecord":
+            tool_name = str(tool_command.get("tool_name", ""))
+            tool_kwargs = tool_command.get("tool_kwargs", {})
+            if not isinstance(tool_kwargs, dict):
+                tool_kwargs = {}
+            purpose = str(tool_command.get("purpose", f"Use {tool_name}"))
+            next_step = str(tool_command.get("todo_suggestion", ""))
+
+            async def execute_once() -> "ToolExecutionRecord":
+                result = await async_call_tool(tool_name, tool_kwargs)
+                success = not self.is_execution_error_result(result)
+                return {
+                    "purpose": purpose,
+                    "tool_name": tool_name,
+                    "kwargs": dict(tool_kwargs),
+                    "todo_suggestion": next_step,
+                    "success": success,
+                    "result": result,
+                    "error": "" if success else str(result),
+                }
+
+            if semaphore is None:
+                return await execute_once()
+            async with semaphore:
+                return await execute_once()
+
+        return await asyncio.gather(*[run_command(tool_command) for tool_command in tool_commands])
+
+    async def async_generate_tool_command(
+        self,
+        *,
+        prompt: "Prompt",
+        settings: "Settings",
+        tool_list: list[dict[str, Any]],
+        agent_name: str = "Manual",
+        plan_analysis_handler: "ToolPlanAnalysisHandler | None" = None,
+        done_plans: list["ToolExecutionRecord"] | None = None,
+        last_round_records: list["ToolExecutionRecord"] | None = None,
+        round_index: int = 0,
+        max_rounds: int | None = None,
+    ) -> list["ToolCommand"]:
+        if len(tool_list) == 0:
+            return []
+
+        if plan_analysis_handler:
+            standard_plan_handler = FunctionShifter.asyncify(plan_analysis_handler)
+        elif self._plan_analysis_handler:
+            standard_plan_handler = FunctionShifter.asyncify(self._plan_analysis_handler)
+        else:
+            raise RuntimeError("[Agently Tool] Tool plan analysis handler is required.")
+
+        if max_rounds is None:
+            max_rounds = self.tool_settings.get("loop.max_rounds", 5)  # type: ignore
+        if not isinstance(max_rounds, int) or max_rounds < 0:
+            max_rounds = 5
+
+        safe_done_plans = done_plans if isinstance(done_plans, list) else []
+        safe_last_round_records = last_round_records if isinstance(last_round_records, list) else []
+        if not isinstance(round_index, int) or round_index < 0:
+            round_index = 0
+
+        decision = self._normalize_plan_decision(
+            await standard_plan_handler(
+                prompt,
+                settings,
+                tool_list,
+                safe_done_plans,
+                safe_last_round_records,
+                round_index,
+                max_rounds,
+                agent_name,
+            )
+        )
+        commands = decision.get("tool_commands", [])
+        return commands if isinstance(commands, list) else []
 
     @staticmethod
     def is_execution_error_result(result: Any):

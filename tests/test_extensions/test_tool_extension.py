@@ -6,7 +6,6 @@ load_dotenv(find_dotenv())
 import os
 import asyncio
 import time
-import importlib
 from types import SimpleNamespace
 from agently import Agently
 from agently.types.data import StreamingData
@@ -163,10 +162,11 @@ async def test_tool_extension_plan_handler_instant_response_short_circuit(monkey
         def get_response(self):
             return FakeResponse()
 
-    tool_extension_module = importlib.import_module("agently.builtins.agent_extensions.ToolExtension")
-    monkeypatch.setattr(tool_extension_module, "ModelRequest", FakeModelRequest)
+    import agently.core as core_module
 
-    decision = await agent._ToolExtension__default_tool_plan_analysis_handler(  # type: ignore
+    monkeypatch.setattr(core_module, "ModelRequest", FakeModelRequest)
+
+    decision = await agent.tool._default_plan_analysis_handler(  # type: ignore[attr-defined]
         prompt=prompt,
         settings=agent.settings,
         tool_list=[{"name": "dummy_tool", "desc": "dummy", "kwargs": {}}],
@@ -177,7 +177,97 @@ async def test_tool_extension_plan_handler_instant_response_short_circuit(monkey
         agent_name=agent.name,
     )
 
-    assert decision["next_action"] == "response"
-    assert decision["use_tool"] is False
-    assert decision["execution_commands"] == []
+    assert decision.get("next_action") == "response"
+    assert decision.get("execution_commands") == []
     assert closed is True
+
+
+@pytest.mark.asyncio
+async def test_tool_extension_generate_tool_command_only(monkeypatch):
+    agent = Agently.create_agent()
+    agent.input("find docs")
+
+    monkeypatch.setattr(
+        agent.tool,
+        "get_tool_list",
+        lambda tags=None: [{"name": "search", "desc": "search", "kwargs": {"query": ("str", "")}}],
+    )
+
+    async def fake_plan_handler(
+        _prompt,
+        _settings,
+        _tool_list,
+        _done_plans,
+        _last_round_records,
+        _round_index,
+        _max_rounds,
+        _agent_name,
+    ):
+        return {
+            "next_action": "execute",
+            "execution_commands": [
+                {
+                    "purpose": "search docs",
+                    "tool_name": "search",
+                    "tool_kwargs": {"query": "Agently TriggerFlow"},
+                    "todo_suggestion": "browse best result",
+                }
+            ],
+        }
+
+    agent.register_tool_plan_analysis_handler(fake_plan_handler)
+
+    called = False
+
+    async def fake_async_call_tool(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("Tool should not be called in generate_tool_command")
+
+    monkeypatch.setattr(agent.tool, "async_call_tool", fake_async_call_tool)
+
+    commands = await agent.async_generate_tool_command()
+    assert called is False
+    assert len(commands) == 1
+    assert commands[0].get("tool_name") == "search"
+    assert commands[0].get("tool_kwargs") == {"query": "Agently TriggerFlow"}
+
+
+def test_tool_extension_must_call_soft_compatible(monkeypatch):
+    agent = Agently.create_agent()
+    agent.input("find docs")
+
+    monkeypatch.setattr(
+        agent.tool,
+        "get_tool_list",
+        lambda tags=None: [{"name": "search", "desc": "search", "kwargs": {"query": ("str", "")}}],
+    )
+
+    async def fake_plan_handler(
+        _prompt,
+        _settings,
+        _tool_list,
+        _done_plans,
+        _last_round_records,
+        _round_index,
+        _max_rounds,
+        _agent_name,
+    ):
+        return {
+            "next_action": "execute",
+            "execution_commands": [
+                {
+                    "purpose": "search docs",
+                    "tool_name": "search",
+                    "tool_kwargs": {"query": "Agently TriggerFlow"},
+                    "todo_suggestion": "browse best result",
+                }
+            ],
+        }
+
+    agent.register_tool_plan_analysis_handler(fake_plan_handler)
+
+    with pytest.warns(DeprecationWarning):
+        commands = agent.must_call()
+    assert len(commands) == 1
+    assert commands[0].get("tool_name") == "search"

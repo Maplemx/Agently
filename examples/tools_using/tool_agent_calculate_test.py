@@ -30,4 +30,7 @@ async def add(a: int, b: int) -> int:
 
 response = agent.input("34643523+52131231=? Use tool to calculate!").use_tool(add).get_response()
 result = response.get_data()
-print(result)
+print("[Response]:", result)
+
+tool_command = agent.input("34643523+52131231=? Use tool to calculate!").use_tool(add).generate_tool_command()
+print("[Only Tool Command]:", tool_command)

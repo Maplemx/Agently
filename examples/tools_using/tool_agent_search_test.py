@@ -55,8 +55,8 @@ def main():
     agent = Agently.create_agent()
     search = Search(
         proxy=os.getenv("SEARCH_PROXY"),
-        region=os.getenv("SEARCH_REGION", "us-en"),
-        backend=os.getenv("SEARCH_BACKEND", "auto"),
+        region="us-en",
+        backend="auto",
     )
     browse = Browse(proxy=os.getenv("BROWSE_PROXY"))
 
