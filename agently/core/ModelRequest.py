@@ -12,524 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import json
-import warnings
-import uuid
+from __future__ import annotations
 
-import inspect
-from typing import Any, AsyncGenerator, Literal, TYPE_CHECKING, cast, TypeAlias, overload, Generator
+from typing import Any, AsyncGenerator, Literal, TYPE_CHECKING, overload, Generator
 
-ContentKindTuple: TypeAlias = Literal["all", "delta", "original"]
-ContentKindStreaming: TypeAlias = Literal["instant", "streaming_parse"]
+from agently.core.Prompt import Prompt
+from agently.core.ExtensionHandlers import ExtensionHandlers
+from agently.utils import Settings, FunctionShifter
 
-from agently.core import Prompt, ExtensionHandlers
-from agently.utils import Settings, FunctionShifter, DataFormatter, DataLocator
+from agently.core.ModelResponse import ModelResponse
+from agently.core.ModelResponseResult import ModelResponseResult
 
 if TYPE_CHECKING:
     from agently.core import PluginManager
-    from agently.types.data import AgentlyModelResponseMessage, PromptStandardSlot, StreamingData, SerializableValue
-    from agently.types.plugins import ModelRequester, ResponseParser
-    from pydantic import BaseModel
+    from agently.types.data import (
+        InstantStreamingContentType,
+        PromptStandardSlot,
+        ResponseContentType,
+        SpecificEvents,
+        StreamingData,
+    )
 
 
-class ModelResponseResult:
-    def __init__(
-        self,
-        agent_name: str,
-        response_id: str,
-        prompt: Prompt,
-        response_generator: AsyncGenerator["AgentlyModelResponseMessage", None],
-        plugin_manager: "PluginManager",
-        settings: Settings,
-        extension_handlers: ExtensionHandlers,
-    ):
-        self.agent_name = agent_name
-        self.plugin_manager = plugin_manager
-        self.settings = settings
-        ResponseParser = cast(
-            type["ResponseParser"],
-            self.plugin_manager.get_plugin(
-                "ResponseParser",
-                str(self.settings["plugins.ResponseParser.activate"]),
-            ),
-        )
-        self._response_id = response_id
-        self._extension_handlers = extension_handlers
-        self._response_parser = ResponseParser(agent_name, response_id, prompt, response_generator, self.settings)
-        self._finally_handlers_ran = False
-        self._finally_handlers_lock = asyncio.Lock()
-        self._run_finally_handlers_once_sync = FunctionShifter.syncify(self._run_finally_handlers_once)
-        self.prompt = prompt
-        self.full_result_data = self._response_parser.full_result_data
-        self.get_meta = FunctionShifter.syncify(self.async_get_meta)
-        self.get_text = FunctionShifter.syncify(self.async_get_text)
-        self.get_data = FunctionShifter.syncify(self.async_get_data)
-        self.get_data_object = FunctionShifter.syncify(self.async_get_data_object)
-
-    async def _run_finally_handlers_once(self):
-        if self._finally_handlers_ran:
-            return
-        async with self._finally_handlers_lock:
-            if self._finally_handlers_ran:
-                return
-            # Mark as executed before invoking handlers so handlers can safely
-            # call result getters without re-entering this hook chain.
-            self._finally_handlers_ran = True
-            finally_handlers = self._extension_handlers.get("finally", [])
-            for handler in finally_handlers:
-                if inspect.iscoroutinefunction(handler):
-                    await handler(
-                        self,
-                        self.settings,
-                    )
-                elif inspect.isgeneratorfunction(handler):
-                    for _ in handler(
-                        self,
-                        self.settings,
-                    ):
-                        pass
-                elif inspect.isasyncgenfunction(handler):
-                    async for _ in handler(
-                        self,
-                        self.settings,
-                    ):
-                        pass
-                elif inspect.isfunction(handler):
-                    handler(
-                        self,
-                        self.settings,
-                    )
-
-    @overload
-    async def async_get_data(
-        self,
-        *,
-        type: Literal['parsed'],
-        ensure_keys: list[str],
-        key_style: Literal["dot", "slash"] = "dot",
-        max_retries: int = 3,
-        raise_ensure_failure: bool = True,
-        _retry_count: int = 0,
-    ) -> dict[str, Any]: ...
-
-    @overload
-    async def async_get_data(
-        self,
-        *,
-        type: Literal['original', 'parsed', 'all'] = "parsed",
-        ensure_keys: list[str] | None = None,
-        key_style: Literal["dot", "slash"] = "dot",
-        max_retries: int = 3,
-        raise_ensure_failure: bool = True,
-        _retry_count: int = 0,
-    ) -> Any: ...
-
-    async def async_get_data(
-        self,
-        *,
-        type: Literal['original', 'parsed', 'all'] = "parsed",
-        ensure_keys: list[str] | None = None,
-        key_style: Literal["dot", "slash"] = "dot",
-        max_retries: int = 3,
-        raise_ensure_failure: bool = True,
-        _retry_count: int = 0,
-    ) -> Any:
-        if type == "parsed" and ensure_keys:
-            try:
-                data = await self._response_parser.async_get_data(type=type)
-                for ensure_key in ensure_keys:
-                    EMPTY = object()
-                    if DataLocator.locate_path_in_dict(data, ensure_key, key_style, default=EMPTY) is EMPTY:
-                        raise
-                await self._run_finally_handlers_once()
-                return data
-            except:
-                from agently.base import async_system_message
-
-                await async_system_message(
-                    "MODEL_REQUEST",
-                    {
-                        "agent_name": self.agent_name,
-                        "response_id": self._response_id,
-                        "content": {
-                            "stage": "No Target Data in Response, Preparing Retry",
-                            "detail": f"\n[Response]: { await self._response_parser.async_get_text() }\n"
-                            f"[Retried Times]: { _retry_count }",
-                        },
-                    },
-                    self.settings,
-                )
-
-                if _retry_count < max_retries:
-                    data = await ModelResponse(
-                        self.agent_name,
-                        self.plugin_manager,
-                        self.settings,
-                        self.prompt,
-                        self._extension_handlers,
-                    ).result.async_get_data(
-                        type=type,
-                        ensure_keys=ensure_keys,
-                        key_style=key_style,
-                        max_retries=max_retries,
-                        raise_ensure_failure=raise_ensure_failure,
-                        _retry_count=_retry_count + 1,
-                    )
-                    await self._run_finally_handlers_once()
-                    return data
-                else:
-                    if raise_ensure_failure:
-                        await self._run_finally_handlers_once()
-                        raise ValueError(
-                            f"Can not generate ensure keys { ensure_keys } within { max_retries } retires."
-                        )
-                    data = await self._response_parser.async_get_data(type=type)
-                    await self._run_finally_handlers_once()
-                    return data
-        data = await self._response_parser.async_get_data(type=type)
-        await self._run_finally_handlers_once()
-        return data
-
-    @overload
-    async def async_get_data_object(
-        self,
-    ) -> "BaseModel | None": ...
-
-    @overload
-    async def async_get_data_object(
-        self,
-        *,
-        ensure_keys: list[str],
-        key_style: Literal["dot", "slash"] = "dot",
-        max_retries: int = 3,
-        raise_ensure_failure: bool = True,
-    ) -> "BaseModel": ...
-
-    @overload
-    async def async_get_data_object(
-        self,
-        *,
-        ensure_keys: None,
-        key_style: Literal["dot", "slash"] = "dot",
-        max_retries: int = 3,
-        raise_ensure_failure: bool = True,
-    ) -> "BaseModel | None": ...
-
-    async def async_get_data_object(
-        self,
-        *,
-        ensure_keys: list[str] | None = None,
-        key_style: Literal["dot", "slash"] = "dot",
-        max_retries: int = 3,
-        raise_ensure_failure: bool = True,
-    ):
-        if ensure_keys:
-            await self.async_get_data(
-                ensure_keys=ensure_keys,
-                key_style=key_style,
-                max_retries=max_retries,
-                _retry_count=0,
-                raise_ensure_failure=raise_ensure_failure,
-            )
-            result_object = await self._response_parser.async_get_data_object()
-            await self._run_finally_handlers_once()
-            return result_object
-        result_object = await self._response_parser.async_get_data_object()
-        await self._run_finally_handlers_once()
-        return result_object
-
-    async def async_get_meta(self):
-        meta = await self._response_parser.async_get_meta()
-        await self._run_finally_handlers_once()
-        return meta
-
-    async def async_get_text(self):
-        text = await self._response_parser.async_get_text()
-        await self._run_finally_handlers_once()
-        return text
-
-    @overload
-    def get_generator(
-        self,
-        type: Literal["instant", "streaming_parse"],
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> Generator["StreamingData", None, None]: ...
-
-    @overload
-    def get_generator(
-        self,
-        type: Literal["all"],
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> Generator[tuple[str, Any], None, None]: ...
-
-    @overload
-    def get_generator(
-        self,
-        type: Literal["delta", "specific", "original"],
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> Generator[str, None, None]: ...
-
-    @overload
-    def get_generator(
-        self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> Generator: ...
-
-    def get_generator(
-        self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = None,
-        content: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = None,
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> Generator:
-        if type is None:
-            if content is not None:
-                warnings.warn(
-                    "Parameter `content` in method .get_generator() is  deprecated and will be removed in future "
-                    "version, please use parameter `type` instead."
-                )
-                type = content
-            else:
-                type = "delta"
-        parsed_generator = self._response_parser.get_generator(type=type, specific=specific)
-        completed = False
-        for data in parsed_generator:
-            yield data
-        completed = True
-        if completed:
-            self._run_finally_handlers_once_sync()
-
-    @overload
-    def get_async_generator(
-        self,
-        type: Literal["instant", "streaming_parse"],
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> AsyncGenerator["StreamingData", None]: ...
-
-    @overload
-    def get_async_generator(
-        self,
-        type: Literal["all"],
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> AsyncGenerator[tuple[str, Any], None]: ...
-
-    @overload
-    def get_async_generator(
-        self,
-        type: Literal["delta", "specific", "original"],
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> AsyncGenerator[str, None]: ...
-
-    @overload
-    def get_async_generator(
-        self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> AsyncGenerator: ...
-
-    async def get_async_generator(
-        self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = None,
-        content: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = None,
-        *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
-    ) -> AsyncGenerator:
-        if type is None:
-            if content is not None:
-                warnings.warn(
-                    "Parameter `content` in method .get_async_generator() is  deprecated and will be removed in "
-                    "future version, please use parameter `type` instead."
-                )
-                type = content
-            else:
-                type = "delta"
-        parsed_generator = self._response_parser.get_async_generator(type=type, specific=specific)
-        completed = False
-        async for data in parsed_generator:
-            yield data
-        completed = True
-        if completed:
-            await self._run_finally_handlers_once()
-
-
-class ModelResponse:
-
-    def __init__(
-        self,
-        agent_name: str,
-        plugin_manager: "PluginManager",
-        settings: Settings,
-        prompt: Prompt,
-        extension_handlers: ExtensionHandlers,
-    ):
-        self.agent_name = agent_name
-        self.id = uuid.uuid4().hex
-        self.plugin_manager = plugin_manager
-        settings_snapshot = settings.get()
-        self.settings = Settings(settings_snapshot if isinstance(settings_snapshot, dict) else {})
-        self.settings.set("$log.cancel_logs", False)
-        prompt_snapshot = prompt.get()
-        self.prompt = Prompt(
-            self.plugin_manager,
-            self.settings,
-            prompt_dict=prompt_snapshot if isinstance(prompt_snapshot, dict) else {},
-        )
-        extension_handlers_snapshot = extension_handlers.get()
-        self.extension_handlers = ExtensionHandlers(
-            extension_handlers_snapshot if isinstance(extension_handlers_snapshot, dict) else {}
-        )
-        self.result = ModelResponseResult(
-            self.agent_name,
-            self.id,
-            self.prompt,
-            self._get_response_generator(),
-            self.plugin_manager,
-            self.settings,
-            self.extension_handlers,
-        )
-        self.get_meta = self.result.get_meta
-        self.async_get_meta = self.result.async_get_meta
-        self.get_text = self.result.get_text
-        self.async_get_text = self.result.async_get_text
-        self.get_data = self.result.get_data
-        self.async_get_data = self.result.async_get_data
-        self.get_data_object = self.result.get_data_object
-        self.async_get_data_object = self.result.async_get_data_object
-        self.get_generator = self.result.get_generator
-        self.get_async_generator = self.result.get_async_generator
-
-    def cancel_logs(self):
-        self.settings.set("$log.cancel_logs", True)
-
-    async def _get_response_generator(self) -> AsyncGenerator["AgentlyModelResponseMessage", None]:
-        from agently.base import async_system_message
-
-        ModelRequester = cast(
-            type["ModelRequester"],
-            self.plugin_manager.get_plugin(
-                "ModelRequester",
-                str(self.settings["plugins.ModelRequester.activate"]),
-            ),
-        )
-        request_prefixes = self.extension_handlers.get("request_prefixes", [])
-        for prefix in request_prefixes:
-            if inspect.iscoroutinefunction(prefix):
-                await prefix(self.prompt, self.settings)
-            elif inspect.isfunction(prefix):
-                prefix(self.prompt, self.settings)
-        model_requester = ModelRequester(self.prompt, self.settings)
-        request_data = model_requester.generate_request_data()
-        request_data_dict = DataFormatter.sanitize(request_data.model_dump())
-        await async_system_message(
-            "MODEL_REQUEST",
-            {
-                "agent_name": self.agent_name,
-                "response_id": self.id,
-                "content": {
-                    "stage": "Requesting",
-                    "detail": json.dumps(
-                        {
-                            "data": request_data_dict["data"] if "data" in request_data_dict else None,
-                            "request_options": (
-                                request_data_dict["request_options"] if "request_options" in request_data_dict else None
-                            ),
-                            "request_url": (
-                                request_data_dict["request_url"] if "request_url" in request_data_dict else None
-                            ),
-                            "stream": (request_data_dict["stream"] if "stream" in request_data_dict else None),
-                        },
-                        indent=2,
-                        ensure_ascii=False,
-                    )
-                    .replace("\\n", "\n")
-                    .replace("\\\"", "\""),
-                },
-            },
-            self.settings,
-        )
-        response_generator = model_requester.request_model(request_data)
-        broadcast_generator = model_requester.broadcast_response(response_generator)
-        broadcast_prefixes = self.extension_handlers.get("broadcast_prefixes", [])
-        broadcast_suffixes = self.extension_handlers.get("broadcast_suffixes", {})
-        for prefix in broadcast_prefixes:
-            if inspect.iscoroutinefunction(prefix):
-                result = await prefix(
-                    self.result.full_result_data,
-                    self.settings,
-                )
-                if result is not None:
-                    yield result
-            elif inspect.isgeneratorfunction(prefix):
-                for result in prefix(
-                    self.result.full_result_data,
-                    self.settings,
-                ):
-                    if result is not None:
-                        yield result
-            elif inspect.isasyncgenfunction(prefix):
-                async for result in prefix(
-                    self.result.full_result_data,
-                    self.settings,
-                ):
-                    if result is not None:
-                        yield result
-            elif inspect.isfunction(prefix):
-                result = prefix(
-                    self.result.full_result_data,
-                    self.settings,
-                )
-                if result is not None:
-                    yield result
-        async for event, data in broadcast_generator:
-            yield event, data
-            suffixes = broadcast_suffixes[event] if event in broadcast_suffixes else []
-            for suffix in suffixes:
-                if inspect.iscoroutinefunction(suffix):
-                    result = await suffix(
-                        event,
-                        data,
-                        self.result.full_result_data,
-                        self.settings,
-                    )
-                    if result is not None:
-                        yield result
-                elif inspect.isgeneratorfunction(suffix):
-                    for result in suffix(
-                        event,
-                        data,
-                        self.result.full_result_data,
-                        self.settings,
-                    ):
-                        if result is not None:
-                            yield result
-                elif inspect.isasyncgenfunction(suffix):
-                    async for result in suffix(
-                        event,
-                        data,
-                        self.result.full_result_data,
-                        self.settings,
-                    ):
-                        if result is not None:
-                            yield result
-                elif inspect.isfunction(suffix):
-                    result = suffix(
-                        event,
-                        data,
-                        self.result.full_result_data,
-                        self.settings,
-                    )
-                    if result is not None:
-                        yield result
+DEFAULT_SPECIFIC_EVENTS: "SpecificEvents" = [
+    "reasoning_delta",
+    "delta",
+    "reasoning_done",
+    "done",
+    "tool_calls",
+]
 
 
 class ModelRequest:
@@ -730,9 +241,9 @@ class ModelRequest:
     @overload
     def get_generator(
         self,
-        type: Literal["instant", "streaming_parse"],
+        type: "InstantStreamingContentType",
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> Generator["StreamingData", None, None]: ...
 
     @overload
@@ -740,7 +251,7 @@ class ModelRequest:
         self,
         type: Literal["all"],
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> Generator[tuple[str, Any], None, None]: ...
 
     @overload
@@ -748,23 +259,23 @@ class ModelRequest:
         self,
         type: Literal["delta", "specific", "original"],
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> Generator[str, None, None]: ...
 
     @overload
     def get_generator(
         self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        type: "ResponseContentType | None" = "delta",
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> Generator: ...
 
     def get_generator(
         self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = None,
-        content: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = None,
+        type: "ResponseContentType | None" = None,
+        content: "ResponseContentType | None" = None,
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> Generator:
         return self.get_response().get_generator(
             type=type,
@@ -775,9 +286,9 @@ class ModelRequest:
     @overload
     def get_async_generator(
         self,
-        type: Literal["instant", "streaming_parse"],
+        type: "InstantStreamingContentType",
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> AsyncGenerator["StreamingData", None]: ...
 
     @overload
@@ -785,7 +296,7 @@ class ModelRequest:
         self,
         type: Literal["all"],
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> AsyncGenerator[tuple[str, Any], None]: ...
 
     @overload
@@ -793,26 +304,33 @@ class ModelRequest:
         self,
         type: Literal["delta", "specific", "original"],
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> AsyncGenerator[str, None]: ...
 
     @overload
     def get_async_generator(
         self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        type: "ResponseContentType | None" = "delta",
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> AsyncGenerator: ...
 
     def get_async_generator(
         self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = None,
-        content: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = None,
+        type: "ResponseContentType | None" = None,
+        content: "ResponseContentType | None" = None,
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> AsyncGenerator:
         return self.get_response().get_async_generator(
             type=type,
             content=content,
             specific=specific,
         )  # type: ignore for `content` compatible
+
+
+__all__ = [
+    "ModelRequest",
+    "ModelResponse",
+    "ModelResponseResult",
+]

@@ -12,13 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from typing import Any, Protocol, AsyncGenerator, Generator, Literal, TYPE_CHECKING, overload
 
 from agently.types.plugins import AgentlyPlugin
 
 if TYPE_CHECKING:
     from agently.core import Prompt
-    from agently.types.data import AgentlyResponseGenerator, SerializableData, StreamingData, AgentlyModelResult
+    from agently.types.data import (
+        AgentlyModelResult,
+        AgentlyResponseGenerator,
+        InstantStreamingContentType,
+        ResponseContentType,
+        SerializableData,
+        SpecificEvents,
+        StreamingData,
+    )
     from agently.utils import Settings
     from pydantic import BaseModel
 
@@ -76,9 +86,9 @@ class ResponseParser(AgentlyPlugin, Protocol):
     @overload
     def get_async_generator(
         self,
-        type: Literal["instant", "streaming_parse"],
+        type: "InstantStreamingContentType",
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> AsyncGenerator["StreamingData", None]: ...
 
     @overload
@@ -86,7 +96,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["all"],
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> AsyncGenerator[tuple[str, Any], None]: ...
 
     @overload
@@ -94,22 +104,22 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["delta", "specific", "original"],
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> AsyncGenerator[str, None]: ...
 
     @overload
     def get_async_generator(
         self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        type: "ResponseContentType" | None = "delta",
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> AsyncGenerator: ...
 
     def get_async_generator(
         self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        type: "ResponseContentType" | None = "delta",
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> AsyncGenerator:
         """
         'instant' is Agently v3 compatible for 'streaming_parse'
@@ -119,9 +129,9 @@ class ResponseParser(AgentlyPlugin, Protocol):
     @overload
     def get_generator(
         self,
-        type: Literal["instant", "streaming_parse"],
+        type: "InstantStreamingContentType",
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> Generator["StreamingData", None, None]: ...
 
     @overload
@@ -129,7 +139,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["all"],
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> Generator[tuple[str, Any], None, None]: ...
 
     @overload
@@ -137,22 +147,22 @@ class ResponseParser(AgentlyPlugin, Protocol):
         self,
         type: Literal["delta", "specific", "original"],
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> Generator[str, None, None]: ...
 
     @overload
     def get_generator(
         self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        type: "ResponseContentType" | None = "delta",
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> Generator: ...
 
     def get_generator(
         self,
-        type: Literal["all", "original", "delta", "specific", "instant", "streaming_parse"] | None = "delta",
+        type: "ResponseContentType" | None = "delta",
         *,
-        specific: list[str] | str | None = None,
+        specific: "SpecificEvents" = None,
     ) -> Generator:
         """
         'instant' is Agently v3 compatible for 'streaming_parse'

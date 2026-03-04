@@ -39,6 +39,12 @@ AgentlyModelResponseEvent = Literal[
 AgentlyModelResponseMessage: TypeAlias = tuple[AgentlyModelResponseEvent, Any]
 AgentlyResponseGenerator: TypeAlias = AsyncGenerator[AgentlyModelResponseMessage, None]
 
+NormalStreamingContentType: TypeAlias = Literal["delta", "original", "specific"]
+InstantStreamingContentType: TypeAlias = Literal["instant", "streaming_parse"]
+StreamingContentType: TypeAlias = NormalStreamingContentType | InstantStreamingContentType
+ResponseContentType: TypeAlias = Literal["all"] | StreamingContentType
+SpecificEvents: TypeAlias = list[AgentlyModelResponseEvent] | AgentlyModelResponseEvent | None
+
 
 class AgentlyModelResult(TypedDict):
     result_consumer: "GeneratorConsumer | None"
