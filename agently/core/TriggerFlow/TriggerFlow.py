@@ -203,7 +203,7 @@ class TriggerFlow:
         initial_value: Any = None,
         *,
         wait_for_result: bool = True,
-        timeout: int | None = 10,
+        timeout: float | None = 10.0,
         concurrency: int | None = None,
     ):
         execution = await self.async_start_execution(initial_value, concurrency=concurrency)
@@ -214,7 +214,7 @@ class TriggerFlow:
         self,
         initial_value: Any = None,
         *,
-        timeout: int | None = 10,
+        timeout: float | None = 10.0,
         concurrency: int | None = None,
     ):
         execution = self.create_execution(concurrency=concurrency)
