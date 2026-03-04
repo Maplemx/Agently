@@ -35,8 +35,13 @@ from agently.utils import (
 
 if TYPE_CHECKING:
     from agently.core import Prompt
-    from agently.types.data import AgentlyModelResult, AgentlyResponseGenerator, AgentlyModelResult, SerializableData
+    from agently.types.data import AgentlyModelResult, AgentlyResponseGenerator, SerializableData, SpecificEvents
     from agently.utils import Settings
+
+DEFAULT_SPECIFIC_EVENTS = cast(
+    "SpecificEvents",
+    ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+)
 
 
 class AgentlyResponseParser(ResponseParser):
@@ -285,7 +290,7 @@ class AgentlyResponseParser(ResponseParser):
         type: Literal['all', 'delta', 'specific', 'original', 'instant', 'streaming_parse'] | None = "delta",
         content: Literal['all', 'delta', 'specific', 'original', 'instant', 'streaming_parse'] | None = "delta",
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> AsyncGenerator:
         await self._ensure_consumer()
         parsed_generator = cast(GeneratorConsumer, self._response_consumer).get_async_generator()
@@ -332,7 +337,7 @@ class AgentlyResponseParser(ResponseParser):
         type: Literal['all', 'delta', 'specific', 'original', 'instant', 'streaming_parse'] | None = "delta",
         content: Literal['all', 'delta', 'specific', 'original', 'instant', 'streaming_parse'] | None = "delta",
         *,
-        specific: list[str] | str | None = ["reasoning_delta", "delta", "reasoning_done", "done", "tool_calls"],
+        specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
     ) -> Generator:
         asyncio.run(self._ensure_consumer())
         parsed_generator = cast(GeneratorConsumer, self._response_consumer).get_generator()

@@ -208,4 +208,4 @@ async def test_session_extension_register_analysis_and_resize_handler():
 def test_session_extension_register_resize_handler_rejects_empty_strategy():
     agent = Agently.create_agent()
     with pytest.raises(ValueError):
-        agent.register_session_resize_handler("", lambda *_: None)
+        agent.register_session_resize_handler("", lambda *_: None)  # type: ignore
