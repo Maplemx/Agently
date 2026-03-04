@@ -47,7 +47,7 @@
 |:--|:--|
 | 输出结构漂移、JSON 解析失败 | **契约式输出控制**：`output()` + `ensure_keys` 保障关键字段稳定出现 |
 | 工作流越来越复杂、难维护 | **TriggerFlow 编排**：`to` / `if` / `match` / `batch` / `for_each` 让逻辑可读可测 |
-| 多轮对话上下文不稳定 | **Session（v4.0.8+）**：会话激活、上下文窗口控制、自定义 memo 策略与持久化 |
+| 多轮对话上下文不稳定 | **Session（v4.0.8.1+）**：会话激活、上下文窗口控制、自定义 memo 策略与持久化 |
 | 工具调用不可追踪 | **工具日志**：`extra.tool_logs` 可审计、可复盘 |
 | 切换/升级模型成本高 | **统一模型配置**：`OpenAICompatible` 适配多家云端/本地模型 |
 
@@ -104,7 +104,7 @@ for msg in response.get_generator(type="instant"):
 )
 ```
 
-### 4) 🧠 Session 多轮上下文管理（v4.0.8+）
+### 4) 🧠 Session 多轮上下文管理（v4.0.8.1+）
 默认内置 `SessionExtension`，支持 `activate_session/deactivate_session`、上下文窗口控制、自定义 memo 策略与 JSON/YAML 持久化。
 
 ```python

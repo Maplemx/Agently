@@ -47,7 +47,7 @@ Many GenAI POCs fail in production not because models are weak, but because **en
 |:--|:--|
 | Output schema drifts, JSON parsing fails | **Contract‑first output control** with `output()` + `ensure_keys` |
 | Workflows get complex and hard to maintain | **TriggerFlow orchestration** with `to` / `if` / `match` / `batch` / `for_each` |
-| Multi‑turn state becomes unstable | **Session (v4.0.8+)** with session activation, context window control, custom memo strategy, and persistence |
+| Multi‑turn state becomes unstable | **Session (v4.0.8.1+)** with session activation, context window control, custom memo strategy, and persistence |
 | Tool calls are hard to audit | **Tool logs** via `extra.tool_logs` |
 | Switching models is expensive | **OpenAICompatible** unified model settings |
 
@@ -104,7 +104,7 @@ Readable, testable workflows with branching and concurrency.
 )
 ```
 
-### 4) 🧠 Session (Multi‑turn Context, v4.0.8+)
+### 4) 🧠 Session (Multi‑turn Context, v4.0.8.1+)
 Built-in `SessionExtension` with `activate_session/deactivate_session`, context window control, custom memo strategies, and JSON/YAML persistence.
 
 ```python
