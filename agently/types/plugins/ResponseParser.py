@@ -110,14 +110,14 @@ class ResponseParser(AgentlyPlugin, Protocol):
     @overload
     def get_async_generator(
         self,
-        type: "ResponseContentType" | None = "delta",
+        type: "ResponseContentType | None" = "delta",
         *,
         specific: "SpecificEvents" = None,
     ) -> AsyncGenerator: ...
 
     def get_async_generator(
         self,
-        type: "ResponseContentType" | None = "delta",
+        type: "ResponseContentType | None" = "delta",
         *,
         specific: "SpecificEvents" = None,
     ) -> AsyncGenerator:
@@ -153,14 +153,14 @@ class ResponseParser(AgentlyPlugin, Protocol):
     @overload
     def get_generator(
         self,
-        type: "ResponseContentType" | None = "delta",
+        type: "ResponseContentType | None" = "delta",
         *,
         specific: "SpecificEvents" = None,
     ) -> Generator: ...
 
     def get_generator(
         self,
-        type: "ResponseContentType" | None = "delta",
+        type: "ResponseContentType | None" = "delta",
         *,
         specific: "SpecificEvents" = None,
     ) -> Generator:
