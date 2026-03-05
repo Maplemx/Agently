@@ -16,6 +16,10 @@
 import uuid
 import asyncio
 import warnings
+import json
+import yaml
+from pathlib import Path
+from json import JSONDecodeError
 from contextvars import ContextVar
 
 from typing import Any, Literal, TYPE_CHECKING
@@ -93,6 +97,125 @@ class TriggerFlowExecution:
         self._system_runtime_data.set("result_ready", asyncio.Event())
         self._runtime_stream_queue = asyncio.Queue()
         self._runtime_stream_consumer: GeneratorConsumer | None = None
+
+    def _to_serializable_value(self, value: Any):
+        return json.loads(RuntimeData({"value": value}).dump("json"))["value"]
+
+    def save(
+        self,
+        path: str | Path | None = None,
+        *,
+        encoding: str | None = "utf-8",
+    ):
+        result = self._system_runtime_data.get("result")
+        result_ready = result is not EMPTY
+        state = {
+            "execution_id": self.id,
+            "runtime_data": json.loads(self._runtime_data.dump("json")),
+            "flow_data": json.loads(self._trigger_flow._flow_data.dump("json")),
+            "result": {
+                "ready": result_ready,
+                "value": self._to_serializable_value(result) if result_ready else None,
+            },
+        }
+        if path is None:
+            return state
+
+        target = Path(path)
+        suffix = target.suffix.lower()
+        if suffix in {".yaml", ".yml"}:
+            content = yaml.safe_dump(
+                state,
+                indent=2,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+        else:
+            content = json.dumps(
+                state,
+                indent=2,
+                ensure_ascii=False,
+            )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding=encoding)
+        return state
+
+    def load(
+        self,
+        state: dict[str, Any] | str | Path,
+        *,
+        encoding: str | None = "utf-8",
+    ):
+        if isinstance(state, (str, Path)):
+            path = Path(state)
+            is_file = False
+            try:
+                is_file = path.exists() and path.is_file()
+            except (OSError, ValueError):
+                is_file = False
+            if is_file:
+                suffix = path.suffix.lower()
+                content = path.read_text(encoding=encoding)
+                if suffix in {".yaml", ".yml"}:
+                    try:
+                        state = yaml.safe_load(content)
+                    except yaml.YAMLError as e:
+                        raise ValueError(f"Can not load TriggerFlowExecution state from YAML file '{ state }'.\nError: { e }")
+                else:
+                    try:
+                        state = json.loads(content)
+                    except JSONDecodeError as e:
+                        raise ValueError(f"Can not load TriggerFlowExecution state from JSON file '{ state }'.\nError: { e }")
+            elif isinstance(state, str):
+                original = state
+                try:
+                    state = json.loads(state)
+                except JSONDecodeError:
+                    try:
+                        state = yaml.safe_load(state)
+                    except yaml.YAMLError as e:
+                        raise ValueError(
+                            f"Can not load TriggerFlowExecution state from JSON/YAML content.\nError: { e }\nContent: { original }"
+                        )
+            else:
+                raise TypeError(f"Can not load TriggerFlowExecution state, expect dictionary/string/path but got: { type(state) }")
+
+        if state is None:
+            raise TypeError("Can not load TriggerFlowExecution state, got None.")
+
+        if not isinstance(state, dict):
+            raise TypeError(f"Can not load TriggerFlowExecution state, expect dictionary but got: { type(state) }")
+
+        runtime_data = state.get("runtime_data", {})
+        if not isinstance(runtime_data, dict):
+            raise TypeError(f"Can not load key 'runtime_data', expect dictionary but got: { type(runtime_data) }")
+
+        flow_data = state.get("flow_data", {})
+        if not isinstance(flow_data, dict):
+            raise TypeError(f"Can not load key 'flow_data', expect dictionary but got: { type(flow_data) }")
+
+        result_state = state.get("result", {})
+        if not isinstance(result_state, dict):
+            raise TypeError(f"Can not load key 'result', expect dictionary but got: { type(result_state) }")
+
+        ready = bool(result_state.get("ready", False))
+        result_value = result_state.get("value")
+
+        self._runtime_data.clear()
+        self._runtime_data.update(runtime_data)
+
+        self._trigger_flow._flow_data.clear()
+        self._trigger_flow._flow_data.update(flow_data)
+
+        result_ready = asyncio.Event()
+        if ready:
+            self._system_runtime_data.set("result", result_value)
+            result_ready.set()
+        else:
+            self._system_runtime_data.set("result", EMPTY)
+        self._system_runtime_data.set("result_ready", result_ready)
+
+        return self
 
     # Set Settings
     def set_settings(self, key: str, value: "SerializableValue"):
