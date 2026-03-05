@@ -26,28 +26,48 @@ from agently.utils import DataLocator
 
 class ConfigurePromptExtension(BaseAgent):
 
-    def get_json_prompt(self):
+    def get_json_prompt(
+        self,
+        save_to: str | Path | None = None,
+        *,
+        encoding: str | None = "utf-8",
+    ):
         prompt_data = {
             ".agent": self.agent_prompt.to_serializable_prompt_data(),
             ".request": self.request_prompt.to_serializable_prompt_data(),
         }
-        return json5.dumps(
+        content = json5.dumps(
             prompt_data,
             indent=2,
             ensure_ascii=False,
         )
+        if save_to is not None:
+            target = Path(save_to)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding=encoding)
+        return content
 
-    def get_yaml_prompt(self):
+    def get_yaml_prompt(
+        self,
+        save_to: str | Path | None = None,
+        *,
+        encoding: str | None = "utf-8",
+    ):
         prompt_data = {
             ".agent": self.agent_prompt.to_serializable_prompt_data(),
             ".request": self.request_prompt.to_serializable_prompt_data(),
         }
-        return yaml.safe_dump(
+        content = yaml.safe_dump(
             prompt_data,
             indent=2,
             allow_unicode=True,
             sort_keys=False,
         )
+        if save_to is not None:
+            target = Path(save_to)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding=encoding)
+        return content
 
     def _generate_output_value(self, output_prompt_value: Any):
         if isinstance(output_prompt_value, dict):
