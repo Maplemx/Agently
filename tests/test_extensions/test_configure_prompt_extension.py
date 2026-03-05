@@ -37,5 +37,6 @@ def test_get_json_yaml_prompt_save_to_file(tmp_path: Path):
 
     json_data = json5.loads(json_prompt)
     yaml_data = yaml.safe_load(yaml_prompt)
+    assert isinstance(json_data, dict)
     assert json_data[".request"]["input"] == "demo input"
     assert yaml_data[".request"]["input"] == "demo input"
