@@ -107,3 +107,23 @@ def test_json_with_nested_and_comments():
     assert chosen_json is not None
 
     run_complete_and_parse(chosen_json, ["user", "data"])
+
+
+def test_locate_output_json_with_root_list_schema():
+    model_output = """
+    Here is an object:
+    {"meta": {"count": 1}}
+
+    Here is the actual result:
+    [
+      {"title": "A"},
+      {"title": "B"}
+    ]
+    """
+
+    chosen_json = DataLocator.locate_output_json(model_output, [{"title": None}])
+    assert chosen_json is not None
+
+    parsed = json5.loads(chosen_json)
+    assert isinstance(parsed, list)
+    assert parsed[0]["title"] == "A"

@@ -22,6 +22,20 @@ if TYPE_CHECKING:
 
 class DataLocator:
     @staticmethod
+    def _is_structure_sequence(value: Any) -> bool:
+        return not isinstance(value, str) and isinstance(value, Sequence)
+
+    @staticmethod
+    def _matches_output_schema_shape(parsed_json: Any, output_prompt: "SerializableData") -> bool:
+        if isinstance(output_prompt, Mapping):
+            return isinstance(parsed_json, Mapping) and (
+                len(output_prompt) == 0 or any(key in parsed_json for key in output_prompt.keys())
+            )
+        if DataLocator._is_structure_sequence(output_prompt):
+            return DataLocator._is_structure_sequence(parsed_json)
+        return False
+
+    @staticmethod
     def _locate_path_parts(
         result: Any,
         path_parts: list[str],
@@ -216,15 +230,11 @@ class DataLocator:
         if len(all_json) == 1:
             return all_json[0]
         else:
-            for index, json_string in enumerate(all_json):
-                if index + 1 == len(all_json):
-                    break
+            for json_string in all_json[:-1]:
                 try:
-                    temp = json5.loads(json_string)
-                    if isinstance(temp, dict):
-                        for key in temp.keys():
-                            if key in output_prompt_dict:
-                                return json_string
-                except:
+                    parsed_json = json5.loads(json_string)
+                    if DataLocator._matches_output_schema_shape(parsed_json, output_prompt_dict):
+                        return json_string
+                except Exception:
                     continue
             return all_json[-1]

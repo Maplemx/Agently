@@ -27,10 +27,13 @@ from typing import (
     cast,
 )
 from pydantic import (
+    BaseModel,
+    ConfigDict,
     PlainValidator,
     TypeAdapter,
     Field,
     create_model,
+    model_validator,
 )
 
 from agently.types.plugins import PromptGenerator
@@ -54,6 +57,31 @@ class AgentlyPromptGenerator(PromptGenerator):
             }
         }
     }
+
+    class _RootListOutputModelMixin(BaseModel):
+        model_config = ConfigDict(extra="allow")
+
+        @model_validator(mode="before")
+        @classmethod
+        def _wrap_root_list(cls, value: Any):
+            if not isinstance(value, Mapping) and isinstance(value, Sequence) and not isinstance(value, str):
+                return {"list": value}
+            return value
+
+        @property
+        def root(self):
+            return getattr(self, "list")
+
+        def __iter__(self):
+            value = getattr(self, "list", None)
+            return iter(value if value is not None else [])
+
+        def __len__(self):
+            value = getattr(self, "list", None)
+            return len(value) if isinstance(value, list) else 0
+
+        def __getitem__(self, index):
+            return getattr(self, "list")[index]
 
     def __init__(
         self,
@@ -249,14 +277,13 @@ class AgentlyPromptGenerator(PromptGenerator):
         if prompt_object.output:
             match prompt_object.output_format:
                 case "json":
-                    final_output_dict = {}
-                    final_output_dict.update(prompt_object.output)
+                    final_output = DataFormatter.sanitize(prompt_object.output)
                     prompt_text_list.extend(
                         [
                             f"[{ prompt_title_mapping.get('output_requirement', 'OUTPUT REQUIREMENT') }]:",
                             "Data Format: JSON",
                             "Data Structure:",
-                            self._generate_json_output_prompt(DataFormatter.sanitize(final_output_dict)),
+                            self._generate_json_output_prompt(final_output),
                             "",
                         ]
                     )
@@ -741,9 +768,16 @@ class AgentlyPromptGenerator(PromptGenerator):
                 DataFormatter.sanitize(output_prompt, remain_type=True),
             )
         else:
-            return self._generate_output_model(
+            return create_model(
                 "AgentlyOutput",
-                {"list": DataFormatter.sanitize(output_prompt, remain_type=True)},
+                __base__=self._RootListOutputModelMixin,
+                list=(
+                    self._generate_output_model(
+                        "AgentlyOutput_List",
+                        DataFormatter.sanitize(output_prompt, remain_type=True),
+                    ),
+                    None,
+                ),
             )
 
     def _to_serializable_output_prompt(self, output_prompt_part: Any):

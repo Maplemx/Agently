@@ -134,6 +134,42 @@ assistant:"""
     # Receive warning when using pytest test_prompt -s
 
 
+def test_to_text_with_root_list_output():
+    Agently.set_settings("plugins.PromptGenerator.name", "AgentlyPromptGenerator")
+    prompt = Prompt(Agently.plugin_manager, Agently.settings)
+    prompt.update(
+        {
+            "input": "Hello",
+            "output": [
+                {
+                    "title": (str, "news title"),
+                    "url": (str, "news url"),
+                }
+            ],
+        }
+    )
+    assert (
+        prompt.to_text()
+        == """user:
+[INPUT]:
+Hello
+
+[OUTPUT REQUIREMENT]:
+Data Format: JSON
+Data Structure:
+[
+  {
+    "title": <str>, // news title
+    "url": <str> // news url
+  },
+  ...
+]
+
+[OUTPUT]:
+assistant:"""
+    )
+
+
 def test_empty_prompt():
     Agently.set_settings("plugins.PromptGenerator.name", "AgentlyPromptGenerator")
     prompt = Prompt(Agently.plugin_manager, Agently.settings)
@@ -250,6 +286,12 @@ def test_output_model():
     test_data = ["456"]
     output: "BaseModel" = MyOutputModel.model_validate({"list": test_data})
     assert output.model_dump()["list"] == [456]
+
+    output_from_raw_list: "BaseModel" = MyOutputModel.model_validate(test_data)
+    assert output_from_raw_list.model_dump()["list"] == [456]
+    assert output_from_raw_list.root == [456]
+    assert list(output_from_raw_list) == [456]
+    assert output_from_raw_list[0] == 456
 
 
 def test_rich_prompt():

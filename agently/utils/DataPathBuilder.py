@@ -101,12 +101,14 @@ class DataPathBuilder:
         return "".join(dot_parts)
 
     @staticmethod
-    def extract_possible_paths(agently_output_dict: dict[str, Any], *, style: Literal["dot", "slash"] = "dot"):
+    def extract_possible_paths(
+        agently_output_dict: Mapping[str, Any] | Sequence[Any], *, style: Literal["dot", "slash"] = "dot"
+    ):
         """
-        Extract Agently style output dictionary to find all possible paths from model structured response.
+        Extract Agently style output structure to find all possible paths from model structured response.
         """
-        if not isinstance(agently_output_dict, dict):
-            raise TypeError("extract_all_paths expects a dict[str, Any] as input")
+        if not isinstance(agently_output_dict, (Mapping, Sequence)) or isinstance(agently_output_dict, str):
+            raise TypeError("extract_all_paths expects a mapping or sequence as input")
         all_paths: set[str] = set()
 
         def extract_paths(value: Any, path_keys: list[str | int]):
@@ -143,7 +145,7 @@ class DataPathBuilder:
 
     @staticmethod
     def extract_parsing_key_orders(
-        agently_output_dict: dict[str, Any], *, style: Literal["dot", "slash"] = "dot"
+        agently_output_dict: Mapping[str, Any] | Sequence[Any], *, style: Literal["dot", "slash"] = "dot"
     ) -> list[str]:
         """
         Traverse the schema in recursive order and return a list of paths preserving the field definition order.
@@ -211,16 +213,16 @@ class DataPathBuilder:
         data: Mapping[str, Any] | Sequence[Any], path: str, *, style: Literal["dot", "slash"] = "dot"
     ) -> Any:
         """
-        Retrieve the value from a dictionary based on the given path.
+        Retrieve the value from a mapping/list based on the given path.
         If the path does not exist, return None.
 
-        :param data: The dictionary to search.
+        :param data: The mapping/list to search.
         :param path: The path to the desired value (dot or slash style).
         :param style: The style of the path, either "dot" or "slash".
         :return: The value at the specified path, or None if not found.
         """
-        if not isinstance(data, dict):
-            raise TypeError("The data parameter must be a dictionary.")
+        if not isinstance(data, (Mapping, Sequence)) or isinstance(data, str):
+            raise TypeError("The data parameter must be a mapping or sequence.")
 
         if not path:
             return None

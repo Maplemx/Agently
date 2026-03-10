@@ -155,3 +155,39 @@ async def test_streaming_json_parser_edge_cases():
     languages_deltas = [e for e in delta_events if e.path.startswith("profile.preferences.languages")]
     assert languages_deltas
     assert events.index(languages_deltas[-1]) < events.index(languages_done)
+
+
+@pytest.mark.asyncio
+async def test_streaming_json_parser_root_list_schema():
+    schema = [
+        {
+            "title": (str,),
+            "url": (str,),
+            "tags": [(str,)],
+        }
+    ]
+
+    chunks = [
+        '[{"title": "B',
+        'reaking News", "url": "https://example.com/news", "tags": ["world", "top"]}]',
+    ]
+
+    parser = StreamingJSONParser(schema)
+    events = []
+    for chunk in chunks:
+        async for item in parser.parse_chunk(chunk):
+            events.append(item)
+    async for item in parser.finalize():
+        events.append(item)
+
+    done_events = [e for e in events if e.event_type == "done"]
+    delta_events = [e for e in events if e.event_type == "delta"]
+
+    title_done = next((e for e in done_events if e.path == "[0].title"), None)
+    tags_done = next((e for e in done_events if e.path == "[0].tags"), None)
+
+    assert title_done is not None
+    assert title_done.value == "Breaking News"
+    assert tags_done is not None
+    assert tags_done.value == ["world", "top"]
+    assert any(e.path == "[0].title" and e.delta for e in delta_events)
