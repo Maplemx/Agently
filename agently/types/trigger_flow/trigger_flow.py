@@ -19,6 +19,7 @@ from agently.types.data import AVOID_COPY
 
 if TYPE_CHECKING:
     from agently.core import TriggerFlowExecution
+    from agently.core.TriggerFlow.Signal import TriggerFlowSignal
 
 from agently.utils import RuntimeData
 
@@ -40,19 +41,25 @@ class TriggerFlowEventData:
         self,
         *,
         trigger_event: str,
-        trigger_type: Literal["event", "runtime_data", "flow_data"],
+        trigger_type: Literal["event", "runtime_data", "flow_data", "collect"],
         value: Any,
         execution: "TriggerFlowExecution",
         _layer_marks: list[str] | None = None,
+        signal: "TriggerFlowSignal | None" = None,
     ):
         self.trigger_event = trigger_event
-        self.trigger_type = trigger_type
+        self.trigger_type: Literal["event", "runtime_data", "flow_data", "collect"] = trigger_type
         self.event = trigger_event
         self.type = trigger_type
         self.value = value
+        self.execution = execution
         self.execution_id = execution.id
         self._layer_marks = _layer_marks if _layer_marks is not None else []
         self.settings = execution.settings
+        self.signal = signal
+        self.signal_id = signal.id if signal is not None else None
+        self.signal_source = signal.source if signal is not None else None
+        self.signal_meta = signal.meta.copy() if signal is not None else {}
 
         self.get_flow_data = execution.get_flow_data
         self.set_flow_data = execution.set_flow_data
@@ -79,6 +86,19 @@ class TriggerFlowEventData:
         self.async_put_into_stream = execution.async_put_into_stream
         self.stop_stream = execution.stop_stream
         self.async_stop_stream = execution.async_stop_stream
+
+        self.pause_for = execution.pause_for
+        self.async_pause_for = execution.async_pause_for
+        self.continue_with = execution.continue_with
+        self.async_continue_with = execution.async_continue_with
+        self.get_status = execution.get_status
+        self.is_waiting = execution.is_waiting
+        self.get_interrupt = execution.get_interrupt
+        self.get_pending_interrupts = execution.get_pending_interrupts
+
+        self.set_result = execution.set_result
+        self.get_result = execution.get_result
+        self.get_last_signal = execution.get_last_signal
 
         self._system_runtime_data = execution._system_runtime_data
 

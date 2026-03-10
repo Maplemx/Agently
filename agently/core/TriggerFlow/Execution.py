@@ -32,6 +32,16 @@ if TYPE_CHECKING:
 from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer, Settings
 from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP
 from agently.types.data import EMPTY
+from .Control import (
+    TriggerFlowPauseSignal,
+    TRIGGER_FLOW_STATUS_CANCELLED,
+    TRIGGER_FLOW_STATUS_COMPLETED,
+    TRIGGER_FLOW_STATUS_CREATED,
+    TRIGGER_FLOW_STATUS_FAILED,
+    TRIGGER_FLOW_STATUS_RUNNING,
+    TRIGGER_FLOW_STATUS_WAITING,
+)
+from .Signal import TriggerFlowSignal, TriggerFlowSignalType
 
 
 class TriggerFlowExecution:
@@ -88,11 +98,19 @@ class TriggerFlowExecution:
         self.put_into_stream = FunctionShifter.syncify(self.async_put_into_stream)
         self.stop_stream = FunctionShifter.syncify(self.async_stop_stream)
 
+        # Pause / Continue
+        self.pause_for = FunctionShifter.syncify(self.async_pause_for)
+        self.continue_with = FunctionShifter.syncify(self.async_continue_with)
+
         # Result
         self.get_result = FunctionShifter.syncify(self.async_get_result)
 
         # Execution Status
         self._started = False
+        self._status = TRIGGER_FLOW_STATUS_CREATED
+        self._system_runtime_data.set("status", self._status)
+        self._system_runtime_data.set("interrupts", {})
+        self._system_runtime_data.set("last_signal", None)
         self._system_runtime_data.set("result", EMPTY)
         self._system_runtime_data.set("result_ready", asyncio.Event())
         self._runtime_stream_queue = asyncio.Queue()
@@ -100,6 +118,78 @@ class TriggerFlowExecution:
 
     def _to_serializable_value(self, value: Any):
         return json.loads(RuntimeData({"value": value}).dump("json"))["value"]
+
+    def _set_status(self, status: str):
+        self._status = status
+        self._system_runtime_data.set("status", status)
+
+    def get_status(self):
+        return self._status
+
+    def is_waiting(self):
+        return self._status == TRIGGER_FLOW_STATUS_WAITING
+
+    def _get_interrupts(self) -> dict[str, Any]:
+        interrupts = self._system_runtime_data.get("interrupts", {}, inherit=False)
+        return interrupts if isinstance(interrupts, dict) else {}
+
+    def get_interrupt(self, interrupt_id: str):
+        return self._get_interrupts().get(interrupt_id)
+
+    def get_pending_interrupts(self):
+        return {
+            interrupt_id: interrupt
+            for interrupt_id, interrupt in self._get_interrupts().items()
+            if isinstance(interrupt, dict) and interrupt.get("status") == "waiting"
+        }
+
+    def _serialize_signal(self, signal: TriggerFlowSignal | dict[str, Any] | None):
+        if signal is None:
+            return None
+        if isinstance(signal, TriggerFlowSignal):
+            return self._to_serializable_value(signal.to_state_dict())
+        return self._to_serializable_value(signal)
+
+    def _restore_signal(self, signal_state: dict[str, Any] | None):
+        if not isinstance(signal_state, dict):
+            return None
+        try:
+            return TriggerFlowSignal(
+                id=str(signal_state.get("id")),
+                trigger_event=str(signal_state.get("trigger_event")),
+                trigger_type=signal_state.get("trigger_type", "event"),
+                value=signal_state.get("value"),
+                layer_marks=list(signal_state.get("layer_marks", [])),
+                source=str(signal_state.get("source", "runtime")),
+                meta=dict(signal_state.get("meta", {})),
+            )
+        except Exception:
+            return None
+
+    def _build_signal(
+        self,
+        trigger_event: str,
+        value: Any = None,
+        _layer_marks: list[str] | None = None,
+        *,
+        trigger_type: TriggerFlowSignalType = "event",
+        source: str = "runtime",
+        meta: dict[str, Any] | None = None,
+    ):
+        return TriggerFlowSignal.create(
+            trigger_event=trigger_event,
+            trigger_type=trigger_type,
+            value=value,
+            layer_marks=_layer_marks,
+            source=source,
+            meta=meta,
+        )
+
+    def _remember_signal(self, signal: TriggerFlowSignal):
+        self._system_runtime_data.set("last_signal", signal.to_state_dict())
+
+    def get_last_signal(self):
+        return self._restore_signal(self._system_runtime_data.get("last_signal", None, inherit=False))
 
     def save(
         self,
@@ -111,8 +201,11 @@ class TriggerFlowExecution:
         result_ready = result is not EMPTY
         state = {
             "execution_id": self.id,
+            "status": self._status,
             "runtime_data": json.loads(self._runtime_data.dump("json")),
             "flow_data": json.loads(self._trigger_flow._flow_data.dump("json")),
+            "interrupts": self._to_serializable_value(self._get_interrupts()),
+            "last_signal": self._serialize_signal(self.get_last_signal()),
             "result": {
                 "ready": result_ready,
                 "value": self._to_serializable_value(result) if result_ready else None,
@@ -194,12 +287,21 @@ class TriggerFlowExecution:
         if not isinstance(flow_data, dict):
             raise TypeError(f"Can not load key 'flow_data', expect dictionary but got: { type(flow_data) }")
 
+        interrupts = state.get("interrupts", {})
+        if not isinstance(interrupts, dict):
+            raise TypeError(f"Can not load key 'interrupts', expect dictionary but got: { type(interrupts) }")
+
+        last_signal_state = state.get("last_signal", None)
+        if last_signal_state is not None and not isinstance(last_signal_state, dict):
+            raise TypeError(f"Can not load key 'last_signal', expect dictionary/None but got: { type(last_signal_state) }")
+
         result_state = state.get("result", {})
         if not isinstance(result_state, dict):
             raise TypeError(f"Can not load key 'result', expect dictionary but got: { type(result_state) }")
 
         ready = bool(result_state.get("ready", False))
         result_value = result_state.get("value")
+        status = str(state.get("status", TRIGGER_FLOW_STATUS_CREATED))
 
         self._runtime_data.clear()
         self._runtime_data.update(runtime_data)
@@ -214,6 +316,10 @@ class TriggerFlowExecution:
         else:
             self._system_runtime_data.set("result", EMPTY)
         self._system_runtime_data.set("result_ready", result_ready)
+        self._system_runtime_data.set("interrupts", interrupts)
+        self._system_runtime_data.set("last_signal", last_signal_state)
+        self._set_status(status)
+        self._started = status != TRIGGER_FLOW_STATUS_CREATED or bool(runtime_data) or ready or bool(interrupts)
 
         return self
 
@@ -235,29 +341,40 @@ class TriggerFlowExecution:
         _layer_marks: list[str] | None = None,
         *,
         trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
+        _source: str = "runtime",
+        _meta: dict[str, Any] | None = None,
     ):
+        signal = self._build_signal(
+            trigger_event,
+            value,
+            _layer_marks,
+            trigger_type=trigger_type,
+            source=_source,
+            meta=_meta,
+        )
+        return await self._async_dispatch_signal(signal)
+
+    async def _async_dispatch_signal(self, signal: TriggerFlowSignal):
         from agently.base import async_system_message
 
+        self._remember_signal(signal)
         await async_system_message(
             "TRIGGER_FLOW",
-            {
-                "TYPE": trigger_type,
-                "EVENT": trigger_event,
-                "VALUE": value,
-            },
+            signal.to_debug_dict(),
             self.settings,
         )
         tasks = []
-        handlers = self._handlers[trigger_type]
+        handlers = self._handlers[signal.trigger_type]
 
-        if trigger_event in handlers:
-            for handler_id, handler in handlers[trigger_event].items():
+        if signal.trigger_event in handlers:
+            for handler_id, handler in handlers[signal.trigger_event].items():
                 await async_system_message(
                     "TRIGGER_FLOW",
                     {
-                        "EVENT": trigger_event,
-                        "TYPE": trigger_type,
+                        "EVENT": signal.trigger_event,
+                        "TYPE": signal.trigger_type,
                         "HANDLER": handler_id,
+                        "SIGNAL_ID": signal.id,
                     },
                     self.settings,
                 )
@@ -277,17 +394,22 @@ class TriggerFlowExecution:
 
                 handler_task = FunctionShifter.asyncify(handler)(
                     TriggerFlowEventData(
-                        trigger_event=trigger_event,
-                        trigger_type=trigger_type,
-                        value=value,
+                        trigger_event=signal.trigger_event,
+                        trigger_type=signal.trigger_type,
+                        value=signal.value,
                         execution=self,
-                        _layer_marks=_layer_marks,
+                        _layer_marks=signal.layer_marks.copy(),
+                        signal=signal,
                     )
                 )
                 tasks.append(asyncio.ensure_future(run_handler(handler_task)))
 
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=self._skip_exceptions)
+            try:
+                await asyncio.gather(*tasks, return_exceptions=self._skip_exceptions)
+            except Exception:
+                self._set_status(TRIGGER_FLOW_STATUS_FAILED)
+                raise
 
     # Change Runtime Data
     async def _async_change_runtime_data(
@@ -361,9 +483,92 @@ class TriggerFlowExecution:
         wait_for_result: bool = True,
         timeout: float | None = 10,
     ):
-        await self.async_emit("START", initial_value)
+        if not self._started:
+            self._started = True
+            if self._status not in {TRIGGER_FLOW_STATUS_COMPLETED, TRIGGER_FLOW_STATUS_FAILED, TRIGGER_FLOW_STATUS_CANCELLED}:
+                self._set_status(TRIGGER_FLOW_STATUS_RUNNING)
+            await self._async_dispatch_signal(
+                self._build_signal(
+                    "START",
+                    initial_value,
+                    trigger_type="event",
+                    source="start",
+                )
+            )
         if wait_for_result:
             return await self.async_get_result(timeout=timeout)
+
+    # Pause / Continue
+    async def async_pause_for(
+        self,
+        *,
+        type: str = "pause",
+        payload: Any = None,
+        resume_event: str | None = None,
+        interrupt_id: str | None = None,
+    ):
+        interrupt_id = interrupt_id if interrupt_id is not None else uuid.uuid4().hex
+        interrupts = self._get_interrupts().copy()
+        interrupt = {
+            "id": interrupt_id,
+            "type": type,
+            "payload": payload,
+            "resume_event": resume_event,
+            "status": "waiting",
+        }
+        interrupts[interrupt_id] = interrupt
+        self._system_runtime_data.set("interrupts", interrupts)
+        self._set_status(TRIGGER_FLOW_STATUS_WAITING)
+        await self.async_put_into_stream(
+            {
+                "type": "interrupt",
+                "action": "pause",
+                "execution_id": self.id,
+                "interrupt": self._to_serializable_value(interrupt),
+                "signal": self._serialize_signal(self.get_last_signal()),
+            }
+        )
+        return TriggerFlowPauseSignal(interrupt)
+
+    async def async_continue_with(
+        self,
+        interrupt_id: str,
+        value: Any = None,
+    ):
+        interrupts = self._get_interrupts().copy()
+        if interrupt_id not in interrupts:
+            raise KeyError(f"Can not continue execution { self.id }, interrupt '{ interrupt_id }' not found.")
+        interrupt = dict(interrupts[interrupt_id])
+        if interrupt.get("status") != "waiting":
+            raise ValueError(
+                f"Can not continue execution { self.id }, interrupt '{ interrupt_id }' is not waiting."
+            )
+        interrupt["status"] = "resumed"
+        interrupt["response"] = value
+        interrupts[interrupt_id] = interrupt
+        self._system_runtime_data.set("interrupts", interrupts)
+        self._set_status(TRIGGER_FLOW_STATUS_RUNNING)
+        await self.async_put_into_stream(
+            {
+                "type": "interrupt",
+                "action": "resume",
+                "execution_id": self.id,
+                "interrupt": self._to_serializable_value(interrupt),
+                "value": self._to_serializable_value(value),
+            }
+        )
+        resume_event = interrupt.get("resume_event")
+        if resume_event:
+            await self._async_dispatch_signal(
+                self._build_signal(
+                    str(resume_event),
+                    value,
+                    trigger_type="event",
+                    source="interrupt",
+                    meta={"interrupt_id": interrupt_id},
+                )
+            )
+        return interrupt
 
     # Runtime Stream
     async def async_put_into_stream(self, stream_item: Any):
@@ -447,6 +652,7 @@ class TriggerFlowExecution:
         result_ready = self._system_runtime_data.get("result_ready")
         if isinstance(result_ready, asyncio.Event):
             result_ready.set()
+        self._set_status(TRIGGER_FLOW_STATUS_COMPLETED)
 
     async def async_get_result(self, *, timeout: float | None = None):
         if timeout is None:

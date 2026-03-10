@@ -15,7 +15,7 @@ from typing import Sequence, TYPE_CHECKING
 if TYPE_CHECKING:
     from agently.types.trigger_flow import TriggerFlowEventData
 
-from agently.core.TriggerFlow.process import TriggerFlowBaseProcess
+from .BaseProcess import TriggerFlowBaseProcess
 from agently.types.data import EMPTY
 from agently.types.trigger_flow import TriggerFlowBlockData
 from agently.utils import RuntimeDataNamespace
@@ -28,10 +28,11 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             outer_block=self._block_data,
             data={
                 "for_each_id": for_each_id,
+                "definition_outer_group_id": self._definition_group_id,
+                "definition_outer_group_kind": self._definition_group_kind,
             },
         )
         send_item_trigger = f"ForEach-{ for_each_id }-Send"
-        semaphore = asyncio.Semaphore(concurrency) if concurrency and concurrency > 0 else None
 
         async def send_items(data: "TriggerFlowEventData"):
             data.layer_in()
@@ -50,13 +51,18 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                 return item_id, layer_marks, item
 
             async def emit_item(item, layer_marks):
-                if semaphore is None:
+                if concurrency is None or concurrency <= 0:
                     await data.async_emit(
                         send_item_trigger,
                         item,
                         layer_marks,
                     )
                 else:
+                    semaphore_key = f"for_each_semaphores.{ for_each_id }"
+                    semaphore = data._system_runtime_data.get(semaphore_key, inherit=False)
+                    if not isinstance(semaphore, asyncio.Semaphore):
+                        semaphore = asyncio.Semaphore(concurrency)
+                        data._system_runtime_data.set(semaphore_key, semaphore)
                     async with semaphore:
                         await data.async_emit(
                             send_item_trigger,
@@ -74,13 +80,30 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                 _, layer_marks, item_value = prepare_item(data.value)
                 await emit_item(item_value, layer_marks)
 
-        self.to(send_items)
+        self._blue_print.add_handler(
+            self.trigger_type,
+            self.trigger_event,
+            send_items,
+        )
+        self._blue_print.definition.add_operator(
+            id=f"for_each-split-{ for_each_id }",
+            kind="for_each_split",
+            name=f"for_each:{ for_each_id }",
+            listen_signals=self._definition_signals,
+            emit_signals=[self._event_signal(send_item_trigger, role="continuation")],
+            options={"concurrency": concurrency},
+            group_id=for_each_id,
+            group_kind="for_each",
+        )
 
         return self._new(
             trigger_event=send_item_trigger,
             trigger_type="event",
             blue_print=self._blue_print,
             block_data=for_each_block_data,
+            definition_signals=[self._event_signal(send_item_trigger)],
+            definition_group_id=for_each_id,
+            definition_group_kind="for_each",
         )
 
     def end_for_each(self):
@@ -104,7 +127,6 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                     if value is EMPTY:
                         return
 
-                # double out to restore upper for each id and item id
                 data.layer_out()
                 data.layer_out()
 
@@ -115,7 +137,20 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
                 )
                 for_each_results.delete(for_each_instance_id)
 
-        self.to(collect_results)
+        self._blue_print.add_handler(
+            self.trigger_type,
+            self.trigger_event,
+            collect_results,
+        )
+        self._blue_print.definition.add_operator(
+            id=f"for_each-collect-{ for_each_id }",
+            kind="for_each_collect",
+            name=f"for_each_collect:{ for_each_id }",
+            listen_signals=self._definition_signals,
+            emit_signals=[self._event_signal(end_for_each_trigger, role="continuation")],
+            group_id=for_each_id,
+            group_kind="for_each",
+        )
 
         outer_block = self._block_data.outer_block
         block_data = outer_block if outer_block is not None else TriggerFlowBlockData()
@@ -125,4 +160,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             trigger_type="event",
             blue_print=self._blue_print,
             block_data=block_data,
+            definition_signals=[self._event_signal(end_for_each_trigger)],
+            definition_group_id=self._block_data.data.get("definition_outer_group_id"),
+            definition_group_kind=self._block_data.data.get("definition_outer_group_kind"),
         )

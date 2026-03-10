@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import uuid
+import copy
 import asyncio
 
 from typing import Callable, Literal, TYPE_CHECKING
@@ -34,13 +35,20 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             outer_block=self._block_data,
         )
         match_id = uuid.uuid4().hex
+        result_signal = self._event_signal(f"Match-{ match_id }-Result", role="continuation")
+        route_operator_id = f"match-route-{ match_id }"
         match_block_data.data.update(
             {
                 "match_id": match_id,
                 "cases": {},
                 "branch_ends": [],
+                "definition_branch_ends": [],
                 "is_first_case": True,
                 "has_else": False,
+                "definition_outer_group_id": self._definition_group_id,
+                "definition_outer_group_kind": self._definition_group_kind,
+                "definition_route_operator_id": route_operator_id,
+                "definition_result_signal": result_signal,
             }
         )
 
@@ -61,11 +69,12 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                             _layer_marks=data._layer_marks.copy(),
                         )
                         return
-                    elif mode == "hit_all":
+                    if mode == "hit_all":
                         data.layer_in()
                         matched_count += 1
                         data._system_runtime_data.set(
-                            f"match_results.{ data.upper_layer_mark }.{ data.layer_mark }", EMPTY
+                            f"match_results.{ data.upper_layer_mark }.{ data.layer_mark }",
+                            EMPTY,
                         )
                         tasks.append(
                             data.async_emit(
@@ -90,18 +99,38 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                         _layer_marks=data._layer_marks.copy(),
                     )
 
-        self.to(match_case)
+        self._blue_print.add_handler(
+            self.trigger_type,
+            self.trigger_event,
+            match_case,
+        )
+        self._blue_print.definition.add_operator(
+            id=route_operator_id,
+            kind="match_route",
+            name=f"match:{ match_id }",
+            listen_signals=self._definition_signals,
+            emit_signals=[result_signal],
+            options={
+                "mode": mode,
+                "cases": [],
+            },
+            group_id=match_id,
+            group_kind="match",
+        )
 
         return self._new(
             trigger_event=self.trigger_event,
             trigger_type=self.trigger_type,
             blue_print=self._blue_print,
             block_data=match_block_data,
+            definition_signals=self._definition_signals,
+            definition_group_id=match_id,
+            definition_group_kind="match",
         )
 
     def case(self, condition: "TriggerFlowConditionHandler | SerializableValue"):
         if "match_id" not in self._block_data.data:
-            raise NotImplementedError(f"Cannot use .case() before .match().")
+            raise NotImplementedError("Cannot use .case() before .match().")
 
         match_id = self._block_data.data["match_id"]
         case_id = uuid.uuid4().hex
@@ -113,43 +142,104 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
         else:
             if not self.trigger_event.startswith(f"Match-{ match_id }"):
                 self._block_data.data["branch_ends"].append(self.trigger_event)
+                self._block_data.data["definition_branch_ends"].extend(copy.deepcopy(self._definition_signals))
 
         case_trigger = f"Match-{ match_id }-Case-{ case_id }"
+        branch_trigger = f"Match-{ match_id }-Case-{ case_id }-Branch"
+        condition_ref = None
+        condition_value = None
+        if callable(condition):
+            condition_ref = self._blue_print._register_callable("condition", condition, strict=False, name=None)
+        else:
+            condition_value = condition
+
+        route_operator = self._blue_print.definition.get_operator(self._block_data.data["definition_route_operator_id"])
+        route_operator["options"]["cases"].append(
+            {
+                "case_id": case_id,
+                "route_signal": self._event_signal(case_trigger),
+                "condition_ref": copy.deepcopy(condition_ref) if condition_ref is not None else None,
+                "condition_value": condition_value,
+                "is_else": False,
+            }
+        )
+        route_operator["emit_signals"] = [
+            *route_operator["emit_signals"],
+            self._event_signal(case_trigger),
+        ]
+        self._blue_print.definition.add_operator(
+            id=f"match-case-{ case_id }",
+            kind="match_case",
+            name=f"case:{ case_id }",
+            listen_signals=[self._event_signal(case_trigger)],
+            emit_signals=[self._event_signal(branch_trigger, role="continuation")],
+            condition_ref=condition_ref,
+            options={"condition_value": condition_value} if condition_ref is None else {},
+            group_id=match_id,
+            group_kind="match",
+        )
+
         return self._new(
             trigger_event=case_trigger,
             trigger_type="event",
             blue_print=self._blue_print,
             block_data=self._block_data,
+            definition_signals=[self._event_signal(branch_trigger)],
+            definition_group_id=match_id,
+            definition_group_kind="match",
         )
 
     def case_else(self):
         if "match_id" not in self._block_data.data:
-            raise NotImplementedError(f"Cannot use .case() before .match().")
+            raise NotImplementedError("Cannot use .case() before .match().")
 
         self._block_data.data["has_else"] = True
         match_id = self._block_data.data["match_id"]
         is_first_case = self._block_data.data["is_first_case"]
         if is_first_case:
-            raise NotImplementedError(f"Cannot use .case_else() before any .case().")
-        else:
-            if not self.trigger_event.startswith(f"Match-{ match_id }"):
-                self._block_data.data["branch_ends"].append(self.trigger_event)
+            raise NotImplementedError("Cannot use .case_else() before any .case().")
+        if not self.trigger_event.startswith(f"Match-{ match_id }"):
+            self._block_data.data["branch_ends"].append(self.trigger_event)
+            self._block_data.data["definition_branch_ends"].extend(copy.deepcopy(self._definition_signals))
 
         else_trigger = f"Match-{ match_id }-Else"
+        branch_trigger = f"Match-{ match_id }-Else-Branch"
+        route_operator = self._blue_print.definition.get_operator(self._block_data.data["definition_route_operator_id"])
+        route_operator["options"]["else_signal"] = self._event_signal(else_trigger)
+        route_operator["emit_signals"] = [
+            *route_operator["emit_signals"],
+            self._event_signal(else_trigger),
+        ]
+        self._blue_print.definition.add_operator(
+            id=f"match-else-{ match_id }",
+            kind="match_case",
+            name=f"else:{ match_id }",
+            listen_signals=[self._event_signal(else_trigger)],
+            emit_signals=[self._event_signal(branch_trigger, role="continuation")],
+            options={"is_else": True},
+            group_id=match_id,
+            group_kind="match",
+        )
+
         return self._new(
             trigger_event=else_trigger,
             trigger_type="event",
             blue_print=self._blue_print,
             block_data=self._block_data,
+            definition_signals=[self._event_signal(branch_trigger)],
+            definition_group_id=match_id,
+            definition_group_kind="match",
         )
 
     def end_match(self):
         if "match_id" not in self._block_data.data:
-            raise NotImplementedError(f"Cannot use .end_match() before .match().")
+            raise NotImplementedError("Cannot use .end_match() before .match().")
         match_id = self._block_data.data["match_id"]
         branch_ends = self._block_data.data["branch_ends"]
+        definition_branch_ends = self._block_data.data["definition_branch_ends"]
         if not self.trigger_event.startswith(f"Match-{ match_id }"):
             branch_ends.append(self.trigger_event)
+            definition_branch_ends.extend(copy.deepcopy(self._definition_signals))
 
         async def collect_branch_result(data: "TriggerFlowEventData"):
             match_results = data._system_runtime_data.get(f"match_results.{ data.upper_layer_mark }")
@@ -176,7 +266,17 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                 )
 
         for trigger in branch_ends:
-            self.when(trigger).to(collect_branch_result)
+            self._blue_print.add_event_handler(trigger, collect_branch_result)
+
+        self._blue_print.definition.add_operator(
+            id=f"match-collect-{ match_id }",
+            kind="match_collect",
+            name=f"match_result:{ match_id }",
+            listen_signals=definition_branch_ends,
+            emit_signals=[self._block_data.data["definition_result_signal"]],
+            group_id=match_id,
+            group_kind="match",
+        )
 
         outer_block = self._block_data.outer_block
         block_data = (
@@ -192,6 +292,9 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             trigger_type="event",
             blue_print=self._blue_print,
             block_data=block_data,
+            definition_signals=[self._block_data.data["definition_result_signal"]],
+            definition_group_id=self._block_data.data.get("definition_outer_group_id"),
+            definition_group_kind=self._block_data.data.get("definition_outer_group_kind"),
         )
 
     # If Condition

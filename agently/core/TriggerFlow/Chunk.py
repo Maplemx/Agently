@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import uuid
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowEventData
+    from .BluePrint import TriggerFlowBluePrint
 
 from agently.utils import FunctionShifter
+from .Control import TriggerFlowPauseSignal
 
 
 class TriggerFlowChunk:
@@ -28,19 +29,48 @@ class TriggerFlowChunk:
         self,
         handler: "TriggerFlowHandler",
         *,
+        chunk_id: str | None = None,
         name: str | None = None,
+        trigger: str | None = None,
+        callable_ref: dict | None = None,
+        blue_print: "TriggerFlowBluePrint | None" = None,
+        emit_signals: list[str] | None = None,
     ):
-        self.id = uuid.uuid4().hex
+        self.id = chunk_id if chunk_id is not None else uuid.uuid4().hex
         self.name = name if name is not None else self.id
         self._handler = handler
-        self.trigger = f"Chunk[{ handler.__name__ }]-{ self.id }"
+        self.trigger = trigger if trigger is not None else f"Chunk[{ handler.__name__ }]-{ self.id }"
+        self.callable_ref = callable_ref.copy() if isinstance(callable_ref, dict) else None
+        self._blue_print = blue_print
+        self._emit_signals = list(dict.fromkeys(str(signal) for signal in (emit_signals or [])))
 
     async def async_call(self, data: "TriggerFlowEventData"):
         result = await FunctionShifter.asyncify(self._handler)(data)
+        if isinstance(result, TriggerFlowPauseSignal) or data.execution.is_waiting():
+            return result
         await data.async_emit(self.trigger, result, _layer_marks=data._layer_marks.copy())
         return result
 
     def call(self, data: "TriggerFlowEventData"):
         result = FunctionShifter.syncify(self._handler)(data)
+        if isinstance(result, TriggerFlowPauseSignal) or data.execution.is_waiting():
+            return result
         data.emit(self.trigger, result, _layer_marks=data._layer_marks.copy())
         return result
+
+    @property
+    def emit_signals(self):
+        return self._emit_signals.copy()
+
+    def declare_emits(self, *signals: str):
+        normalized = []
+        for signal in signals:
+            if not isinstance(signal, str):
+                raise TypeError(
+                    f"TriggerFlowChunk.declare_emits() only accepts string event names, got: { type(signal) }"
+                )
+            normalized.append(signal)
+        self._emit_signals = list(dict.fromkeys([*self._emit_signals, *normalized]))
+        if self._blue_print is not None:
+            self._blue_print.sync_chunk_definition(self)
+        return self

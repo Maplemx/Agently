@@ -30,3 +30,4 @@ flow = TriggerFlow()
 result = flow.start()
 # Get final result from .end() chunk
 print(result)
+print(flow.to_mermaid())

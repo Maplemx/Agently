@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import uuid
 import asyncio
+from pathlib import Path
 
 from typing import Callable, Any, Literal, TYPE_CHECKING, overload
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 from agently.types.trigger_flow import TriggerFlowBlockData
 from agently.utils import Settings, RuntimeData, FunctionShifter
 from .BluePrint import TriggerFlowBluePrint
-from .Process import TriggerFlowProcess, TriggerFlowProcess
+from .Process import TriggerFlowProcess
 from .Chunk import TriggerFlowChunk
 
 
@@ -50,17 +50,6 @@ class TriggerFlow:
         self._blue_print = blue_print if blue_print is not None else TriggerFlowBluePrint()
         self._skip_exceptions = skip_exceptions
         self._executions: dict[str, "TriggerFlowExecution"] = {}
-        self._start_process = TriggerFlowProcess(
-            flow_chunk=self.chunk,
-            trigger_event="START",
-            blue_print=self._blue_print,
-            block_data=TriggerFlowBlockData(
-                outer_block=None,
-            ),
-        )
-
-        self.chunks = self._blue_print.chunks
-
         self.set_settings = self.settings.set_settings
 
         self.get_flow_data = self._flow_data.get
@@ -68,14 +57,32 @@ class TriggerFlow:
         self.append_flow_data = FunctionShifter.syncify(self.async_append_flow_data)
         self.del_flow_data = FunctionShifter.syncify(self.async_del_flow_data)
 
+        self.start_execution = FunctionShifter.syncify(self.async_start_execution)
+        self.start = FunctionShifter.syncify(self.async_start)
+        self.register_chunk_handler = self._blue_print.register_chunk_handler
+        self.register_condition_handler = self._blue_print.register_condition_handler
+        self._bind_start_process()
+
+    def _bind_start_process(self):
+        self._start_process = TriggerFlowProcess(
+            flow_chunk=self.chunk,
+            trigger_event="START",
+            blue_print=self._blue_print,
+            block_data=TriggerFlowBlockData(
+                outer_block=None,
+            ),
+            definition_signals=[self._blue_print.make_signal("event", "START")],
+            definition_group_id=None,
+            definition_group_kind=None,
+        )
+        self.chunks = self._blue_print.chunks
         self.when = self._start_process.when
         self.to = self._start_process.to
         self.side_branch = self._start_process.side_branch
         self.batch = self._start_process.batch
         self.for_each = self._start_process.for_each
-
-        self.start_execution = FunctionShifter.syncify(self.async_start_execution)
-        self.start = FunctionShifter.syncify(self.async_start)
+        self.match = self._start_process.match
+        self.if_condition = self._start_process.if_condition
 
     @overload
     def chunk(self, handler_or_name: "TriggerFlowHandler") -> TriggerFlowChunk: ...
@@ -89,14 +96,19 @@ class TriggerFlow:
         if isinstance(handler_or_name, str):
 
             def wrapper(func: "TriggerFlowHandler"):
-                chunk = TriggerFlowChunk(func, name=handler_or_name)
-                self._blue_print.chunks[handler_or_name] = chunk
+                chunk = self._blue_print.create_chunk(
+                    func,
+                    name=handler_or_name,
+                    explicit_name=handler_or_name,
+                )
                 return chunk
 
             return wrapper
         else:
-            chunk = TriggerFlowChunk(handler_or_name, name=handler_or_name.__name__)
-            self._blue_print.chunks[handler_or_name.__name__] = chunk
+            chunk = self._blue_print.create_chunk(
+                handler_or_name,
+                name=handler_or_name.__name__,
+            )
             return chunk
 
     def create_execution(
@@ -241,3 +253,80 @@ class TriggerFlow:
 
     def load_blue_print(self, new_blue_print: TriggerFlowBluePrint):
         self._blue_print = new_blue_print
+        self.register_chunk_handler = self._blue_print.register_chunk_handler
+        self.register_condition_handler = self._blue_print.register_condition_handler
+        self._bind_start_process()
+        return self
+
+    def get_flow_config(self):
+        return self._blue_print.get_flow_config(name=self.name)
+
+    def get_json_flow(
+        self,
+        save_to: str | Path | None = None,
+        *,
+        encoding: str | None = "utf-8",
+    ):
+        return self._blue_print.get_json_flow(
+            save_to=save_to,
+            encoding=encoding,
+            name=self.name,
+        )
+
+    def get_yaml_flow(
+        self,
+        save_to: str | Path | None = None,
+        *,
+        encoding: str | None = "utf-8",
+    ):
+        return self._blue_print.get_yaml_flow(
+            save_to=save_to,
+            encoding=encoding,
+            name=self.name,
+        )
+
+    def load_flow_config(
+        self,
+        config: dict[str, Any],
+        *,
+        replace: bool = True,
+    ):
+        self._blue_print.load_flow_config(config, replace=replace)
+        self.name = self._blue_print.name
+        self._bind_start_process()
+        return self
+
+    def load_json_flow(
+        self,
+        path_or_content: str | Path,
+        *,
+        replace: bool = True,
+        encoding: str | None = "utf-8",
+    ):
+        self._blue_print.load_json_flow(
+            path_or_content,
+            replace=replace,
+            encoding=encoding,
+        )
+        self.name = self._blue_print.name
+        self._bind_start_process()
+        return self
+
+    def load_yaml_flow(
+        self,
+        path_or_content: str | Path,
+        *,
+        replace: bool = True,
+        encoding: str | None = "utf-8",
+    ):
+        self._blue_print.load_yaml_flow(
+            path_or_content,
+            replace=replace,
+            encoding=encoding,
+        )
+        self.name = self._blue_print.name
+        self._bind_start_process()
+        return self
+
+    def to_mermaid(self, *, mode: Literal["simplified", "detailed"] = "simplified"):
+        return self._blue_print.to_mermaid(mode=mode, name=self.name)
