@@ -49,15 +49,18 @@ class DataLocator:
         remaining = path_parts[1:]
         if style == "dot":
             if "[" in path_part:
-                path_key_and_index = path_part.split("[")
+                path_key_and_index = path_part.split("[", 1)
                 path_key = path_key_and_index[0]
                 path_index = path_key_and_index[1][:-1]
-                if isinstance(result, Mapping):
-                    result = result.get(path_key, default)
-                else:
+                if path_key:
+                    if isinstance(result, Mapping):
+                        result = result.get(path_key, default)
+                    else:
+                        return default
+                elif not DataLocator._is_structure_sequence(result):
                     return default
                 if path_index in ("*", ""):
-                    if not isinstance(result, str) and isinstance(result, Sequence):
+                    if DataLocator._is_structure_sequence(result):
                         values = []
                         for item in result:
                             value = DataLocator._locate_path_parts(
@@ -75,7 +78,7 @@ class DataLocator:
                     index = int(path_index)
                 except Exception:
                     return default
-                if not isinstance(result, str) and isinstance(result, Sequence):
+                if DataLocator._is_structure_sequence(result):
                     try:
                         return DataLocator._locate_path_parts(
                             result[index],
@@ -96,8 +99,11 @@ class DataLocator:
                     )
                 return default
         else:
-            if path_part == "*":
-                if not isinstance(result, str) and isinstance(result, Sequence):
+            if path_part.startswith("[") and path_part.endswith("]"):
+                path_part = path_part[1:-1]
+
+            if path_part in ("*", ""):
+                if DataLocator._is_structure_sequence(result):
                     values = []
                     for item in result:
                         value = DataLocator._locate_path_parts(
@@ -118,7 +124,7 @@ class DataLocator:
                     style=style,
                     default=default,
                 )
-            if not isinstance(result, str) and isinstance(result, Sequence):
+            if DataLocator._is_structure_sequence(result):
                 try:
                     return DataLocator._locate_path_parts(
                         result[int(path_part)],
@@ -132,7 +138,7 @@ class DataLocator:
 
     @staticmethod
     def locate_path_in_dict(
-        original_dict: dict,
+        original_dict: Mapping[str, Any] | Sequence[Any],
         path: str,
         style: Literal["dot", "slash"] = "dot",
         *,
