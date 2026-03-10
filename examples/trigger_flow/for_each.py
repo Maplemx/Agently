@@ -1,9 +1,9 @@
 import asyncio
 import random
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
-async def handle(data: TriggerFlowEventData):
+async def handle(data: TriggerFlowRuntimeData):
     print("START HANDLING:", data.value)
     await asyncio.sleep(random.randint(0, 100) / 100)
     print("FINISH HANDLING:", data.value)

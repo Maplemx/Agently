@@ -1,5 +1,5 @@
 import asyncio
-from agently import Agently, TriggerFlow, TriggerFlowEventData
+from agently import Agently, TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Streaming: runtime stream + agent streaming in flow
@@ -9,7 +9,7 @@ def triggerflow_runtime_stream_demo():
     # Expect: prints stream events as they arrive.
     flow = TriggerFlow()
 
-    async def stream_steps(data: TriggerFlowEventData):
+    async def stream_steps(data: TriggerFlowRuntimeData):
         for i in range(3):
             data.put_into_stream({"step": i + 1, "status": "working"})
             await asyncio.sleep(0.05)
@@ -40,7 +40,7 @@ def triggerflow_agent_stream_demo():
 
     flow = TriggerFlow()
 
-    async def get_input(data: TriggerFlowEventData):
+    async def get_input(data: TriggerFlowRuntimeData):
         try:
             user_input = input("Question (type 'exit' to stop): ").strip()
         except EOFError:
@@ -52,7 +52,7 @@ def triggerflow_agent_stream_demo():
         await data.async_emit("UserInput", user_input)
         return "next"
 
-    async def stream_reply(data: TriggerFlowEventData):
+    async def stream_reply(data: TriggerFlowRuntimeData):
         data.put_into_stream("[assistant] ")
         try:
             request = agent.input(data.value)

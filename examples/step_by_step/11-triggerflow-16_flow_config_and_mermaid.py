@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ASSET_DIR = Path(__file__).with_name("11-triggerflow-16_assets")
@@ -10,7 +10,7 @@ SIMPLIFIED_MERMAID_PATH = ASSET_DIR / "approval_flow_simplified.mmd"
 DETAILED_MERMAID_PATH = ASSET_DIR / "approval_flow_detailed.mmd"
 
 
-async def collect_request(data: TriggerFlowEventData):
+async def collect_request(data: TriggerFlowRuntimeData):
     request_context = {
         "topic": data.value,
         "status": "waiting_feedback",
@@ -19,7 +19,7 @@ async def collect_request(data: TriggerFlowEventData):
     return request_context
 
 
-async def finalize_request(data: TriggerFlowEventData):
+async def finalize_request(data: TriggerFlowRuntimeData):
     request_context = data.get_runtime_data("request_context") or {}
     return {
         "topic": request_context.get("topic"),

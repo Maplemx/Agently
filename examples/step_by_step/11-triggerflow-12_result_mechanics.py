@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Result Mechanics: default result, manual result, and branch caveat
@@ -7,7 +7,7 @@ def triggerflow_result_basics_demo():
     # Flow: main chain -> end() => default result.
     flow = TriggerFlow()
 
-    async def work(data: TriggerFlowEventData):
+    async def work(data: TriggerFlowRuntimeData):
         return f"work({data.value})"
 
     flow.to(work).end()
@@ -36,7 +36,7 @@ def triggerflow_when_branch_without_result_demo():
     # Idea: when() branch does not finalize result unless end()/set_result() is used.
     flow = TriggerFlow()
 
-    async def emit_event(data: TriggerFlowEventData):
+    async def emit_event(data: TriggerFlowRuntimeData):
         await data.async_emit("Ping", "pong")
         return "emitted"
 

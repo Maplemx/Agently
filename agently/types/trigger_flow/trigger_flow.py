@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import uuid
+from collections.abc import Mapping
 
 from typing import Any, Callable, Literal, TYPE_CHECKING
 from agently.types.data import AVOID_COPY
@@ -36,7 +37,164 @@ class TriggerFlowBlockData:
         self.data = data if data is not None else {}
 
 
-class TriggerFlowEventData:
+_MISSING = object()
+
+
+class _TriggerFlowDataNamespace:
+    def __init__(
+        self,
+        *,
+        getter: Callable[..., Any],
+        setter: Callable[..., Any],
+        appender: Callable[..., Any],
+        deleter: Callable[..., Any],
+        async_setter: Callable[..., Any],
+        async_appender: Callable[..., Any],
+        async_deleter: Callable[..., Any],
+    ):
+        self._getter = getter
+        self._setter = setter
+        self._appender = appender
+        self._deleter = deleter
+        self.async_set = async_setter
+        self.async_append = async_appender
+        self.async_del = async_deleter
+
+    def get(
+        self,
+        key: Any | None = None,
+        default: Any = None,
+        *,
+        inherit: bool = True,
+    ):
+        return self._getter(key, default, inherit=inherit)
+
+    def set(
+        self,
+        key: str,
+        value: Any,
+        *,
+        emit: bool = True,
+    ):
+        return self._setter(key, value, emit=emit)
+
+    def append(
+        self,
+        key: str,
+        value: Any,
+        *,
+        emit: bool = True,
+    ):
+        return self._appender(key, value, emit=emit)
+
+    def delete(
+        self,
+        key: str,
+        *,
+        emit: bool = True,
+    ):
+        return self._deleter(key, emit=emit)
+
+    def to_dict(self, *, inherit: bool = True):
+        data = self.get(None, {}, inherit=inherit)
+        return data if isinstance(data, dict) else {}
+
+    def keys(self):
+        return self.to_dict().keys()
+
+    def values(self):
+        return self.to_dict().values()
+
+    def items(self):
+        return self.to_dict().items()
+
+    def __getitem__(self, key: Any):
+        value = self.get(key, _MISSING)
+        if value is _MISSING:
+            raise KeyError(key)
+        return value
+
+    def __contains__(self, key: Any):
+        return self.get(key, _MISSING) is not _MISSING
+
+    def __iter__(self):
+        return iter(self.to_dict())
+
+    def __len__(self):
+        return len(self.to_dict())
+
+
+class _TriggerFlowResourcesView(Mapping[str, Any]):
+    def __init__(self, execution: "TriggerFlowExecution"):
+        self._execution = execution
+
+    def to_dict(self):
+        return self._execution.get_runtime_resources()
+
+    def __getitem__(self, key: str):
+        value = self._execution.get_runtime_resource(key, _MISSING)
+        if value is _MISSING:
+            raise KeyError(key)
+        return value
+
+    def __iter__(self):
+        return iter(self.to_dict())
+
+    def __len__(self):
+        return len(self.to_dict())
+
+    def get(self, key: str, default: Any = None):
+        return self._execution.get_runtime_resource(key, default)
+
+
+class _TriggerFlowSignalInfo:
+    def __init__(
+        self,
+        *,
+        trigger_event: str,
+        trigger_type: Literal["event", "runtime_data", "flow_data", "collect"],
+        value: Any,
+        signal: "TriggerFlowSignal | None",
+        signal_id: str | None,
+        signal_source: str | None,
+        signal_meta: dict[str, Any],
+    ):
+        self.trigger_event = trigger_event
+        self.trigger_type = trigger_type
+        self.value = value
+        self.signal = signal
+        self.signal_id = signal_id
+        self.signal_source = signal_source
+        self.signal_meta = signal_meta
+
+    @property
+    def event(self):
+        return self.trigger_event
+
+    @property
+    def type(self):
+        return self.trigger_type
+
+    @property
+    def source(self):
+        return self.signal_source
+
+    @property
+    def meta(self):
+        return self.signal_meta
+
+    def to_dict(self):
+        return {
+            "trigger_event": self.trigger_event,
+            "trigger_type": self.trigger_type,
+            "value": self.value,
+            "signal_id": self.signal_id,
+            "signal_source": self.signal_source,
+            "signal_meta": self.signal_meta.copy(),
+        }
+
+
+class TriggerFlowRuntimeData:
     def __init__(
         self,
         *,
@@ -60,6 +218,15 @@ class TriggerFlowEventData:
         self.signal_id = signal.id if signal is not None else None
         self.signal_source = signal.source if signal is not None else None
         self.signal_meta = signal.meta.copy() if signal is not None else {}
+        self.signal_info = _TriggerFlowSignalInfo(
+            trigger_event=trigger_event,
+            trigger_type=trigger_type,
+            value=value,
+            signal=signal,
+            signal_id=self.signal_id,
+            signal_source=self.signal_source,
+            signal_meta=self.signal_meta.copy(),
+        )
 
         self.get_flow_data = execution.get_flow_data
         self.set_flow_data = execution.set_flow_data
@@ -76,6 +243,30 @@ class TriggerFlowEventData:
         self.async_set_runtime_data = execution.async_set_runtime_data
         self.async_append_runtime_data = execution.async_append_runtime_data
         self.async_del_runtime_data = execution.async_del_runtime_data
+        self.state = _TriggerFlowDataNamespace(
+            getter=self.get_runtime_data,
+            setter=self.set_runtime_data,
+            appender=self.append_runtime_data,
+            deleter=self.del_runtime_data,
+            async_setter=self.async_set_runtime_data,
+            async_appender=self.async_append_runtime_data,
+            async_deleter=self.async_del_runtime_data,
+        )
+        self.flow_state = _TriggerFlowDataNamespace(
+            getter=self.get_flow_data,
+            setter=self.set_flow_data,
+            appender=self.append_flow_data,
+            deleter=self.del_flow_data,
+            async_setter=self.async_set_flow_data,
+            async_appender=self.async_append_flow_data,
+            async_deleter=self.async_del_flow_data,
+        )
+        self.resources = _TriggerFlowResourcesView(execution)
+
+        self.get_resource = execution.get_runtime_resource
+        self.require_resource = execution.require_runtime_resource
+        self.set_resource = execution.set_runtime_resource
+        self.del_resource = execution.del_runtime_resource
 
         self.emit = execution.emit
         self.async_emit = execution.async_emit
@@ -117,7 +308,8 @@ class TriggerFlowEventData:
         self._layer_marks = self._layer_marks[:-1] if len(self._layer_marks) > 0 else []
 
 
-TriggerFlowHandler = Callable[[TriggerFlowEventData], Any]
+TriggerFlowEventData = TriggerFlowRuntimeData
+TriggerFlowHandler = Callable[[TriggerFlowRuntimeData], Any]
 TriggerFlowHandlers = dict[str, dict[str, TriggerFlowHandler]]
 TriggerFlowAllHandlers = dict[Literal["event", "flow_data", "runtime_data"], TriggerFlowHandlers]
 

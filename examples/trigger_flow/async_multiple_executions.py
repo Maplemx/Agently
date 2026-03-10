@@ -1,12 +1,12 @@
 import asyncio
 from random import randint
 
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 flow = TriggerFlow()
 
 
-async def task(data: TriggerFlowEventData):
+async def task(data: TriggerFlowRuntimeData):
     print(f"No.{ data.value } START")
     await asyncio.sleep(randint(1, 5))
     print(f"No.{ data.value } DONE")

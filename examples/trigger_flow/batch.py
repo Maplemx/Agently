@@ -1,11 +1,11 @@
 import asyncio
 from random import randint
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 flow = TriggerFlow()
 
 
-async def echo(data: TriggerFlowEventData):
+async def echo(data: TriggerFlowRuntimeData):
     num = randint(0, 100) / 100
     print(f"wait { num }s: { data.value }")
     await asyncio.sleep(num)

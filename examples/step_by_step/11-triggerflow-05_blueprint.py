@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Blueprint: save / load
@@ -8,7 +8,7 @@ def triggerflow_blueprint():
     # Expect: prints "AGENTLY".
     flow = TriggerFlow()
 
-    async def upper(data: TriggerFlowEventData):
+    async def upper(data: TriggerFlowRuntimeData):
         return str(data.value).upper()
 
     flow.to(upper).end()

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from agently import Agently, TriggerFlow, TriggerFlowEventData
+from agently import Agently, TriggerFlow, TriggerFlowRuntimeData
 from agently.builtins.tools import Browse, Search
 
 from .config import DEEPSEEK_API_KEY, SEARCH_PROXY
@@ -12,7 +12,7 @@ from .config import DEEPSEEK_API_KEY, SEARCH_PROXY
 kb_collection = None
 
 
-def _emit(data: TriggerFlowEventData, event_type: str, payload: Any):
+def _emit(data: TriggerFlowRuntimeData, event_type: str, payload: Any):
     data.put_into_stream(json.dumps({"type": event_type, "data": payload}))
 
 
@@ -89,7 +89,7 @@ def build_flow() -> TriggerFlow:
 
     flow = TriggerFlow()
 
-    async def start_request(data: TriggerFlowEventData):
+    async def start_request(data: TriggerFlowRuntimeData):
         global kb_collection
         if kb_collection is None:
             _emit(data, "status", "kb preparing")
@@ -100,7 +100,7 @@ def build_flow() -> TriggerFlow:
                 _emit(data, "status", "kb ready")
         return data.value
 
-    async def prepare_context(data: TriggerFlowEventData):
+    async def prepare_context(data: TriggerFlowRuntimeData):
         payload = data.value
         question = payload.get("question", "")
         chat_history = payload.get("chat_history", [])
@@ -113,7 +113,7 @@ def build_flow() -> TriggerFlow:
         _emit(data, "status", "planning started")
         return question
 
-    async def ensure_kb(data: TriggerFlowEventData):
+    async def ensure_kb(data: TriggerFlowRuntimeData):
         global kb_collection
         if kb_collection is None:
             kb_collection = await _build_kb_collection()
@@ -124,7 +124,7 @@ def build_flow() -> TriggerFlow:
         data.set_runtime_data("kb_results", results)
         return results
 
-    async def make_next_plan(data: TriggerFlowEventData):
+    async def make_next_plan(data: TriggerFlowRuntimeData):
         question = data.get_runtime_data("question")
         done_plans = data.get_runtime_data("done_plans", [])
         step = data.get_runtime_data("step") or 0
@@ -196,7 +196,7 @@ def build_flow() -> TriggerFlow:
         await data.async_emit("Plan", next_action)
         return next_action
 
-    async def use_tool(data: TriggerFlowEventData):
+    async def use_tool(data: TriggerFlowRuntimeData):
         tool_using_info = data.value["tool_using"]
         tool_name = tool_using_info["tool_name"].lower()
         tool = tools_info.get(tool_name)
@@ -222,12 +222,12 @@ def build_flow() -> TriggerFlow:
         data.set_runtime_data("done_plans", done_plans)
         return {"type": "tool"}
 
-    async def reply(data: TriggerFlowEventData):
+    async def reply(data: TriggerFlowRuntimeData):
         reply_text = data.value["reply"]
         _emit(data, "reply", reply_text)
         return reply_text
 
-    async def update_memo(data: TriggerFlowEventData):
+    async def update_memo(data: TriggerFlowRuntimeData):
         memo = data.get_runtime_data("memo") or []
         question = data.get_runtime_data("question")
         reply_text = data.value.get("reply", "")

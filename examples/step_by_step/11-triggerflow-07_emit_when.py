@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow emit + when: custom event routing
@@ -8,16 +8,16 @@ def emit_when_demo():
     # Expect: prints collected results; start() does not return a final value here.
     flow = TriggerFlow()
 
-    async def planner(data: TriggerFlowEventData):
+    async def planner(data: TriggerFlowRuntimeData):
         # emit two custom events for downstream branches
         await data.async_emit("Plan.Read", {"task": "read"})
         await data.async_emit("Plan.Write", {"task": "write"})
         return "plan done"
 
-    async def reader(data: TriggerFlowEventData):
+    async def reader(data: TriggerFlowRuntimeData):
         return f"read: {data.value['task']}"
 
-    async def writer(data: TriggerFlowEventData):
+    async def writer(data: TriggerFlowRuntimeData):
         return f"write: {data.value['task']}"
 
     # when listens to custom events emitted by planner

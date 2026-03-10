@@ -1,5 +1,5 @@
 import asyncio
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Concurrency: batch + for_each
@@ -9,7 +9,7 @@ def triggerflow_concurrency():
     # Expect: outputs two results with interleaved timing.
     flow = TriggerFlow()
 
-    async def echo(data: TriggerFlowEventData):
+    async def echo(data: TriggerFlowRuntimeData):
         await asyncio.sleep(0.1)
         return f"echo: {data.value}"
 

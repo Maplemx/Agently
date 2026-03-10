@@ -1,22 +1,22 @@
 import asyncio
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 flow = TriggerFlow()
 
 
-async def say_hello(data: TriggerFlowEventData):
+async def say_hello(data: TriggerFlowRuntimeData):
     await asyncio.sleep(0.3)
     await data.async_put(f"Hello, { data.value }")
     return data.value
 
 
-async def say_bye(data: TriggerFlowEventData):
+async def say_bye(data: TriggerFlowRuntimeData):
     await asyncio.sleep(0.3)
     await data.async_put(f"Bye, { data.value }")
     return data.value
 
 
-async def stop_streaming(data: TriggerFlowEventData):
+async def stop_streaming(data: TriggerFlowRuntimeData):
     await data.async_stop_stream()
     return data.value
 

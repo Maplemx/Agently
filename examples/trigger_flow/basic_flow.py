@@ -1,14 +1,14 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 flow = TriggerFlow()
 
 
-async def say_hello(data: TriggerFlowEventData):
+async def say_hello(data: TriggerFlowRuntimeData):
     print(f"Hello, { data.value }")
     return data.value
 
 
-async def say_bye(data: TriggerFlowEventData):
+async def say_bye(data: TriggerFlowRuntimeData):
     print(f"Bye, { data.value }")
     return data.value
 

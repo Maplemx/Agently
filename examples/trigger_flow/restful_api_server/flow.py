@@ -1,7 +1,7 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
-async def init(data: TriggerFlowEventData):
+async def init(data: TriggerFlowRuntimeData):
     data.set_runtime_data("init", data.value)
     return data.value
 

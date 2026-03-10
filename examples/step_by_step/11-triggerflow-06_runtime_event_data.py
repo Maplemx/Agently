@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow RuntimeEventData: data, emit, and layers
@@ -8,7 +8,7 @@ def runtime_event_data_demo():
     # Expect: prints a custom event payload and returns event details.
     flow = TriggerFlow()
 
-    async def inspect_event(data: TriggerFlowEventData):
+    async def inspect_event(data: TriggerFlowRuntimeData):
         # RuntimeEventData provides:
         # - trigger_event / trigger_type / value
         # - runtime_data accessors (execution-scoped)

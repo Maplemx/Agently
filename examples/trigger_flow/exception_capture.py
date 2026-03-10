@@ -1,7 +1,7 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
-async def throw_exception(data: TriggerFlowEventData):
+async def throw_exception(data: TriggerFlowRuntimeData):
     raise RuntimeError(f"Test Exception")
 
 

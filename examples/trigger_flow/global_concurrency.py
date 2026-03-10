@@ -1,8 +1,8 @@
 import asyncio
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
-async def handle(data: TriggerFlowEventData):
+async def handle(data: TriggerFlowRuntimeData):
     print(f"Hi, { data.value }")
     await asyncio.sleep(2)
     return f"handled: { data.value }"

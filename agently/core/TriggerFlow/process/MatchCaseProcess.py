@@ -20,13 +20,13 @@ from typing import Callable, Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agently.types.data import SerializableValue
-    from agently.types.trigger_flow import TriggerFlowEventData
+    from agently.types.trigger_flow import TriggerFlowRuntimeData
 
 from agently.types.data import EMPTY
 from agently.types.trigger_flow import TriggerFlowBlockData
 from .BaseProcess import TriggerFlowBaseProcess
 
-TriggerFlowConditionHandler = Callable[["TriggerFlowEventData"], bool]
+TriggerFlowConditionHandler = Callable[["TriggerFlowRuntimeData"], bool]
 
 
 class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
@@ -52,7 +52,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             }
         )
 
-        async def match_case(data: "TriggerFlowEventData"):
+        async def match_case(data: "TriggerFlowRuntimeData"):
             data.layer_in()
             matched_count = 0
             tasks = []
@@ -241,7 +241,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             branch_ends.append(self.trigger_event)
             definition_branch_ends.extend(copy.deepcopy(self._definition_signals))
 
-        async def collect_branch_result(data: "TriggerFlowEventData"):
+        async def collect_branch_result(data: "TriggerFlowRuntimeData"):
             match_results = data._system_runtime_data.get(f"match_results.{ data.upper_layer_mark }")
             if match_results:
                 if data.layer_mark in match_results:

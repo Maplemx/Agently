@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Safe Cycle: bounded loop, pause-resume loop, and external re-entry
@@ -8,7 +8,7 @@ def triggerflow_bounded_cycle_demo():
     # Expect: prints a bounded sequence and final result.
     flow = TriggerFlow()
 
-    async def loop_step(data: TriggerFlowEventData):
+    async def loop_step(data: TriggerFlowRuntimeData):
         current = int(data.get_runtime_data("count", 0) or 0)
         seen = data.get_runtime_data("seen", []) or []
         seen.append(current)
@@ -38,7 +38,7 @@ def triggerflow_pause_between_turns_demo():
     # Expect: prints one interrupt per turn and exits after the scripted replies.
     flow = TriggerFlow()
 
-    async def step(data: TriggerFlowEventData):
+    async def step(data: TriggerFlowRuntimeData):
         current = int(data.get_runtime_data("count", 0) or 0)
         turns = data.get_runtime_data("turns", []) or []
         turns.append(current)
@@ -55,7 +55,7 @@ def triggerflow_pause_between_turns_demo():
             resume_event="ResumeLoop",
         )
 
-    async def resume_loop(data: TriggerFlowEventData):
+    async def resume_loop(data: TriggerFlowRuntimeData):
         answer = data.value if isinstance(data.value, dict) else {}
         current = int(data.get_runtime_data("count", 0) or 0)
         if not answer.get("continue", False):
@@ -96,11 +96,11 @@ def triggerflow_external_reentry_demo():
     # Expect: prints a result only after enough external Tick events arrive.
     flow = TriggerFlow()
 
-    async def init(data: TriggerFlowEventData):
+    async def init(data: TriggerFlowRuntimeData):
         data.set_runtime_data("total", 0, emit=False)
         return "waiting_for_ticks"
 
-    async def on_tick(data: TriggerFlowEventData):
+    async def on_tick(data: TriggerFlowRuntimeData):
         total = int(data.get_runtime_data("total", 0) or 0) + int(data.value)
         data.set_runtime_data("total", total, emit=False)
         if total >= 3:

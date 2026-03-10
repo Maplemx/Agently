@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ASSET_DIR = Path(__file__).with_name("exported_flow_assets")
@@ -10,7 +10,7 @@ def build_flow() -> TriggerFlow:
     flow = TriggerFlow(name="approval-request-demo")
 
     @flow.chunk("collect_request")
-    async def collect_request(data: TriggerFlowEventData):
+    async def collect_request(data: TriggerFlowRuntimeData):
         request_context = {
             "topic": data.value,
             "status": "waiting_feedback",
@@ -19,7 +19,7 @@ def build_flow() -> TriggerFlow:
         return request_context
 
     @flow.chunk("finalize_request")
-    async def finalize_request(data: TriggerFlowEventData):
+    async def finalize_request(data: TriggerFlowRuntimeData):
         request_context = data.get_runtime_data("request_context") or {}
         return {
             "topic": request_context.get("topic"),

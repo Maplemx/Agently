@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Basics: chunks, to(), end(), start()
@@ -8,7 +8,7 @@ def triggerflow_basics():
     # Expect: prints "Hello, Agently"
     flow = TriggerFlow()
 
-    async def greet(data: TriggerFlowEventData):
+    async def greet(data: TriggerFlowRuntimeData):
         return f"Hello, {data.value}"
 
     flow.to(greet).end()

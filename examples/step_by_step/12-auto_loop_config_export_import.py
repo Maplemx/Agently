@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ASSET_DIR = Path(__file__).with_name("12-auto_loop_config_assets")
@@ -27,11 +27,11 @@ def tool_calculator(expression: str):
     return results.get(expression.strip(), f"Unsupported expression: {expression}")
 
 
-def is_final_action(data: TriggerFlowEventData):
+def is_final_action(data: TriggerFlowRuntimeData):
     return isinstance(data.value, dict) and data.value.get("type") == "final"
 
 
-async def prepare_context(data: TriggerFlowEventData):
+async def prepare_context(data: TriggerFlowRuntimeData):
     question = str(data.value)
     data.set_runtime_data("question", question)
     data.set_runtime_data("done_plans", [])
@@ -40,7 +40,7 @@ async def prepare_context(data: TriggerFlowEventData):
     return {"question": question}
 
 
-async def make_next_plan(data: TriggerFlowEventData):
+async def make_next_plan(data: TriggerFlowRuntimeData):
     question = str(data.get_runtime_data("question", ""))
     lower_question = question.lower()
     step = int(data.get_runtime_data("step", 0) or 0)
@@ -99,7 +99,7 @@ async def make_next_plan(data: TriggerFlowEventData):
     return action
 
 
-async def use_tool(data: TriggerFlowEventData):
+async def use_tool(data: TriggerFlowRuntimeData):
     tool_using = data.value["tool_using"]
     tool_name = str(tool_using["tool_name"]).lower()
 
@@ -122,7 +122,7 @@ async def use_tool(data: TriggerFlowEventData):
     return {"type": "tool_done", "result": result}
 
 
-async def update_memo(data: TriggerFlowEventData):
+async def update_memo(data: TriggerFlowRuntimeData):
     memo = data.get_runtime_data("memo", [])
     question = str(data.get_runtime_data("question", ""))
     if "short" in question.lower():
@@ -131,7 +131,7 @@ async def update_memo(data: TriggerFlowEventData):
     return data.value
 
 
-async def reply(data: TriggerFlowEventData):
+async def reply(data: TriggerFlowRuntimeData):
     result = {
         "question": data.get_runtime_data("question"),
         "reply": data.value["reply"],

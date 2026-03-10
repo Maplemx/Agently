@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from agently.types.data import SerializableValue
 
 from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer, Settings
-from agently.types.trigger_flow import TriggerFlowEventData, RUNTIME_STREAM_STOP
+from agently.types.trigger_flow import TriggerFlowRuntimeData, RUNTIME_STREAM_STOP
 from agently.types.data import EMPTY
 from .Control import (
     TriggerFlowPauseSignal,
@@ -59,6 +59,10 @@ class TriggerFlowExecution:
         self._handlers = handlers
         self._trigger_flow = trigger_flow
         self._runtime_data = RuntimeData()
+        self._runtime_resources = RuntimeData(
+            name=f"TriggerFlowExecution-{ self.id }-RuntimeResources",
+            parent=self._trigger_flow._runtime_resources,
+        )
         self._system_runtime_data = RuntimeData()
         self._skip_exceptions = skip_exceptions
         self._concurrency_semaphore = asyncio.Semaphore(concurrency) if concurrency and concurrency > 0 else None
@@ -90,6 +94,11 @@ class TriggerFlowExecution:
         self.set_runtime_data = FunctionShifter.syncify(self.async_set_runtime_data)
         self.append_runtime_data = FunctionShifter.syncify(self.async_append_runtime_data)
         self.del_runtime_data = FunctionShifter.syncify(self.async_del_runtime_data)
+        self.set_runtime_resource = self._set_runtime_resource
+        self.get_runtime_resource = self._get_runtime_resource
+        self.del_runtime_resource = self._del_runtime_resource
+        self.update_runtime_resources = self._update_runtime_resources
+        self.clear_runtime_resources = self._clear_runtime_resources
 
         # Start
         self.start = FunctionShifter.syncify(self.async_start)
@@ -142,6 +151,47 @@ class TriggerFlowExecution:
             for interrupt_id, interrupt in self._get_interrupts().items()
             if isinstance(interrupt, dict) and interrupt.get("status") == "waiting"
         }
+
+    def _set_runtime_resource(self, key: str, value: Any):
+        self._runtime_resources.set(str(key), value)
+        return self
+
+    def _get_runtime_resource(self, key: str, default: Any = None):
+        return self._runtime_resources.get(str(key), default)
+
+    def require_runtime_resource(self, key: str):
+        key = str(key)
+        if key not in self._runtime_resources:
+            available = sorted(str(resource_key) for resource_key in self.get_runtime_resources().keys())
+            raise KeyError(
+                f"Execution { self.id } missing required runtime resource '{ key }'. "
+                f"Available resources: { available }"
+            )
+        return self._runtime_resources.get(key)
+
+    def _del_runtime_resource(self, key: str):
+        self._runtime_resources.pop(str(key), None)
+        return self
+
+    def _update_runtime_resources(
+        self,
+        mapping: dict[str, Any] | None = None,
+        **kwargs,
+    ):
+        if mapping is not None:
+            for key, value in dict(mapping).items():
+                self._set_runtime_resource(str(key), value)
+        for key, value in kwargs.items():
+            self._set_runtime_resource(str(key), value)
+        return self
+
+    def _clear_runtime_resources(self):
+        self._runtime_resources.clear()
+        return self
+
+    def get_runtime_resources(self):
+        resources = self._runtime_resources.get(None, {}, inherit=True)
+        return resources if isinstance(resources, dict) else {}
 
     def _serialize_signal(self, signal: TriggerFlowSignal | dict[str, Any] | None):
         if signal is None:
@@ -206,6 +256,7 @@ class TriggerFlowExecution:
             "flow_data": json.loads(self._trigger_flow._flow_data.dump("json")),
             "interrupts": self._to_serializable_value(self._get_interrupts()),
             "last_signal": self._serialize_signal(self.get_last_signal()),
+            "resource_keys": sorted(str(key) for key in self.get_runtime_resources().keys()),
             "result": {
                 "ready": result_ready,
                 "value": self._to_serializable_value(result) if result_ready else None,
@@ -238,6 +289,7 @@ class TriggerFlowExecution:
         state: dict[str, Any] | str | Path,
         *,
         encoding: str | None = "utf-8",
+        runtime_resources: dict[str, Any] | None = None,
     ):
         if isinstance(state, (str, Path)):
             path = Path(state)
@@ -320,6 +372,8 @@ class TriggerFlowExecution:
         self._system_runtime_data.set("last_signal", last_signal_state)
         self._set_status(status)
         self._started = status != TRIGGER_FLOW_STATUS_CREATED or bool(runtime_data) or ready or bool(interrupts)
+        if runtime_resources:
+            self.update_runtime_resources(runtime_resources)
 
         return self
 
@@ -393,7 +447,7 @@ class TriggerFlowExecution:
                         self._concurrency_depth.reset(token)
 
                 handler_task = FunctionShifter.asyncify(handler)(
-                    TriggerFlowEventData(
+                    TriggerFlowRuntimeData(
                         trigger_event=signal.trigger_event,
                         trigger_type=signal.trigger_type,
                         value=signal.value,

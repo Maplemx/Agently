@@ -23,7 +23,7 @@ from typing_extensions import Self
 
 if TYPE_CHECKING:
     from ..BluePrint import TriggerFlowBluePrint
-    from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowEventData
+    from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowRuntimeData
 
 from ..Chunk import TriggerFlowChunk
 from agently.types.data import EMPTY
@@ -82,7 +82,7 @@ class TriggerFlowBaseProcess:
             **options,
         )
 
-    def _layer_key(self, data: "TriggerFlowEventData"):
+    def _layer_key(self, data: "TriggerFlowRuntimeData"):
         return ".".join(data._layer_marks) if data._layer_marks else "__root__"
 
     def _root_block_data(self):
@@ -224,7 +224,7 @@ class TriggerFlowBaseProcess:
         when_trigger = f"When-{ when_id }"
         values_template = copy.deepcopy(values)
 
-        async def wait_trigger(data: "TriggerFlowEventData"):
+        async def wait_trigger(data: "TriggerFlowRuntimeData"):
             match mode:
                 case "or" | "simple_or":
                     await data.async_emit(
@@ -353,7 +353,7 @@ class TriggerFlowBaseProcess:
         branch_output_signals: list[dict[str, Any]] = []
         result_keys: dict[str, str] = {}
 
-        async def wait_all_chunks(data: "TriggerFlowEventData"):
+        async def wait_all_chunks(data: "TriggerFlowRuntimeData"):
             if data.event not in trigger_to_chunk_name:
                 return
             layer_key = self._layer_key(data)
@@ -402,7 +402,7 @@ class TriggerFlowBaseProcess:
             else:
 
                 def make_handler(bound_chunk: TriggerFlowChunk):
-                    async def handler(data: "TriggerFlowEventData"):
+                    async def handler(data: "TriggerFlowRuntimeData"):
                         semaphore_key = f"batch_semaphores.{ batch_id }"
                         semaphore = data._system_runtime_data.get(semaphore_key, inherit=False)
                         if not isinstance(semaphore, Semaphore):
@@ -485,7 +485,7 @@ class TriggerFlowBaseProcess:
         collect_id = collection_config["collect_id"]
         collect_trigger = f"Collect-{ collection_name }"
 
-        async def collect_branches(data: "TriggerFlowEventData"):
+        async def collect_branches(data: "TriggerFlowRuntimeData"):
             branch_ids = list(collection_config["branch_ids"])
             layer_key = self._layer_key(data)
             state_key = f"collect_states.{ collect_id }.{ layer_key }"
@@ -547,7 +547,7 @@ class TriggerFlowBaseProcess:
         )
 
     def end(self):
-        async def set_default_result(data: "TriggerFlowEventData"):
+        async def set_default_result(data: "TriggerFlowRuntimeData"):
             result = data._system_runtime_data.get("result")
             if result is EMPTY:
                 data.set_result(data.value)
@@ -592,7 +592,7 @@ class TriggerFlowBaseProcess:
         """
         if log_info or print_info or show_value:
 
-            async def runtime_output(data: "TriggerFlowEventData"):
+            async def runtime_output(data: "TriggerFlowRuntimeData"):
                 from agently.base import async_system_message
 
                 message = {}

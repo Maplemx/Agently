@@ -1,6 +1,6 @@
 import pytest
 
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 def _operator_by_kind(config: dict, kind: str):
@@ -11,7 +11,7 @@ def _operator_by_kind(config: dict, kind: str):
 async def test_trigger_flow_config_round_trip_with_inspected_chunk_handler():
     flow = TriggerFlow(name="inspectable-flow")
 
-    async def double(data: TriggerFlowEventData):
+    async def double(data: TriggerFlowRuntimeData):
         return data.value * 2
 
     flow.to(double).end()
@@ -34,13 +34,13 @@ async def test_trigger_flow_config_round_trip_with_inspected_chunk_handler():
 async def test_trigger_flow_batch_round_trip_and_mermaid():
     flow = TriggerFlow(name="batch-flow")
 
-    async def left(data: TriggerFlowEventData):
+    async def left(data: TriggerFlowRuntimeData):
         return data.value + 1
 
-    async def right(data: TriggerFlowEventData):
+    async def right(data: TriggerFlowRuntimeData):
         return data.value + 10
 
-    async def combine(data: TriggerFlowEventData):
+    async def combine(data: TriggerFlowRuntimeData):
         return data.value["left"] + data.value["right"]
 
     flow.batch(left, right).to(combine).end()
@@ -65,7 +65,7 @@ async def test_trigger_flow_batch_round_trip_and_mermaid():
 async def test_trigger_flow_for_each_round_trip():
     flow = TriggerFlow(name="for-each-flow")
 
-    async def scale(data: TriggerFlowEventData):
+    async def scale(data: TriggerFlowRuntimeData):
         return data.value * 3
 
     flow.for_each().to(scale).end_for_each().end()
@@ -83,13 +83,13 @@ async def test_trigger_flow_for_each_round_trip():
 async def test_trigger_flow_match_round_trip():
     flow = TriggerFlow(name="match-flow")
 
-    def is_even(data: TriggerFlowEventData):
+    def is_even(data: TriggerFlowRuntimeData):
         return data.value % 2 == 0
 
-    async def even_branch(data: TriggerFlowEventData):
+    async def even_branch(data: TriggerFlowRuntimeData):
         return "even"
 
-    async def odd_branch(data: TriggerFlowEventData):
+    async def odd_branch(data: TriggerFlowRuntimeData):
         return "odd"
 
     flow.match().case(is_even).to(even_branch).case_else().to(odd_branch).end_match().end()
@@ -109,7 +109,7 @@ async def test_trigger_flow_match_round_trip():
 async def test_trigger_flow_pause_round_trip_after_import():
     flow = TriggerFlow(name="pause-flow")
 
-    async def ask_feedback(data: TriggerFlowEventData):
+    async def ask_feedback(data: TriggerFlowRuntimeData):
         data.set_runtime_data("draft", {"topic": data.value})
         return await data.async_pause_for(
             type="human_input",
@@ -117,7 +117,7 @@ async def test_trigger_flow_pause_round_trip_after_import():
             resume_event="UserFeedback",
         )
 
-    async def finalize(data: TriggerFlowEventData):
+    async def finalize(data: TriggerFlowRuntimeData):
         return {
             "draft": data.get_runtime_data("draft"),
             "feedback": data.value,
@@ -159,10 +159,10 @@ def test_trigger_flow_mermaid_allows_lambda_chunk_but_export_rejects_it():
 def test_trigger_flow_mermaid_allows_lambda_condition_but_export_rejects_it():
     flow = TriggerFlow(name="lambda-condition-flow")
 
-    async def yes(data: TriggerFlowEventData):
+    async def yes(data: TriggerFlowRuntimeData):
         return "yes"
 
-    async def no(data: TriggerFlowEventData):
+    async def no(data: TriggerFlowRuntimeData):
         return "no"
 
     flow.if_condition(lambda data: bool(data.value)).to(yes).else_condition().to(no).end_condition().end()
@@ -177,7 +177,7 @@ def test_trigger_flow_mermaid_allows_lambda_condition_but_export_rejects_it():
 def test_trigger_flow_mermaid_shows_external_signal_and_declared_emit():
     flow = TriggerFlow(name="mermaid-signals")
 
-    async def notify(data: TriggerFlowEventData):
+    async def notify(data: TriggerFlowRuntimeData):
         return data.value
 
     chunk = flow.chunk("notify")(notify)
@@ -207,7 +207,7 @@ async def test_trigger_flow_repeated_internal_helper_names_do_not_conflict():
 def test_trigger_flow_import_fails_without_registered_handler():
     flow = TriggerFlow(name="strict-load")
 
-    async def named_handler(data: TriggerFlowEventData):
+    async def named_handler(data: TriggerFlowRuntimeData):
         return data.value
 
     flow.to(named_handler).end()

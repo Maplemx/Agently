@@ -1,30 +1,30 @@
 import asyncio
 from random import randint
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 flow = TriggerFlow()
 
 
 @flow.chunk
-async def change_runtime_data(data: TriggerFlowEventData):
+async def change_runtime_data(data: TriggerFlowRuntimeData):
     await asyncio.sleep(randint(0, 100) / 100)
     data.set_runtime_data("test", "Hello")
     return
 
 
-async def change_another_runtime_data(data: TriggerFlowEventData):
+async def change_another_runtime_data(data: TriggerFlowRuntimeData):
     await asyncio.sleep(randint(0, 100) / 100)
     data.set_runtime_data("test_2", "Bye")
     return
 
 
-async def change_flow_data(data: TriggerFlowEventData):
+async def change_flow_data(data: TriggerFlowRuntimeData):
     await asyncio.sleep(randint(0, 100) / 100)
     data.set_flow_data("test", "Hello")
     return
 
 
-async def change_another_flow_data(data: TriggerFlowEventData):
+async def change_another_flow_data(data: TriggerFlowRuntimeData):
     await asyncio.sleep(randint(0, 100) / 100)
     data.set_flow_data("test_2", "Bye")
     return

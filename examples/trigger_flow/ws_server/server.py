@@ -4,7 +4,7 @@ from dotenv import find_dotenv, load_dotenv
 load_dotenv(find_dotenv())
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from agently import Agently, TriggerFlow, TriggerFlowEventData
+from agently import Agently, TriggerFlow, TriggerFlowRuntimeData
 from agently.types.trigger_flow import RUNTIME_STREAM_STOP
 
 Agently.set_settings(
@@ -25,7 +25,7 @@ app = FastAPI()
 flow = TriggerFlow()
 
 
-async def model_response(data: TriggerFlowEventData):
+async def model_response(data: TriggerFlowRuntimeData):
     response = agent.input(data.value).get_response()
     agen = response.get_async_generator("delta")
     async for delta in agen:

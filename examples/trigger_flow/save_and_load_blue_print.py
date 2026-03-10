@@ -1,16 +1,16 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 flow_1 = TriggerFlow()
 
 
 @flow_1.chunk
-async def say_hello(data: TriggerFlowEventData):
+async def say_hello(data: TriggerFlowRuntimeData):
     print("Hello,", data.value)
     return data.value
 
 
 @flow_1.chunk
-async def say_bye(data: TriggerFlowEventData):
+async def say_bye(data: TriggerFlowRuntimeData):
     print("Bye,", data.value)
     return data.value
 

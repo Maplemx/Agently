@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 
-from agently import Agently, TriggerFlow, TriggerFlowEventData
+from agently import Agently, TriggerFlow, TriggerFlowRuntimeData
 from agently.builtins.tools import Browse, Search
 
 
@@ -57,7 +57,7 @@ def auto_loop_demo():
     flow = TriggerFlow()
     kb_collection = None
 
-    async def start_loop(data: TriggerFlowEventData):
+    async def start_loop(data: TriggerFlowRuntimeData):
         nonlocal kb_collection
         if kb_collection is None:
             print("[📚] Preparing knowledge base from examples...")
@@ -69,7 +69,7 @@ def auto_loop_demo():
         await data.async_emit("Loop", None)
         return None
 
-    async def get_input(data: TriggerFlowEventData):
+    async def get_input(data: TriggerFlowRuntimeData):
         try:
             question = input("Question (type 'exit' to stop): ").strip()
         except EOFError:
@@ -80,7 +80,7 @@ def auto_loop_demo():
         await data.async_emit("UserInput", question)
         return question
 
-    async def prepare_context(data: TriggerFlowEventData):
+    async def prepare_context(data: TriggerFlowRuntimeData):
         question = data.value
         chat_history = data.get_runtime_data("chat_history") or []
         agent.set_chat_history(chat_history)
@@ -93,7 +93,7 @@ def auto_loop_demo():
         data.put_into_stream("[status] planning started\n")
         return question
 
-    async def ensure_kb(data: TriggerFlowEventData):
+    async def ensure_kb(data: TriggerFlowRuntimeData):
         # Build a knowledge base from all example files once per process.
         nonlocal kb_collection
         if kb_collection is None:
@@ -139,7 +139,7 @@ def auto_loop_demo():
         except Exception:
             return None
 
-    async def make_next_plan(data: TriggerFlowEventData):
+    async def make_next_plan(data: TriggerFlowRuntimeData):
         question = data.get_runtime_data("question")
         done_plans = data.get_runtime_data("done_plans", [])
         step = data.get_runtime_data("step") or 0
@@ -221,7 +221,7 @@ def auto_loop_demo():
         await data.async_emit("Plan", next_action)
         return next_action
 
-    async def use_tool(data: TriggerFlowEventData):
+    async def use_tool(data: TriggerFlowRuntimeData):
         tool_using_info = data.value["tool_using"]
         tool_name = tool_using_info["tool_name"].lower()
         tool = tools_info.get(tool_name)
@@ -255,7 +255,7 @@ def auto_loop_demo():
         data.set_runtime_data("done_plans", done_plans)
         return {"type": "tool"}
 
-    async def reply(data: TriggerFlowEventData):
+    async def reply(data: TriggerFlowRuntimeData):
         reply_text = data.value["reply"]
         if data.get_runtime_data("print_process"):
             print("[💬 Ready to answer]")
@@ -269,7 +269,7 @@ def auto_loop_demo():
         await data.async_emit("Loop", None)
         return reply_text
 
-    async def update_memo(data: TriggerFlowEventData):
+    async def update_memo(data: TriggerFlowRuntimeData):
         # Keep a runtime memo across turns for preferences, constraints, or facts.
         memo = data.get_runtime_data("memo") or []
         question = data.get_runtime_data("question")

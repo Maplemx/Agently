@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Execution State Resume: save and continue later
@@ -7,11 +7,11 @@ def triggerflow_save_and_resume_state_demo():
     # Flow: start_execution(waiting) -> save() -> load() -> emit feedback -> get_result
     flow = TriggerFlow()
 
-    async def prepare(data: TriggerFlowEventData):
+    async def prepare(data: TriggerFlowRuntimeData):
         data.set_runtime_data("ticket", {"id": "T-001", "topic": data.value})
         return "waiting"
 
-    async def finalize(data: TriggerFlowEventData):
+    async def finalize(data: TriggerFlowRuntimeData):
         return {
             "ticket": data.get_runtime_data("ticket"),
             "feedback": data.value,

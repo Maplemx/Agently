@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 flow = TriggerFlow()
 
 
 @flow.chunk
-async def prepare_request(data: TriggerFlowEventData):
+async def prepare_request(data: TriggerFlowRuntimeData):
     # Save context that should survive process restart.
     data.set_runtime_data(
         "request_context",
@@ -21,7 +21,7 @@ async def prepare_request(data: TriggerFlowEventData):
 
 
 @flow.chunk
-async def resume_with_feedback(data: TriggerFlowEventData):
+async def resume_with_feedback(data: TriggerFlowRuntimeData):
     context = data.get_runtime_data("request_context")
     return {
         "topic": context.get("topic") if isinstance(context, dict) else None,

@@ -3,19 +3,19 @@ from pathlib import Path
 
 import pytest
 
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 @pytest.mark.asyncio
 async def test_trigger_flow_execution_save_and_load_then_continue():
     flow = TriggerFlow()
 
-    async def init(data: TriggerFlowEventData):
+    async def init(data: TriggerFlowRuntimeData):
         data.set_runtime_data("draft", {"topic": "pricing"})
         data.set_flow_data("global_flag", True)
         return "waiting"
 
-    async def finalize(data: TriggerFlowEventData):
+    async def finalize(data: TriggerFlowRuntimeData):
         return {
             "feedback": data.value,
             "draft": data.get_runtime_data("draft"),
@@ -46,7 +46,7 @@ async def test_trigger_flow_execution_save_and_load_then_continue():
 async def test_trigger_flow_execution_load_from_json_string():
     flow = TriggerFlow()
 
-    async def setup(data: TriggerFlowEventData):
+    async def setup(data: TriggerFlowRuntimeData):
         data.set_runtime_data("checkpoint", {"step": 2})
         return data.value
 

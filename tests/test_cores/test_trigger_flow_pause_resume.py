@@ -2,14 +2,14 @@ import asyncio
 
 import pytest
 
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 @pytest.mark.asyncio
 async def test_trigger_flow_pause_continue_with_saved_interrupt():
     flow = TriggerFlow()
 
-    async def ask_feedback(data: TriggerFlowEventData):
+    async def ask_feedback(data: TriggerFlowRuntimeData):
         data.set_runtime_data("draft", {"topic": data.value})
         return await data.async_pause_for(
             type="human_input",
@@ -17,7 +17,7 @@ async def test_trigger_flow_pause_continue_with_saved_interrupt():
             resume_event="UserFeedback",
         )
 
-    async def finalize(data: TriggerFlowEventData):
+    async def finalize(data: TriggerFlowRuntimeData):
         return {
             "draft": data.get_runtime_data("draft"),
             "feedback": data.value,
@@ -91,11 +91,11 @@ async def test_trigger_flow_when_and_state_is_isolated_per_execution():
 async def test_trigger_flow_batch_state_is_isolated_per_execution():
     flow = TriggerFlow()
 
-    async def left(data: TriggerFlowEventData):
+    async def left(data: TriggerFlowRuntimeData):
         await asyncio.sleep(0.01)
         return {"left": data.value}
 
-    async def right(data: TriggerFlowEventData):
+    async def right(data: TriggerFlowRuntimeData):
         await asyncio.sleep(0.01)
         return {"right": data.value}
 

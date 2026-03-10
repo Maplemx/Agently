@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Side Branch + ____ separator
@@ -8,10 +8,10 @@ def triggerflow_side_branch_demo():
     # Expect: prints side branch output and main result.
     flow = TriggerFlow()
 
-    async def main_task(data: TriggerFlowEventData):
+    async def main_task(data: TriggerFlowRuntimeData):
         return f"main: {data.value}"
 
-    async def side_task(data: TriggerFlowEventData):
+    async def side_task(data: TriggerFlowRuntimeData):
         print(f"[side] {data.value}")
         return "side done"
 

@@ -1,6 +1,6 @@
 import os
 
-from agently import Agently, TriggerFlow, TriggerFlowEventData
+from agently import Agently, TriggerFlow, TriggerFlowRuntimeData
 from agently.integrations.fastapi import FastAPIHelper
 
 
@@ -25,7 +25,7 @@ agent.role("You are a concise and helpful assistant.", always=True)
 def build_flow() -> TriggerFlow:
     flow = TriggerFlow()
 
-    async def run_chat(data: TriggerFlowEventData):
+    async def run_chat(data: TriggerFlowRuntimeData):
         payload = data.value if isinstance(data.value, dict) else {}
         if payload.get("raise_error"):
             raise RuntimeError("Demo runtime error from TriggerFlow provider.")

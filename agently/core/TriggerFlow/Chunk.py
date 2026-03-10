@@ -17,7 +17,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowEventData
+    from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowRuntimeData
     from .BluePrint import TriggerFlowBluePrint
 
 from agently.utils import FunctionShifter
@@ -44,14 +44,14 @@ class TriggerFlowChunk:
         self._blue_print = blue_print
         self._emit_signals = list(dict.fromkeys(str(signal) for signal in (emit_signals or [])))
 
-    async def async_call(self, data: "TriggerFlowEventData"):
+    async def async_call(self, data: "TriggerFlowRuntimeData"):
         result = await FunctionShifter.asyncify(self._handler)(data)
         if isinstance(result, TriggerFlowPauseSignal) or data.execution.is_waiting():
             return result
         await data.async_emit(self.trigger, result, _layer_marks=data._layer_marks.copy())
         return result
 
-    def call(self, data: "TriggerFlowEventData"):
+    def call(self, data: "TriggerFlowRuntimeData"):
         result = FunctionShifter.syncify(self._handler)(data)
         if isinstance(result, TriggerFlowPauseSignal) or data.execution.is_waiting():
             return result

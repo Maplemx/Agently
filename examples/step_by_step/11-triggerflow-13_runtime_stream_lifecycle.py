@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Runtime Stream Lifecycle: normal stop and timeout stop
@@ -7,7 +7,7 @@ def triggerflow_runtime_stream_stop_demo():
     # Flow: put_into_stream -> stop_stream
     flow = TriggerFlow()
 
-    async def stream_steps(data: TriggerFlowEventData):
+    async def stream_steps(data: TriggerFlowRuntimeData):
         data.put_into_stream("step-1")
         data.put_into_stream("step-2")
         data.stop_stream()
@@ -26,7 +26,7 @@ def triggerflow_runtime_stream_timeout_demo():
     # Idea: if stop_stream() is not called, runtime stream can end by timeout.
     flow = TriggerFlow()
 
-    async def stream_slow(data: TriggerFlowEventData):
+    async def stream_slow(data: TriggerFlowRuntimeData):
         data.put_into_stream("tick")
         return "done"
 

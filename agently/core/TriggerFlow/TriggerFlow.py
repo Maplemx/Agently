@@ -47,6 +47,9 @@ class TriggerFlow:
         )
 
         self._flow_data = RuntimeData()
+        self._runtime_resources = RuntimeData(
+            name=f"TriggerFlow-{ self.name }-RuntimeResources",
+        )
         self._blue_print = blue_print if blue_print is not None else TriggerFlowBluePrint()
         self._skip_exceptions = skip_exceptions
         self._executions: dict[str, "TriggerFlowExecution"] = {}
@@ -61,6 +64,11 @@ class TriggerFlow:
         self.start = FunctionShifter.syncify(self.async_start)
         self.register_chunk_handler = self._blue_print.register_chunk_handler
         self.register_condition_handler = self._blue_print.register_condition_handler
+        self.set_runtime_resource = self._set_runtime_resource
+        self.get_runtime_resource = self._get_runtime_resource
+        self.del_runtime_resource = self._del_runtime_resource
+        self.update_runtime_resources = self._update_runtime_resources
+        self.clear_runtime_resources = self._clear_runtime_resources
         self._bind_start_process()
 
     def _bind_start_process(self):
@@ -116,6 +124,7 @@ class TriggerFlow:
         *,
         skip_exceptions: bool | None = None,
         concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
     ):
         execution_id = uuid.uuid4().hex
         skip_exceptions = skip_exceptions if skip_exceptions is not None else self._skip_exceptions
@@ -125,8 +134,37 @@ class TriggerFlow:
             skip_exceptions=skip_exceptions,
             concurrency=concurrency,
         )
+        if runtime_resources:
+            execution.update_runtime_resources(runtime_resources)
         self._executions[execution_id] = execution
         return execution
+
+    def _set_runtime_resource(self, key: str, value: Any):
+        self._runtime_resources.set(str(key), value)
+        return self
+
+    def _get_runtime_resource(self, key: str, default: Any = None):
+        return self._runtime_resources.get(str(key), default, inherit=False)
+
+    def _del_runtime_resource(self, key: str):
+        self._runtime_resources.pop(str(key), None)
+        return self
+
+    def _update_runtime_resources(
+        self,
+        mapping: dict[str, Any] | None = None,
+        **kwargs,
+    ):
+        if mapping is not None:
+            for key, value in dict(mapping).items():
+                self._set_runtime_resource(str(key), value)
+        for key, value in kwargs.items():
+            self._set_runtime_resource(str(key), value)
+        return self
+
+    def _clear_runtime_resources(self):
+        self._runtime_resources.clear()
+        return self
 
     def remove_execution(self, execution: "TriggerFlowExecution | str"):
         if isinstance(execution, str):
@@ -142,8 +180,12 @@ class TriggerFlow:
         *,
         wait_for_result: bool = False,
         concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
     ):
-        execution = self.create_execution(concurrency=concurrency)
+        execution = self.create_execution(
+            concurrency=concurrency,
+            runtime_resources=runtime_resources,
+        )
         await execution.async_start(initial_value, wait_for_result=wait_for_result)
         return execution
 
@@ -217,8 +259,13 @@ class TriggerFlow:
         wait_for_result: bool = True,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
     ):
-        execution = await self.async_start_execution(initial_value, concurrency=concurrency)
+        execution = await self.async_start_execution(
+            initial_value,
+            concurrency=concurrency,
+            runtime_resources=runtime_resources,
+        )
         if wait_for_result:
             return await execution.async_get_result(timeout=timeout)
 
@@ -228,8 +275,12 @@ class TriggerFlow:
         *,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
     ):
-        execution = self.create_execution(concurrency=concurrency)
+        execution = self.create_execution(
+            concurrency=concurrency,
+            runtime_resources=runtime_resources,
+        )
         return execution.get_async_runtime_stream(
             initial_value,
             timeout=timeout,
@@ -241,8 +292,12 @@ class TriggerFlow:
         *,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
     ):
-        execution = self.create_execution(concurrency=concurrency)
+        execution = self.create_execution(
+            concurrency=concurrency,
+            runtime_resources=runtime_resources,
+        )
         return execution.get_runtime_stream(
             initial_value,
             timeout=timeout,

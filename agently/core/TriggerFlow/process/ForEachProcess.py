@@ -13,7 +13,7 @@ import asyncio
 from typing import Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agently.types.trigger_flow import TriggerFlowEventData
+    from agently.types.trigger_flow import TriggerFlowRuntimeData
 
 from .BaseProcess import TriggerFlowBaseProcess
 from agently.types.data import EMPTY
@@ -34,7 +34,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
         )
         send_item_trigger = f"ForEach-{ for_each_id }-Send"
 
-        async def send_items(data: "TriggerFlowEventData"):
+        async def send_items(data: "TriggerFlowRuntimeData"):
             data.layer_in()
             for_each_instance_id = data.layer_mark
             assert for_each_instance_id is not None
@@ -113,7 +113,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
         for_each_id = self._block_data.data["for_each_id"]
         end_for_each_trigger = f"ForEach-{ for_each_id }-End"
 
-        async def collect_results(data: "TriggerFlowEventData"):
+        async def collect_results(data: "TriggerFlowRuntimeData"):
             for_each_instance_id = data.upper_layer_mark
             item_id = data.layer_mark
             assert for_each_instance_id is not None and item_id is not None

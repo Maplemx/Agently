@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Result: set_result to control output
@@ -8,7 +8,7 @@ def triggerflow_set_result_demo():
     # Expect: prints "final answer: done".
     flow = TriggerFlow()
 
-    async def worker(data: TriggerFlowEventData):
+    async def worker(data: TriggerFlowRuntimeData):
         return f"work({data.value})"
 
     flow.to(worker).end()

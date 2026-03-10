@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Data Flow: runtime_data + collect
@@ -8,11 +8,11 @@ def triggerflow_data_flow():
     # Expect: prints "[when runtime]" then two collect outputs.
     flow = TriggerFlow()
 
-    async def set_runtime(data: TriggerFlowEventData):
+    async def set_runtime(data: TriggerFlowRuntimeData):
         data.set_runtime_data("user_id", "u-001")
         return "runtime ok"
 
-    async def set_runtime_context(data: TriggerFlowEventData):
+    async def set_runtime_context(data: TriggerFlowRuntimeData):
         data.set_runtime_data("env", "prod")
         return "runtime context ok"
 

@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Branching: when()
@@ -8,11 +8,11 @@ def triggerflow_when_demo():
     # Expect: prints "[when or]" then "[when both]".
     flow = TriggerFlow()
 
-    async def set_runtime(data: TriggerFlowEventData):
+    async def set_runtime(data: TriggerFlowRuntimeData):
         data.set_runtime_data("flag", "ready")
         return "runtime done"
 
-    async def set_runtime_phase(data: TriggerFlowEventData):
+    async def set_runtime_phase(data: TriggerFlowRuntimeData):
         data.set_runtime_data("phase", "ready")
         return "runtime phase done"
 
@@ -92,7 +92,7 @@ def triggerflow_complex_branching_demo():
     # Expect: prints "[review]", "[when ready]", "[action]".
     flow = TriggerFlow()
 
-    async def prepare(data: TriggerFlowEventData):
+    async def prepare(data: TriggerFlowRuntimeData):
         data.set_runtime_data("task", "summarize")
         data.set_runtime_data("urgency", "high")
         data.set_runtime_data("score", 78)

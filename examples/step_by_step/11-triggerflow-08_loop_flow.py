@@ -1,4 +1,4 @@
-from agently import TriggerFlow, TriggerFlowEventData
+from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
 ## TriggerFlow Loop: emit event to re-enter the flow
@@ -8,11 +8,11 @@ def loop_flow_demo():
     # Expect: prints "done: 3".
     flow = TriggerFlow()
 
-    async def start_loop(data: TriggerFlowEventData):
+    async def start_loop(data: TriggerFlowRuntimeData):
         await data.async_emit("Loop", 0)
         return None
 
-    async def loop_step(data: TriggerFlowEventData):
+    async def loop_step(data: TriggerFlowRuntimeData):
         count = data.value
         if count >= 3:
             await data.async_emit("LoopEnd", count)
