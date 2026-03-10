@@ -17,18 +17,30 @@ import uuid
 import copy
 import json
 import asyncio
+import contextlib
+import re
 import yaml
+from dataclasses import dataclass
 from pathlib import Path
 from json import JSONDecodeError
 from asyncio import Event, Semaphore
-from typing import Any, Literal, TYPE_CHECKING, Sequence
+from collections.abc import Mapping
+from typing import Any, Literal, TYPE_CHECKING, Sequence, cast
 
 if TYPE_CHECKING:
-    from agently.types.trigger_flow import TriggerFlowAllHandlers, TriggerFlowHandler
+    from agently.types.trigger_flow import (
+        TriggerFlowAllHandlers,
+        TriggerFlowHandler,
+        TriggerFlowPathReadable,
+        TriggerFlowPathWritable,
+        TriggerFlowSubFlowCapture,
+        TriggerFlowSubFlowWriteBack,
+    )
     from .TriggerFlow import TriggerFlow
 
 from agently.types.data import EMPTY
-from agently.utils import RuntimeDataNamespace
+from agently.types.trigger_flow import RUNTIME_STREAM_STOP
+from agently.utils import RuntimeData, RuntimeDataNamespace
 from .Chunk import TriggerFlowChunk
 from .Execution import TriggerFlowExecution
 from .Definition import (
@@ -38,6 +50,144 @@ from .Definition import (
     make_signal_ref,
     render_callable_ref,
 )
+
+_SUB_FLOW_PATH_SEGMENT_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_CAPTURE_TARGET_SCOPES = frozenset({"input", "runtime_data", "flow_data", "resources"})
+_CAPTURE_SOURCE_SCOPES = frozenset({"value", "runtime_data", "flow_data", "resources"})
+_WRITE_BACK_TARGET_SCOPES = frozenset({"value", "runtime_data", "flow_data"})
+_WRITE_BACK_SOURCE_SCOPES = frozenset({"result"})
+
+
+@dataclass(frozen=True)
+class _CompiledSubFlowBinding:
+    target_scope: Literal["input", "runtime_data", "flow_data", "resources", "value"]
+    target_path: tuple[str, ...]
+    source_scope: Literal["value", "runtime_data", "flow_data", "resources", "result"]
+    source_path: tuple[str, ...]
+
+
+def _clone_sub_flow_value(value: Any):
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        return value
+
+
+def _read_sub_flow_value_by_path(root_value: Any, path: tuple[str, ...], *, scope: str):
+    current = root_value
+    for segment in path:
+        if isinstance(current, dict) and segment in current:
+            current = current[segment]
+            continue
+        raise KeyError(f"TriggerFlow sub flow path '{ scope }.{ '.'.join(path) }' not found.")
+    return _clone_sub_flow_value(current)
+
+
+class _ParentSubFlowCaptureSource:
+    def __init__(self, data):
+        self._scopes = {
+            "value": data.value,
+            "runtime_data": data.state.to_dict(),
+            "flow_data": data.flow_state.to_dict(),
+            "resources": data.resources.to_dict(),
+        }
+
+    def read_path(self, scope: str, path: tuple[str, ...]):
+        return _read_sub_flow_value_by_path(self._scopes[scope], path, scope=scope)
+
+
+class _SubFlowWriteBackSource:
+    def __init__(self, result: Any):
+        self._result = result
+
+    def read_path(self, scope: str, path: tuple[str, ...]):
+        if scope != "result":
+            raise KeyError(f"Unsupported TriggerFlow sub flow write back source scope '{ scope }'.")
+        return _read_sub_flow_value_by_path(self._result, path, scope=scope)
+
+
+class _SubFlowCaptureTarget:
+    def __init__(self):
+        self._has_input = False
+        self._input_value = None
+        self._runtime_data = RuntimeData()
+        self._flow_data = RuntimeData()
+        self._resources = RuntimeData()
+
+    def write_path(self, scope: str, path: tuple[str, ...], value: Any):
+        copied_value = _clone_sub_flow_value(value)
+        if scope == "input":
+            if len(path) == 0:
+                self._input_value = copied_value
+                self._has_input = True
+                return
+            current_input = self._input_value if isinstance(self._input_value, dict) else {}
+            input_data = RuntimeData(_clone_sub_flow_value(current_input))
+            input_data.set(".".join(path), copied_value)
+            self._input_value = input_data.get(None, {}, inherit=False)
+            self._has_input = True
+            return
+
+        target_scope = {
+            "runtime_data": self._runtime_data,
+            "flow_data": self._flow_data,
+            "resources": self._resources,
+        }[scope]
+        target_scope.set(".".join(path), copied_value)
+
+    def build_input(self):
+        return _clone_sub_flow_value(self._input_value) if self._has_input else None
+
+    def build_runtime_data(self):
+        return self._runtime_data.get(None, {}, inherit=False)
+
+    def build_flow_data(self):
+        return self._flow_data.get(None, {}, inherit=False)
+
+    def build_resources(self):
+        return self._resources.get(None, {}, inherit=False)
+
+
+class _SubFlowWriteBackTarget:
+    def __init__(self, initial_value: Any):
+        self._has_value_binding = False
+        self._current_value = _clone_sub_flow_value(initial_value)
+        initial_mapping = self._current_value if isinstance(self._current_value, dict) else {}
+        self._value_data = RuntimeData(_clone_sub_flow_value(initial_mapping))
+        self._runtime_data = RuntimeData()
+        self._flow_data = RuntimeData()
+
+    def write_path(self, scope: str, path: tuple[str, ...], value: Any):
+        copied_value = _clone_sub_flow_value(value)
+        if scope == "value":
+            self._has_value_binding = True
+            if len(path) == 0:
+                self._current_value = copied_value
+                return
+            if not isinstance(self._current_value, dict):
+                self._current_value = {}
+                self._value_data = RuntimeData({})
+            self._value_data.set(".".join(path), copied_value)
+            self._current_value = self._value_data.get(None, {}, inherit=False)
+            return
+
+        target_scope = {
+            "runtime_data": self._runtime_data,
+            "flow_data": self._flow_data,
+        }[scope]
+        target_scope.set(".".join(path), copied_value)
+
+    def apply(self, data):
+        if self._has_value_binding:
+            data.value = _clone_sub_flow_value(self._current_value)
+
+        runtime_data_patch = self._runtime_data.get(None, {}, inherit=False)
+        for key, value in runtime_data_patch.items():
+            data.execution._runtime_data.set(key, _clone_sub_flow_value(value))
+
+        flow_data_patch = self._flow_data.get(None, {}, inherit=False)
+        for key, value in flow_data_patch.items():
+            data.execution._trigger_flow._flow_data.set(key, _clone_sub_flow_value(value))
 
 
 class TriggerFlowBluePrint:
@@ -261,6 +411,265 @@ class TriggerFlowBluePrint:
         )
         return self.definition.get_operator(chunk.id)
 
+    def _parse_sub_flow_relative_path(self, path: str, *, option_name: str):
+        if not isinstance(path, str):
+            raise TypeError(
+                f"TriggerFlow sub flow { option_name } target path must be a string, got: { type(path) }."
+            )
+        if path == "":
+            raise ValueError(f"TriggerFlow sub flow { option_name } target path can not be empty.")
+        segments = tuple(path.split("."))
+        for segment in segments:
+            if not _SUB_FLOW_PATH_SEGMENT_PATTERN.fullmatch(segment):
+                raise ValueError(
+                    f"TriggerFlow sub flow { option_name } target path '{ path }' contains invalid segment '{ segment }'."
+                )
+        return segments
+
+    def _parse_sub_flow_source_path(
+        self,
+        path: str,
+        *,
+        mode: Literal["capture", "write_back"],
+        target_scope: str,
+    ):
+        if not isinstance(path, str):
+            raise TypeError(
+                f"TriggerFlow sub flow { mode } source path for target scope '{ target_scope }' "
+                f"must be a string, got: { type(path) }."
+            )
+        if path == "":
+            raise ValueError(
+                f"TriggerFlow sub flow { mode } source path for target scope '{ target_scope }' can not be empty."
+            )
+        segments = tuple(path.split("."))
+        root_scope = segments[0]
+        allowed_source_scopes = _CAPTURE_SOURCE_SCOPES if mode == "capture" else _WRITE_BACK_SOURCE_SCOPES
+        if root_scope not in allowed_source_scopes:
+            raise ValueError(
+                f"TriggerFlow sub flow { mode } source scope '{ root_scope }' is not supported. "
+                f"Allowed scopes: { sorted(allowed_source_scopes) }"
+            )
+        for segment in segments[1:]:
+            if not _SUB_FLOW_PATH_SEGMENT_PATTERN.fullmatch(segment):
+                raise ValueError(
+                    f"TriggerFlow sub flow { mode } source path '{ path }' contains invalid segment '{ segment }'."
+                )
+        return root_scope, segments[1:]
+
+    def _normalize_sub_flow_scope_binding(
+        self,
+        binding: Any,
+        *,
+        mode: Literal["capture", "write_back"],
+        scope: str,
+    ):
+        if isinstance(binding, str):
+            if scope not in {"input", "value"}:
+                raise TypeError(
+                    f"TriggerFlow sub flow { mode } scope '{ scope }' only accepts key-path mappings."
+                )
+            return binding
+
+        if not isinstance(binding, Mapping):
+            raise TypeError(
+                f"TriggerFlow sub flow { mode } scope '{ scope }' expects a string or mapping, got: { type(binding) }."
+            )
+
+        normalized_binding: dict[str, str] = {}
+        for target_path, source_path in binding.items():
+            if not isinstance(target_path, str):
+                raise TypeError(
+                    f"TriggerFlow sub flow { mode } target path for scope '{ scope }' must be a string, "
+                    f"got: { type(target_path) }."
+                )
+            if not isinstance(source_path, str):
+                raise TypeError(
+                    f"TriggerFlow sub flow { mode } source path for scope '{ scope }' must be a string, "
+                    f"got: { type(source_path) }."
+                )
+            normalized_binding[str(target_path)] = str(source_path)
+        return normalized_binding
+
+    def _normalize_sub_flow_spec(
+        self,
+        spec: "TriggerFlowSubFlowCapture | TriggerFlowSubFlowWriteBack | None",
+        *,
+        mode: Literal["capture", "write_back"],
+    ):
+        if spec is None:
+            return None
+        if not isinstance(spec, Mapping):
+            raise TypeError(f"TriggerFlow sub flow { mode } spec must be a mapping, got: { type(spec) }.")
+
+        allowed_target_scopes = _CAPTURE_TARGET_SCOPES if mode == "capture" else _WRITE_BACK_TARGET_SCOPES
+        normalized_spec: dict[str, str | dict[str, str]] = {}
+        for target_scope, binding in spec.items():
+            if not isinstance(target_scope, str):
+                raise TypeError(
+                    f"TriggerFlow sub flow { mode } target scope must be a string, got: { type(target_scope) }."
+                )
+            if target_scope not in allowed_target_scopes:
+                raise ValueError(
+                    f"TriggerFlow sub flow { mode } target scope '{ target_scope }' is not supported. "
+                    f"Allowed scopes: { sorted(allowed_target_scopes) }"
+                )
+            normalized_spec[target_scope] = self._normalize_sub_flow_scope_binding(
+                binding,
+                mode=mode,
+                scope=target_scope,
+            )
+        return normalized_spec
+
+    def _validate_sub_flow_target_conflicts(
+        self,
+        target_paths: list[tuple[str, ...]],
+        *,
+        mode: Literal["capture", "write_back"],
+        scope: str,
+    ):
+        seen_paths: set[tuple[str, ...]] = set()
+        for target_path in sorted(target_paths, key=len):
+            if target_path in seen_paths:
+                raise ValueError(
+                    f"TriggerFlow sub flow { mode } target path '{ scope }.{ '.'.join(target_path) }' is duplicated."
+                )
+            for depth in range(1, len(target_path)):
+                if target_path[:depth] in seen_paths:
+                    raise ValueError(
+                        f"TriggerFlow sub flow { mode } target paths conflict under scope '{ scope }': "
+                        f"'{ scope }.{ '.'.join(target_path[:depth]) }' and '{ scope }.{ '.'.join(target_path) }'."
+                    )
+            seen_paths.add(target_path)
+
+    def _compile_sub_flow_bindings(
+        self,
+        spec: "TriggerFlowSubFlowCapture | TriggerFlowSubFlowWriteBack | None",
+        *,
+        mode: Literal["capture", "write_back"],
+    ):
+        normalized_spec = self._normalize_sub_flow_spec(spec, mode=mode)
+        compiled_bindings: list[_CompiledSubFlowBinding] = []
+
+        if normalized_spec is None:
+            default_target_scope = "input" if mode == "capture" else "value"
+            default_source_path = "value" if mode == "capture" else "result"
+            source_scope, source_path = self._parse_sub_flow_source_path(
+                default_source_path,
+                mode=mode,
+                target_scope=default_target_scope,
+            )
+            compiled_bindings.append(
+                _CompiledSubFlowBinding(
+                    target_scope=default_target_scope,
+                    target_path=tuple(),
+                    source_scope=cast(
+                        Literal["value", "runtime_data", "flow_data", "resources", "result"],
+                        source_scope,
+                    ),
+                    source_path=tuple(source_path),
+                )
+            )
+            return normalized_spec, compiled_bindings
+
+        for target_scope, binding in normalized_spec.items():
+            if isinstance(binding, str):
+                source_scope, source_path = self._parse_sub_flow_source_path(
+                    binding,
+                    mode=mode,
+                    target_scope=target_scope,
+                )
+                compiled_bindings.append(
+                    _CompiledSubFlowBinding(
+                        target_scope=cast(
+                            Literal["input", "runtime_data", "flow_data", "resources", "value"],
+                            target_scope,
+                        ),
+                        target_path=tuple(),
+                        source_scope=cast(
+                            Literal["value", "runtime_data", "flow_data", "resources", "result"],
+                            source_scope,
+                        ),
+                        source_path=tuple(source_path),
+                    )
+                )
+                continue
+
+            target_paths: list[tuple[str, ...]] = []
+            for target_path_str, source_path_str in binding.items():
+                target_path = self._parse_sub_flow_relative_path(
+                    target_path_str,
+                    option_name=f"{ mode }.{ target_scope }",
+                )
+                source_scope, source_path = self._parse_sub_flow_source_path(
+                    source_path_str,
+                    mode=mode,
+                    target_scope=target_scope,
+                )
+                target_paths.append(target_path)
+                compiled_bindings.append(
+                    _CompiledSubFlowBinding(
+                        target_scope=cast(
+                            Literal["input", "runtime_data", "flow_data", "resources", "value"],
+                            target_scope,
+                        ),
+                        target_path=target_path,
+                        source_scope=cast(
+                            Literal["value", "runtime_data", "flow_data", "resources", "result"],
+                            source_scope,
+                        ),
+                        source_path=tuple(source_path),
+                    )
+                )
+            self._validate_sub_flow_target_conflicts(
+                target_paths,
+                mode=mode,
+                scope=target_scope,
+            )
+
+        return normalized_spec, compiled_bindings
+
+    def _apply_sub_flow_bindings(
+        self,
+        bindings: Sequence[_CompiledSubFlowBinding],
+        *,
+        source: "TriggerFlowPathReadable",
+        target: "TriggerFlowPathWritable",
+    ):
+        for binding in bindings:
+            value = source.read_path(binding.source_scope, binding.source_path)
+            target.write_path(binding.target_scope, binding.target_path, value)
+
+    def _instantiate_isolated_sub_flow(self, trigger_flow: "TriggerFlow"):
+        from .TriggerFlow import TriggerFlow
+
+        isolated_sub_flow = TriggerFlow(
+            blue_print=trigger_flow.save_blue_print(),
+            name=trigger_flow.name,
+            skip_exceptions=trigger_flow._skip_exceptions,
+        )
+        isolated_sub_flow.settings.update(
+            copy.deepcopy(trigger_flow.settings.get(None, {}, inherit=False))
+        )
+        isolated_sub_flow._flow_data.update(
+            copy.deepcopy(trigger_flow._flow_data.get(None, {}, inherit=False))
+        )
+        isolated_sub_flow._runtime_resources.update(
+            copy.deepcopy(trigger_flow._runtime_resources.get(None, {}, inherit=False))
+        )
+        return isolated_sub_flow
+
+    async def _bridge_sub_flow_runtime_stream(
+        self,
+        child_execution: TriggerFlowExecution,
+        parent_execution: TriggerFlowExecution,
+    ):
+        while True:
+            stream_item = await child_execution._runtime_stream_queue.get()
+            if stream_item is RUNTIME_STREAM_STOP:
+                return
+            await parent_execution.async_put_into_stream(stream_item)
+
     def _build_sub_flow_from_operator(self, operator: dict[str, Any]):
         from .TriggerFlow import TriggerFlow
 
@@ -294,28 +703,76 @@ class TriggerFlowBluePrint:
         trigger_flow: "TriggerFlow | None" = None,
     ):
         emit_signal = operator["emit_signals"][0]
-        inherit_runtime_resources = bool(operator["options"].get("inherit_runtime_resources", True))
+        options = operator.get("options", {})
+        _, capture_bindings = self._compile_sub_flow_bindings(
+            options.get("capture"),
+            mode="capture",
+        )
+        _, write_back_bindings = self._compile_sub_flow_bindings(
+            options.get("write_back"),
+            mode="write_back",
+        )
         concurrency = operator["options"].get("concurrency")
-        compiled_sub_flow = trigger_flow if trigger_flow is not None else self._build_sub_flow_from_operator(operator)
+        sub_flow_template = trigger_flow if trigger_flow is not None else self._build_sub_flow_from_operator(operator)
 
         async def call_sub_flow(data):
-            runtime_resources = None
-            if inherit_runtime_resources:
-                runtime_resources = dict(data.execution.get_runtime_resources())
-            sub_flow_execution = await compiled_sub_flow.async_start_execution(
-                data.value,
-                concurrency=concurrency,
-                runtime_resources=runtime_resources,
+            isolated_sub_flow = self._instantiate_isolated_sub_flow(sub_flow_template)
+
+            capture_source = _ParentSubFlowCaptureSource(data)
+            capture_target = _SubFlowCaptureTarget()
+            self._apply_sub_flow_bindings(
+                capture_bindings,
+                source=capture_source,
+                target=capture_target,
             )
-            if sub_flow_execution.is_waiting():
-                raise NotImplementedError(
-                    "TriggerFlow sub flow does not yet support child flow pause/resume "
-                    "or external re-entry."
+
+            captured_flow_data = capture_target.build_flow_data()
+            if captured_flow_data:
+                isolated_sub_flow._flow_data.update(captured_flow_data)
+
+            sub_flow_execution = isolated_sub_flow.create_execution(
+                concurrency=concurrency,
+            )
+            captured_runtime_data = capture_target.build_runtime_data()
+            if captured_runtime_data:
+                sub_flow_execution._runtime_data.update(captured_runtime_data)
+
+            captured_resources = capture_target.build_resources()
+            if captured_resources:
+                sub_flow_execution.update_runtime_resources(captured_resources)
+
+            stream_bridge_task = asyncio.create_task(
+                self._bridge_sub_flow_runtime_stream(
+                    sub_flow_execution,
+                    data.execution,
                 )
-            result = await sub_flow_execution.async_get_result(timeout=None)
+            )
+            try:
+                await sub_flow_execution.async_start(
+                    capture_target.build_input(),
+                    wait_for_result=False,
+                )
+                if sub_flow_execution.is_waiting():
+                    raise NotImplementedError(
+                        "TriggerFlow sub flow does not yet support child flow pause/resume "
+                        "or external re-entry."
+                    )
+                result = await sub_flow_execution.async_get_result(timeout=None)
+            finally:
+                stream_bridge_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await stream_bridge_task
+
+            write_back_target = _SubFlowWriteBackTarget(data.value)
+            self._apply_sub_flow_bindings(
+                write_back_bindings,
+                source=_SubFlowWriteBackSource(result),
+                target=write_back_target,
+            )
+            write_back_target.apply(data)
             await data.async_emit(
                 emit_signal["trigger_event"],
-                result,
+                data.value,
                 _layer_marks=data._layer_marks.copy(),
             )
 
@@ -332,7 +789,8 @@ class TriggerFlowBluePrint:
         listen_signals: list[dict[str, Any]],
         *,
         name: str | None = None,
-        inherit_runtime_resources: bool = True,
+        capture: "TriggerFlowSubFlowCapture | None" = None,
+        write_back: "TriggerFlowSubFlowWriteBack | None" = None,
         concurrency: int | None = None,
         group_id: str | None = None,
         group_kind: str | None = None,
@@ -340,6 +798,8 @@ class TriggerFlowBluePrint:
         parent_group_kind: str | None = None,
     ):
         self._merge_registries_from_blue_print(trigger_flow._blue_print)
+        normalized_capture, _ = self._compile_sub_flow_bindings(capture, mode="capture")
+        normalized_write_back, _ = self._compile_sub_flow_bindings(write_back, mode="write_back")
         sub_flow_instance_id = uuid.uuid4().hex
         operator = self.definition.add_operator(
             id=f"sub-flow-{ sub_flow_instance_id }",
@@ -356,7 +816,8 @@ class TriggerFlowBluePrint:
             options={
                 "sub_flow_name": trigger_flow.name,
                 "sub_flow_config": trigger_flow._blue_print.definition.to_dict(name=trigger_flow.name),
-                "inherit_runtime_resources": inherit_runtime_resources,
+                "capture": normalized_capture,
+                "write_back": normalized_write_back,
                 "concurrency": concurrency,
             },
             group_id=group_id,

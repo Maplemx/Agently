@@ -15,7 +15,8 @@
 import uuid
 from collections.abc import Mapping
 
-from typing import Any, Callable, Literal, TYPE_CHECKING
+from typing import Any, Callable, Literal, TYPE_CHECKING, Protocol, TypeAlias, runtime_checkable
+from typing_extensions import TypedDict
 from agently.types.data import AVOID_COPY
 
 if TYPE_CHECKING:
@@ -35,6 +36,38 @@ class TriggerFlowBlockData:
     ):
         self.outer_block = outer_block
         self.data = data if data is not None else {}
+
+
+TriggerFlowPathSegments: TypeAlias = tuple[str, ...]
+TriggerFlowSubFlowPathBindingMap: TypeAlias = Mapping[str, str]
+TriggerFlowSubFlowRootBinding: TypeAlias = str | TriggerFlowSubFlowPathBindingMap
+TriggerFlowSubFlowCaptureTargetScope: TypeAlias = Literal["input", "runtime_data", "flow_data", "resources"]
+TriggerFlowSubFlowCaptureSourceScope: TypeAlias = Literal["value", "runtime_data", "flow_data", "resources"]
+TriggerFlowSubFlowWriteBackTargetScope: TypeAlias = Literal["value", "runtime_data", "flow_data"]
+TriggerFlowSubFlowWriteBackSourceScope: TypeAlias = Literal["result"]
+
+
+class TriggerFlowSubFlowCapture(TypedDict, total=False):
+    input: TriggerFlowSubFlowRootBinding
+    runtime_data: TriggerFlowSubFlowPathBindingMap
+    flow_data: TriggerFlowSubFlowPathBindingMap
+    resources: TriggerFlowSubFlowPathBindingMap
+
+
+class TriggerFlowSubFlowWriteBack(TypedDict, total=False):
+    value: TriggerFlowSubFlowRootBinding
+    runtime_data: TriggerFlowSubFlowPathBindingMap
+    flow_data: TriggerFlowSubFlowPathBindingMap
+
+
+@runtime_checkable
+class TriggerFlowPathReadable(Protocol):
+    def read_path(self, scope: str, path: TriggerFlowPathSegments) -> Any: ...
+
+
+@runtime_checkable
+class TriggerFlowPathWritable(Protocol):
+    def write_path(self, scope: str, path: TriggerFlowPathSegments, value: Any) -> None: ...
 
 
 _MISSING = object()

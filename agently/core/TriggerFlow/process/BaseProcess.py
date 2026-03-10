@@ -23,7 +23,12 @@ from typing_extensions import Self
 
 if TYPE_CHECKING:
     from ..BluePrint import TriggerFlowBluePrint
-    from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowRuntimeData
+    from agently.types.trigger_flow import (
+        TriggerFlowHandler,
+        TriggerFlowRuntimeData,
+        TriggerFlowSubFlowCapture,
+        TriggerFlowSubFlowWriteBack,
+    )
     from ..TriggerFlow import TriggerFlow
 
 from ..Chunk import TriggerFlowChunk
@@ -354,7 +359,8 @@ class TriggerFlowBaseProcess:
         *,
         side_branch: bool = False,
         name: str | None = None,
-        inherit_runtime_resources: bool = True,
+        capture: "TriggerFlowSubFlowCapture | None" = None,
+        write_back: "TriggerFlowSubFlowWriteBack | None" = None,
         concurrency: int | None = None,
     ):
         parent_group_id, parent_group_kind = self._current_definition_parent_group()
@@ -362,7 +368,8 @@ class TriggerFlowBaseProcess:
             trigger_flow,
             self._definition_signals,
             name=name,
-            inherit_runtime_resources=inherit_runtime_resources,
+            capture=capture,
+            write_back=write_back,
             concurrency=concurrency,
             group_id=self._definition_group_id,
             group_kind=self._definition_group_kind,

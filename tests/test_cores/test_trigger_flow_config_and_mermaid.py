@@ -341,6 +341,164 @@ async def test_trigger_flow_sub_flow_round_trip_and_runtime():
 
 
 @pytest.mark.asyncio
+async def test_trigger_flow_sub_flow_capture_and_write_back_round_trip():
+    child_flow = TriggerFlow(name="child-bindings-flow")
+
+    async def child_collect(data: TriggerFlowRuntimeData):
+        return {
+            "received": data.value,
+            "draft": data.get_runtime_data("draft"),
+            "topic": data.get_flow_data("topic"),
+            "logger": data.require_resource("logger"),
+        }
+
+    child_flow.to(child_collect).end()
+
+    parent_flow = TriggerFlow(name="parent-bindings-flow")
+
+    async def parent_prepare(data: TriggerFlowRuntimeData):
+        data.set_runtime_data("draft", {"headline": data.value})
+        data.set_flow_data("topic", "sub-flow")
+        data.set_resource("logger", "main-logger")
+        return {"payload": data.value, "skip": True}
+
+    async def parent_finalize(data: TriggerFlowRuntimeData):
+        return {
+            "value": data.value,
+            "stored": data.get_runtime_data("subflow"),
+            "latest_topic": data.get_flow_data("latest_topic"),
+        }
+
+    parent_flow.to(parent_prepare).to_sub_flow(
+        child_flow,
+        capture={
+            "input": "value.payload",
+            "runtime_data": {
+                "draft": "runtime_data.draft",
+            },
+            "flow_data": {
+                "topic": "flow_data.topic",
+            },
+            "resources": {
+                "logger": "resources.logger",
+            },
+        },
+        write_back={
+            "value": "result.received",
+            "runtime_data": {
+                "subflow": "result",
+            },
+            "flow_data": {
+                "latest_topic": "result.topic",
+            },
+        },
+    ).to(parent_finalize).end()
+
+    expected = {
+        "value": "news",
+        "stored": {
+            "received": "news",
+            "draft": {"headline": "news"},
+            "topic": "sub-flow",
+            "logger": "main-logger",
+        },
+        "latest_topic": "sub-flow",
+    }
+
+    assert await parent_flow.async_start("news") == expected
+
+    config = parent_flow.get_flow_config()
+    sub_flow_operator = _operator_by_kind(config, "sub_flow")[0]
+    assert sub_flow_operator["options"]["capture"]["input"] == "value.payload"
+    assert sub_flow_operator["options"]["write_back"]["value"] == "result.received"
+
+    restored = TriggerFlow()
+    restored.register_chunk_handler(parent_prepare)
+    restored.register_chunk_handler(parent_finalize)
+    restored.register_chunk_handler(child_collect)
+    restored.load_flow_config(config)
+
+    assert await restored.async_start("news") == expected
+
+
+@pytest.mark.asyncio
+async def test_trigger_flow_sub_flow_uses_isolated_child_flow_state():
+    child_flow = TriggerFlow(name="child-isolated-flow")
+
+    async def child_increment(data: TriggerFlowRuntimeData):
+        next_count = data.get_flow_data("count", 0) + 1
+        data.set_flow_data("count", next_count)
+        return next_count
+
+    child_flow.to(child_increment).end()
+
+    parent_flow = TriggerFlow(name="parent-isolated-flow")
+    parent_flow.to(child_flow).end()
+
+    assert await parent_flow.async_start("first") == 1
+    assert await parent_flow.async_start("second") == 1
+    assert child_flow.get_flow_data("count") is None
+
+
+@pytest.mark.asyncio
+async def test_trigger_flow_sub_flow_bridges_child_runtime_stream():
+    child_flow = TriggerFlow(name="child-stream-flow")
+
+    async def child_emit(data: TriggerFlowRuntimeData):
+        await data.async_put_into_stream({"scope": "child", "value": data.value})
+        await data.async_stop_stream()
+        return data.value + 1
+
+    child_flow.to(child_emit).end()
+
+    parent_flow = TriggerFlow(name="parent-stream-flow")
+
+    async def parent_finalize(data: TriggerFlowRuntimeData):
+        await data.async_put_into_stream({"scope": "parent", "value": data.value})
+        await data.async_stop_stream()
+        return data.value
+
+    parent_flow.to(child_flow).to(parent_finalize).end()
+
+    execution = await parent_flow.async_start_execution(2, wait_for_result=False)
+    runtime_stream = execution.get_async_runtime_stream(timeout=1)
+    items = [item async for item in runtime_stream]
+
+    assert items == [
+        {"scope": "child", "value": 2},
+        {"scope": "parent", "value": 3},
+    ]
+    assert await execution.async_get_result(timeout=1) == 3
+
+
+def test_trigger_flow_sub_flow_rejects_invalid_capture_and_write_back_specs():
+    child_flow = TriggerFlow(name="child-invalid-spec")
+
+    async def child_identity(data: TriggerFlowRuntimeData):
+        return data.value
+
+    child_flow.to(child_identity).end()
+
+    parent_flow = TriggerFlow(name="parent-invalid-spec")
+
+    with pytest.raises(TypeError, match="scope 'runtime_data' only accepts key-path mappings"):
+        parent_flow.to_sub_flow(
+            child_flow,
+            capture={
+                "runtime_data": "runtime_data",
+            },
+        )
+
+    with pytest.raises(ValueError, match="source scope 'value' is not supported"):
+        parent_flow.to_sub_flow(
+            child_flow,
+            write_back={
+                "value": "value",
+            },
+        )
+
+
+@pytest.mark.asyncio
 async def test_trigger_flow_sub_flow_rejects_child_pause_resume():
     child_flow = TriggerFlow(name="child-pause-flow")
 
