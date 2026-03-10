@@ -3,7 +3,7 @@ import os
 from dotenv import find_dotenv, load_dotenv
 
 from agently import Agently
-from agently.builtins.tools import Browse, Playwright, Search
+from agently.builtins.tools import Browse, Search
 
 
 def _configure_model() -> None:
@@ -35,11 +35,11 @@ def _configure_model() -> None:
 def _validate_search_browse_chain(tool_logs: list[dict]) -> dict:
     names = [str(log.get("tool_name", "")).strip() for log in tool_logs]
     first_search = next((idx for idx, name in enumerate(names) if name.startswith("search")), -1)
-    first_browse = next((idx for idx, name in enumerate(names) if name in {"browse", "playwright_open"}), -1)
+    first_browse = next((idx for idx, name in enumerate(names) if name == "browse"), -1)
     return {
         "tool_names": names,
         "has_search": first_search >= 0,
-        "has_browse_or_playwright": first_browse >= 0,
+        "has_browse": first_browse >= 0,
         "search_then_browse": first_search >= 0 and first_browse >= 0 and first_search < first_browse,
     }
 
@@ -60,20 +60,7 @@ def main():
     )
     browse = Browse(proxy=os.getenv("BROWSE_PROXY"))
 
-    tools: list = [search.search, search.search_news, browse.browse]
-
-    use_playwright = os.getenv("USE_PLAYWRIGHT", "0").strip() == "1"
-    if use_playwright:
-        playwright = Playwright(
-            headless=True,
-            proxy=os.getenv("PLAYWRIGHT_PROXY"),
-            response_mode="markdown",
-            max_content_length=8000,
-            include_links=False,
-        )
-        tools.append(playwright.open)
-
-    agent.use_tools(tools)
+    agent.use_tools([search.search, search.search_news, browse.browse])
 
     response = (
         agent.input("How to use Agently TriggerFlow")

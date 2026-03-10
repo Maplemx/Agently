@@ -60,3 +60,53 @@ def test_browse_extract_filters_nav_and_footer_noise():
     assert "Site Header" not in content
     assert "Home Docs API" not in content
     assert "Copyright footer." not in content
+
+
+def test_browse_extract_falls_back_to_blacklist_strategy_when_whitelist_is_too_thin():
+    html = """
+    <html>
+      <body>
+        <header>
+          <p>Top nav</p>
+        </header>
+        <nav class="navbar">
+          <p>Docs Blog Pricing</p>
+        </nav>
+        <div class="hero">
+          <p>Hi</p>
+        </div>
+        <section class="generic-wrapper">
+          <h1>Release Notes</h1>
+          <p>This release adds reliable browser fallback behavior for content extraction.</p>
+          <p>It also keeps noisy navigation blocks out of the final text output.</p>
+        </section>
+        <footer>
+          <p>Footer links</p>
+        </footer>
+      </body>
+    </html>
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    content = Browse._extract_text_from_soup(soup, min_length=80)
+
+    assert "# Release Notes" in content
+    assert "reliable browser fallback behavior" in content
+    assert "Docs Blog Pricing" not in content
+    assert "Footer links" not in content
+
+
+def test_browse_extract_falls_back_to_raw_body_when_text_is_still_too_short():
+    html = """
+    <html>
+      <body>
+        <div class="gallery">
+          <img src="/cover.png" alt="" />
+        </div>
+      </body>
+    </html>
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    content = Browse._extract_text_from_soup(soup, min_length=80)
+
+    assert "<body>" in content
+    assert "<img" in content

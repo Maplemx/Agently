@@ -9,7 +9,7 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 from agently import Agently
-from agently.builtins.tools import Playwright, PyAutoGUI
+from agently.builtins.tools import Browse
 
 TRAVEL_DATE = date.today().isoformat()
 TRAVEL_DATE_OBJ = date.fromisoformat(TRAVEL_DATE)
@@ -617,73 +617,60 @@ def main():
     pyautogui_wait_seconds = env_float("PYAUTOGUI_WAIT_SECONDS", 1.2)
     pyautogui_type_interval = env_float("PYAUTOGUI_TYPE_INTERVAL", 0.01)
     pyautogui_new_tab = env_bool("PYAUTOGUI_NEW_TAB", True)
-    read_source = os.getenv("FLIGHT_READ_SOURCE", "active_tab" if run_real else "playwright").strip().lower()
-    if read_source not in ("active_tab", "playwright", "auto"):
-        read_source = "active_tab" if run_real else "playwright"
 
     print(
         "[PYAUTOGUI_CONFIG] "
         f"run_real={run_real} open_mode={pyautogui_open_mode} "
         f"activate_browser={pyautogui_activate_browser} browser_app={pyautogui_browser_app} "
-        f"new_tab={pyautogui_new_tab} read_source={read_source}"
+        f"new_tab={pyautogui_new_tab} read_source=browse_auto_fallback"
     )
 
-    pyautogui_tool = PyAutoGUI(
-        new_tab=pyautogui_new_tab,
-        wait_seconds=pyautogui_wait_seconds,
-        dry_run=not run_real,
-        type_interval=pyautogui_type_interval,
-        open_mode=pyautogui_open_mode,
-        activate_browser=pyautogui_activate_browser,
-        browser_app=pyautogui_browser_app,
+    browse_tool = Browse(
+        fallback_order=("pyautogui", "playwright", "bs4"),
+        enable_pyautogui=run_real,
+        enable_playwright=True,
+        enable_bs4=True,
+        pyautogui_new_tab=pyautogui_new_tab,
+        pyautogui_wait_seconds=pyautogui_wait_seconds,
+        pyautogui_dry_run=not run_real,
+        pyautogui_type_interval=pyautogui_type_interval,
+        pyautogui_open_mode=pyautogui_open_mode,
+        pyautogui_activate_browser=pyautogui_activate_browser,
+        pyautogui_browser_app=pyautogui_browser_app,
         response_mode="markdown",
+        max_content_length=18000,
     )
-    playwright_tool = None
-    if read_source in ("playwright", "auto"):
-        playwright_tool = Playwright(
-            headless=True,
-            response_mode="markdown",
-            max_content_length=18000,
-            include_links=False,
-        )
 
     async def open_flight_site(url: str) -> dict:
         """
-        Open one URL in browser using configured PyAutoGUI mode.
+        Open one URL in browser and extract page content via Browse fallback chain.
         """
-        return await pyautogui_tool.open_url(url=normalize_url_text(url))
+        normalized_url = normalize_url_text(url)
+        content = await browse_tool.browse(url=normalized_url)
+        ok = isinstance(content, str) and not content.startswith("Can not browse")
+        return {
+            "ok": ok,
+            "requested_url": normalized_url,
+            "url": normalized_url,
+            "content": content if isinstance(content, str) else str(content),
+            "read_source": "browse_auto_fallback",
+        }
 
     async def read_flight_page(url: str) -> dict:
         """
         Read one page content for fare extraction.
         """
         normalized_url = normalize_url_text(url)
-        if read_source in ("active_tab", "auto"):
-            active_result = await pyautogui_tool.read_active_tab()
-            if isinstance(active_result, dict):
-                active_result["read_source"] = "pyautogui_active_tab"
-                active_result["expected_url"] = normalized_url
-            if read_source == "active_tab":
-                return active_result
-            if isinstance(active_result, dict) and active_result.get("ok"):
-                return active_result
-            if playwright_tool is not None:
-                fallback_result = await playwright_tool.open(url=normalized_url)
-                if isinstance(fallback_result, dict):
-                    fallback_result["read_source"] = "playwright_fallback"
-                return fallback_result
-            return active_result
-
-        if playwright_tool is None:
-            return {
-                "ok": False,
-                "requested_url": normalized_url,
-                "error": "Playwright read source requested but Playwright tool is not configured.",
-            }
-        playwright_result = await playwright_tool.open(url=normalized_url)
-        if isinstance(playwright_result, dict):
-            playwright_result["read_source"] = "playwright"
-        return playwright_result
+        content = await browse_tool.browse(url=normalized_url)
+        ok = isinstance(content, str) and not content.startswith("Can not browse")
+        return {
+            "ok": ok,
+            "requested_url": normalized_url,
+            "url": normalized_url,
+            "content": content if isinstance(content, str) else str(content),
+            "read_source": "browse_auto_fallback",
+            "expected_url": normalized_url,
+        }
 
     scan_agent.use_tools(open_flight_site)
     read_agent.use_tools(read_flight_page)

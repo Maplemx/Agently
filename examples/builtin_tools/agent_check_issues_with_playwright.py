@@ -7,7 +7,7 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 from agently import Agently
-from agently.builtins.tools import Playwright
+from agently.builtins.tools import Browse
 
 ISSUES_URL = "https://github.com/AgentEra/Agently/issues?q=is%3Aissue%20state%3Aopen"
 URL_PATTERN = re.compile(r"https?://[^\s\]\)\"'>]+")
@@ -240,19 +240,29 @@ def main():
     summary_agent = Agently.create_agent("issue-checker-summary")
     max_pages = int(os.getenv("ISSUE_SCAN_MAX_PAGES", "3"))
     issue_detail_limit = int(os.getenv("ISSUE_DETAIL_LIMIT", "5"))
-    playwright = Playwright(
-        headless=True,
-        timeout=45000,
+    playwright = Browse(
+        enable_pyautogui=False,
+        enable_playwright=True,
+        enable_bs4=False,
+        playwright_headless=True,
+        playwright_timeout=45000,
         response_mode="markdown",
         max_content_length=16000,
-        include_links=False,
+        playwright_include_links=False,
     )
 
     async def open_issues_page(url: str) -> dict:
         """
         Open GitHub issues page and return rendered content.
         """
-        return await playwright.open(url=url)
+        content = await playwright.browse(url=url)
+        ok = isinstance(content, str) and not content.startswith("Can not browse")
+        return {
+            "ok": ok,
+            "requested_url": url,
+            "url": url,
+            "content": content if isinstance(content, str) else str(content),
+        }
 
     scan_agent.use_tools(open_issues_page)
 
