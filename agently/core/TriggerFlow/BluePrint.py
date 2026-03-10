@@ -124,6 +124,8 @@ class TriggerFlowBluePrint:
         *,
         group_id: str | None = None,
         group_kind: str | None = None,
+        parent_group_id: str | None = None,
+        parent_group_kind: str | None = None,
     ):
         if group_id is None or group_kind is None:
             return self.definition.get_operator(operator_id)
@@ -131,12 +133,22 @@ class TriggerFlowBluePrint:
         if operator.get("group_id") is None:
             operator["group_id"] = group_id
             operator["group_kind"] = group_kind
+            operator["parent_group_id"] = parent_group_id
+            operator["parent_group_kind"] = parent_group_kind
             return operator
         if operator.get("group_id") == group_id and operator.get("group_kind") == group_kind:
+            if operator.get("parent_group_id") is None and parent_group_id is not None:
+                operator["parent_group_id"] = parent_group_id
+                operator["parent_group_kind"] = parent_group_kind
             return operator
         options = copy.deepcopy(operator.get("options", {}))
         usage_groups = options.get("usage_groups", [])
-        group_entry = {"group_id": group_id, "group_kind": group_kind}
+        group_entry = {
+            "group_id": group_id,
+            "group_kind": group_kind,
+            "parent_group_id": parent_group_id,
+            "parent_group_kind": parent_group_kind,
+        }
         if group_entry not in usage_groups:
             usage_groups.append(group_entry)
         options["usage_groups"] = usage_groups
@@ -161,12 +173,34 @@ class TriggerFlowBluePrint:
         self.sync_chunk_definition(chunk)
         return chunk
 
+    def _merge_callable_registry(
+        self,
+        registry_type: Literal["chunk", "condition"],
+        source_registry: dict[str, Any],
+    ):
+        target_registry = self._get_registry(registry_type)
+        for name, handler in source_registry.items():
+            existing = target_registry.get(name)
+            if existing is not None and existing is not handler:
+                raise ValueError(
+                    f"TriggerFlow { registry_type } handler '{ name }' is already registered to another callable."
+                )
+            target_registry[name] = handler
+        return self
+
+    def _merge_registries_from_blue_print(self, blue_print: "TriggerFlowBluePrint"):
+        self._merge_callable_registry("chunk", blue_print._chunk_registry)
+        self._merge_callable_registry("condition", blue_print._condition_registry)
+        return self
+
     def sync_chunk_definition(
         self,
         chunk: TriggerFlowChunk,
         *,
         group_id: str | None = None,
         group_kind: str | None = None,
+        parent_group_id: str | None = None,
+        parent_group_kind: str | None = None,
     ):
         emit_signals = [
             self.make_signal("event", chunk.trigger, role="continuation"),
@@ -181,6 +215,8 @@ class TriggerFlowBluePrint:
                 emit_signals=emit_signals,
                 group_id=group_id,
                 group_kind=group_kind,
+                parent_group_id=parent_group_id,
+                parent_group_kind=parent_group_kind,
             )
         else:
             self.definition.update_operator(
@@ -193,6 +229,8 @@ class TriggerFlowBluePrint:
                 chunk.id,
                 group_id=group_id,
                 group_kind=group_kind,
+                parent_group_id=parent_group_id,
+                parent_group_kind=parent_group_kind,
             )
         return self.definition.get_operator(chunk.id)
 
@@ -203,19 +241,134 @@ class TriggerFlowBluePrint:
         *,
         group_id: str | None = None,
         group_kind: str | None = None,
+        parent_group_id: str | None = None,
+        parent_group_kind: str | None = None,
     ):
         self.sync_chunk_definition(
             chunk,
             group_id=group_id,
             group_kind=group_kind,
+            parent_group_id=parent_group_id,
+            parent_group_kind=parent_group_kind,
         )
         self.definition.append_listen_signals(chunk.id, listen_signals)
         self._mark_operator_group(
             chunk.id,
             group_id=group_id,
             group_kind=group_kind,
+            parent_group_id=parent_group_id,
+            parent_group_kind=parent_group_kind,
         )
         return self.definition.get_operator(chunk.id)
+
+    def _build_sub_flow_from_operator(self, operator: dict[str, Any]):
+        from .TriggerFlow import TriggerFlow
+
+        options = operator.get("options", {})
+        sub_flow_config = options.get("sub_flow_config")
+        if not isinstance(sub_flow_config, dict):
+            raise TypeError(
+                f"TriggerFlow sub flow operator '{ operator['id'] }' missing valid 'sub_flow_config'."
+            )
+
+        sub_blue_print = type(self)(
+            name=str(
+                sub_flow_config.get("name")
+                or options.get("sub_flow_name")
+                or operator.get("name")
+                or f"SubFlow-{ operator['id'] }"
+            )
+        )
+        sub_blue_print._chunk_registry = self._chunk_registry.copy()
+        sub_blue_print._condition_registry = self._condition_registry.copy()
+        sub_blue_print.load_flow_config(copy.deepcopy(sub_flow_config))
+        return TriggerFlow(
+            blue_print=sub_blue_print,
+            name=sub_blue_print.name,
+        )
+
+    def _compile_sub_flow_operator(
+        self,
+        operator: dict[str, Any],
+        *,
+        trigger_flow: "TriggerFlow | None" = None,
+    ):
+        emit_signal = operator["emit_signals"][0]
+        inherit_runtime_resources = bool(operator["options"].get("inherit_runtime_resources", True))
+        concurrency = operator["options"].get("concurrency")
+        compiled_sub_flow = trigger_flow if trigger_flow is not None else self._build_sub_flow_from_operator(operator)
+
+        async def call_sub_flow(data):
+            runtime_resources = None
+            if inherit_runtime_resources:
+                runtime_resources = dict(data.execution.get_runtime_resources())
+            sub_flow_execution = await compiled_sub_flow.async_start_execution(
+                data.value,
+                concurrency=concurrency,
+                runtime_resources=runtime_resources,
+            )
+            if sub_flow_execution.is_waiting():
+                raise NotImplementedError(
+                    "TriggerFlow sub flow does not yet support child flow pause/resume "
+                    "or external re-entry."
+                )
+            result = await sub_flow_execution.async_get_result(timeout=None)
+            await data.async_emit(
+                emit_signal["trigger_event"],
+                result,
+                _layer_marks=data._layer_marks.copy(),
+            )
+
+        for signal in operator["listen_signals"]:
+            self.add_handler(
+                signal["trigger_type"],
+                signal["trigger_event"],
+                call_sub_flow,
+            )
+
+    def attach_sub_flow(
+        self,
+        trigger_flow: "TriggerFlow",
+        listen_signals: list[dict[str, Any]],
+        *,
+        name: str | None = None,
+        inherit_runtime_resources: bool = True,
+        concurrency: int | None = None,
+        group_id: str | None = None,
+        group_kind: str | None = None,
+        parent_group_id: str | None = None,
+        parent_group_kind: str | None = None,
+    ):
+        self._merge_registries_from_blue_print(trigger_flow._blue_print)
+        sub_flow_instance_id = uuid.uuid4().hex
+        operator = self.definition.add_operator(
+            id=f"sub-flow-{ sub_flow_instance_id }",
+            kind="sub_flow",
+            name=name if name is not None else trigger_flow.name,
+            listen_signals=listen_signals,
+            emit_signals=[
+                self.make_signal(
+                    "event",
+                    f"SubFlow-{ sub_flow_instance_id }-Result",
+                    role="continuation",
+                )
+            ],
+            options={
+                "sub_flow_name": trigger_flow.name,
+                "sub_flow_config": trigger_flow._blue_print.definition.to_dict(name=trigger_flow.name),
+                "inherit_runtime_resources": inherit_runtime_resources,
+                "concurrency": concurrency,
+            },
+            group_id=group_id,
+            group_kind=group_kind,
+            parent_group_id=parent_group_id,
+            parent_group_kind=parent_group_kind,
+        )
+        self._compile_sub_flow_operator(
+            operator,
+            trigger_flow=trigger_flow,
+        )
+        return operator
 
     def add_handler(
         self,
@@ -720,6 +873,8 @@ class TriggerFlowBluePrint:
             self._compile_match_collect_operator(operator)
         elif kind == "collect_branch":
             self._compile_collect_branch_operator(operator)
+        elif kind == "sub_flow":
+            self._compile_sub_flow_operator(operator)
         elif kind == "result_sink":
             self._compile_result_sink_operator(operator)
         else:

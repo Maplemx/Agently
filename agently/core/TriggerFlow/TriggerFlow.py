@@ -85,6 +85,7 @@ class TriggerFlow:
         self.chunks = self._blue_print.chunks
         self.when = self._start_process.when
         self.to = self._start_process.to
+        self.to_sub_flow = self._start_process.to_sub_flow
         self.side_branch = self._start_process.side_branch
         self.batch = self._start_process.batch
         self.for_each = self._start_process.for_each

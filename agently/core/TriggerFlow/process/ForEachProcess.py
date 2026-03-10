@@ -94,6 +94,8 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             options={"concurrency": concurrency},
             group_id=for_each_id,
             group_kind="for_each",
+            parent_group_id=self._definition_group_id,
+            parent_group_kind=self._definition_group_kind,
         )
 
         return self._new(
@@ -150,6 +152,8 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             emit_signals=[self._event_signal(end_for_each_trigger, role="continuation")],
             group_id=for_each_id,
             group_kind="for_each",
+            parent_group_id=self._block_data.data.get("definition_outer_group_id"),
+            parent_group_kind=self._block_data.data.get("definition_outer_group_kind"),
         )
 
         outer_block = self._block_data.outer_block

@@ -116,6 +116,8 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             },
             group_id=match_id,
             group_kind="match",
+            parent_group_id=self._definition_group_id,
+            parent_group_kind=self._definition_group_kind,
         )
 
         return self._new(
@@ -177,6 +179,8 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             options={"condition_value": condition_value} if condition_ref is None else {},
             group_id=match_id,
             group_kind="match",
+            parent_group_id=self._block_data.data.get("definition_outer_group_id"),
+            parent_group_kind=self._block_data.data.get("definition_outer_group_kind"),
         )
 
         return self._new(
@@ -219,6 +223,8 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             options={"is_else": True},
             group_id=match_id,
             group_kind="match",
+            parent_group_id=self._block_data.data.get("definition_outer_group_id"),
+            parent_group_kind=self._block_data.data.get("definition_outer_group_kind"),
         )
 
         return self._new(
@@ -276,6 +282,8 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             emit_signals=[self._block_data.data["definition_result_signal"]],
             group_id=match_id,
             group_kind="match",
+            parent_group_id=self._block_data.data.get("definition_outer_group_id"),
+            parent_group_kind=self._block_data.data.get("definition_outer_group_kind"),
         )
 
         outer_block = self._block_data.outer_block

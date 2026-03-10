@@ -196,6 +196,8 @@ class TriggerFlowDefinition:
         condition_ref: dict[str, Any] | None = None,
         group_id: str | None = None,
         group_kind: str | None = None,
+        parent_group_id: str | None = None,
+        parent_group_kind: str | None = None,
     ):
         operator_id = str(id) if id is not None else uuid.uuid4().hex
         if operator_id in self._operator_index:
@@ -211,6 +213,8 @@ class TriggerFlowDefinition:
             "condition_ref": copy.deepcopy(condition_ref) if condition_ref is not None else None,
             "group_id": group_id,
             "group_kind": group_kind,
+            "parent_group_id": parent_group_id,
+            "parent_group_kind": parent_group_kind,
         }
         self.operators.append(operator)
         self._operator_index[operator_id] = operator
@@ -296,6 +300,8 @@ class TriggerFlowDefinition:
                     "condition_ref": copy.deepcopy(operator.get("condition_ref")),
                     "group_id": operator.get("group_id"),
                     "group_kind": operator.get("group_kind"),
+                    "parent_group_id": operator.get("parent_group_id"),
+                    "parent_group_kind": operator.get("parent_group_kind"),
                 }
             )
 
@@ -307,6 +313,14 @@ class TriggerFlowDefinition:
 
     def validate_serializable(self):
         for operator in self.operators:
+            if operator["kind"] == "sub_flow":
+                sub_flow_config = operator.get("options", {}).get("sub_flow_config")
+                if not isinstance(sub_flow_config, dict):
+                    raise ValueError(
+                        f"Cannot export TriggerFlow config because sub flow operator '{ operator['id'] }' "
+                        "is missing a valid nested flow config."
+                    )
+                TriggerFlowDefinition.from_dict(sub_flow_config).validate_serializable()
             if operator.get("handler_ref") is not None and not is_callable_ref_exportable(operator["handler_ref"]):
                 label = render_callable_ref(operator.get("handler_ref"))
                 raise ValueError(
@@ -357,6 +371,8 @@ class TriggerFlowDefinition:
             return "match result"
         if kind == "collect_branch":
             return f"collect\\n{ operator['options'].get('collection_name', '') }"
+        if kind == "sub_flow":
+            return f"subflow\\n{ operator.get('name') or operator['options'].get('sub_flow_name', 'child') }"
         if kind == "result_sink":
             return "result"
         return str(name or kind)
@@ -366,32 +382,146 @@ class TriggerFlowDefinition:
             raise ValueError(f"Unsupported Mermaid mode '{ mode }'. Use 'simplified' or 'detailed'.")
 
         node_defs: dict[str, str] = {}
-        operator_node_ids: dict[str, str] = {}
+        operator_lookup = {str(operator["id"]): operator for operator in self.operators}
+        operator_input_node_ids: dict[str, list[str]] = {}
+        operator_output_node_ids: dict[str, list[str]] = {}
         emitted_by_signal: dict[str, list[str]] = {}
         consumed_by_signal: dict[str, list[str]] = {}
         signal_lookup: dict[str, dict[str, Any]] = {}
+        grouped_kinds = {"batch", "for_each", "match"}
+        grouped_mermaid_enabled = mode == "simplified"
+        group_infos: dict[str, dict[str, str | None]] = {}
+        top_level_items: list[tuple[str, str]] = []
+        top_level_seen: set[tuple[str, str]] = set()
+        group_items: dict[str, list[tuple[str, str]]] = {}
+        group_seen: dict[str, set[tuple[str, str]]] = {}
+        external_node_ids: list[str] = []
+        external_node_seen: set[str] = set()
+        style_lines: list[str] = []
+        sub_flow_infos: dict[str, dict[str, Any]] = {}
+        generated_id_pattern = re.compile(
+            r"\b(op_|group_|signal_in_|signal_out_|subflow_|subflow_in_|subflow_out_)([A-Za-z0-9_]+)\b"
+        )
 
-        def get_group_node(operator: dict[str, Any]):
-            if mode == "simplified" and operator.get("group_id") and operator.get("group_kind") in {
-                "batch",
-                "for_each",
-                "match",
-            }:
-                group_id = f"group_{ _sanitize_mermaid_id(str(operator['group_id'])) }"
-                if group_id not in node_defs:
-                    node_defs[group_id] = (
-                        f'{ group_id }["{ _escape_mermaid_label(str(operator["group_kind"])) }"]'
+        def prefix_generated_mermaid_ids(line: str, prefix: str):
+            return generated_id_pattern.sub(lambda match: f"{ prefix }{ match.group(0) }", line)
+
+        def visual_input_node_ids(operator: dict[str, Any], *, prefix: str = ""):
+            if operator["kind"] == "sub_flow":
+                return [f"{ prefix }subflow_in_{ _sanitize_mermaid_id(str(operator['id'])) }"]
+            return [f"{ prefix }op_{ _sanitize_mermaid_id(str(operator['id'])) }"]
+
+        def visual_output_node_ids(operator: dict[str, Any], *, prefix: str = ""):
+            if operator["kind"] == "sub_flow":
+                return [f"{ prefix }subflow_out_{ _sanitize_mermaid_id(str(operator['id'])) }"]
+            return [f"{ prefix }op_{ _sanitize_mermaid_id(str(operator['id'])) }"]
+
+        def get_group_meta(operator: dict[str, Any]):
+            if not grouped_mermaid_enabled:
+                return None
+            raw_group_id = operator.get("group_id")
+            raw_group_kind = operator.get("group_kind")
+            if raw_group_id is None or raw_group_kind not in grouped_kinds:
+                return None
+
+            group_id = str(raw_group_id)
+            parent_group_id = operator.get("parent_group_id")
+            parent_group_kind = operator.get("parent_group_kind")
+            if parent_group_kind not in grouped_kinds:
+                parent_group_id = None
+                parent_group_kind = None
+
+            group_info = group_infos.setdefault(
+                group_id,
+                {
+                    "group_kind": str(raw_group_kind),
+                    "parent_group_id": str(parent_group_id) if parent_group_id is not None else None,
+                    "parent_group_kind": str(parent_group_kind) if parent_group_kind is not None else None,
+                },
+            )
+            if group_info["group_kind"] is None:
+                group_info["group_kind"] = str(raw_group_kind)
+            if group_info["parent_group_id"] is None and parent_group_id is not None:
+                group_info["parent_group_id"] = str(parent_group_id)
+                group_info["parent_group_kind"] = str(parent_group_kind)
+            group_items.setdefault(group_id, [])
+            group_seen.setdefault(group_id, set())
+            return group_info
+
+        def prepare_operator_nodes(operator: dict[str, Any]):
+            operator_id = str(operator["id"])
+            if operator["kind"] == "sub_flow":
+                sub_flow_input_node_id = f"subflow_in_{ _sanitize_mermaid_id(operator_id) }"
+                sub_flow_output_node_id = f"subflow_out_{ _sanitize_mermaid_id(operator_id) }"
+                node_defs[sub_flow_input_node_id] = f'{ sub_flow_input_node_id }(["in"])'
+                node_defs[sub_flow_output_node_id] = f'{ sub_flow_output_node_id }(["out"])'
+
+                sub_flow_config = operator.get("options", {}).get("sub_flow_config")
+                child_lines: list[str] = []
+                child_internal_edges: list[str] = []
+                if isinstance(sub_flow_config, dict):
+                    child_definition = TriggerFlowDefinition.from_dict(sub_flow_config)
+                    child_prefix = f"sf_{ _sanitize_mermaid_id(operator_id) }_"
+                    child_mermaid_lines = child_definition.to_mermaid(mode=mode).splitlines()[1:]
+                    child_lines = [
+                        prefix_generated_mermaid_ids(line, child_prefix)
+                        for line in child_mermaid_lines
+                        if line.strip() != ""
+                        and not line.strip().startswith('signal_in_event_START["START"]')
+                        and not line.strip().startswith("signal_in_event_START -->")
+                    ]
+                    child_start_targets: list[str] = []
+                    child_exit_sources: list[str] = []
+                    child_consumed_signal_ids = {
+                        signal["id"]
+                        for child_operator in child_definition.operators
+                        for signal in child_operator["listen_signals"]
+                    }
+                    for child_operator in child_definition.operators:
+                        if any(signal["id"] == "event:START" for signal in child_operator["listen_signals"]):
+                            child_start_targets.extend(
+                                visual_input_node_ids(child_operator, prefix=child_prefix)
+                            )
+                        if child_operator["kind"] == "result_sink":
+                            child_exit_sources.extend(
+                                visual_output_node_ids(child_operator, prefix=child_prefix)
+                            )
+                    if not child_exit_sources:
+                        for child_operator in child_definition.operators:
+                            continuation_signals = [
+                                signal
+                                for signal in child_operator["emit_signals"]
+                                if signal.get("role") != "declared_emit"
+                            ]
+                            if continuation_signals and all(
+                                signal["id"] not in child_consumed_signal_ids for signal in continuation_signals
+                            ):
+                                child_exit_sources.extend(
+                                    visual_output_node_ids(child_operator, prefix=child_prefix)
+                                )
+                    child_internal_edges.extend(
+                        f"{ sub_flow_input_node_id } --> { target_node_id }"
+                        for target_node_id in child_start_targets
                     )
-                return group_id
-            return ""
+                    child_internal_edges.extend(
+                        f"{ source_node_id } --> { sub_flow_output_node_id }"
+                        for source_node_id in child_exit_sources
+                    )
+                sub_flow_infos[operator_id] = {
+                    "subgraph_id": f"subflow_{ _sanitize_mermaid_id(operator_id) }",
+                    "label": (
+                        f"subflow\\n{ operator.get('name') or operator['options'].get('sub_flow_name', 'child') }"
+                    ),
+                    "input_node_id": sub_flow_input_node_id,
+                    "output_node_id": sub_flow_output_node_id,
+                    "child_lines": child_lines,
+                    "internal_edges": child_internal_edges,
+                }
+                return [sub_flow_input_node_id], [sub_flow_output_node_id]
 
-        def get_operator_node(operator: dict[str, Any]):
-            collapsed_node = get_group_node(operator)
-            if collapsed_node:
-                return collapsed_node
-            node_id = f"op_{ _sanitize_mermaid_id(str(operator['id'])) }"
+            node_id = f"op_{ _sanitize_mermaid_id(operator_id) }"
             if node_id in node_defs:
-                return node_id
+                return [node_id], [node_id]
             label = self._operator_label(operator, mode=mode)
             shape = f'{ node_id }["{ _escape_mermaid_label(label) }"]'
             if operator["kind"] in {"signal_gate", "match_route"}:
@@ -401,10 +531,39 @@ class TriggerFlowDefinition:
             elif operator["kind"] in {"batch_collect", "for_each_collect", "match_collect"}:
                 shape = f'{ node_id }[["{ _escape_mermaid_label(label) }"]]'
             node_defs[node_id] = shape
-            return node_id
+            return [node_id], [node_id]
 
         for operator in self.operators:
-            operator_node_ids[operator["id"]] = get_operator_node(operator)
+            operator_input_node_ids[operator["id"]], operator_output_node_ids[operator["id"]] = prepare_operator_nodes(
+                operator
+            )
+            group_info = get_group_meta(operator)
+            if group_info is not None:
+                group_id = str(operator["group_id"])
+                parent_group_id = group_info.get("parent_group_id")
+                parent_group_kind = group_info.get("parent_group_kind")
+                if parent_group_id is not None and parent_group_kind in grouped_kinds:
+                    group_items.setdefault(parent_group_id, [])
+                    group_seen.setdefault(parent_group_id, set())
+                    group_entry = ("group", group_id)
+                    if group_entry not in group_seen[parent_group_id]:
+                        group_items[parent_group_id].append(group_entry)
+                        group_seen[parent_group_id].add(group_entry)
+                else:
+                    group_entry = ("group", group_id)
+                    if group_entry not in top_level_seen:
+                        top_level_items.append(group_entry)
+                        top_level_seen.add(group_entry)
+
+                operator_entry = ("operator", operator["id"])
+                if operator_entry not in group_seen[group_id]:
+                    group_items[group_id].append(operator_entry)
+                    group_seen[group_id].add(operator_entry)
+            else:
+                operator_entry = ("operator", operator["id"])
+                if operator_entry not in top_level_seen:
+                    top_level_items.append(operator_entry)
+                    top_level_seen.add(operator_entry)
             for signal in operator["listen_signals"]:
                 signal_lookup[signal["id"]] = signal
                 consumed_by_signal.setdefault(signal["id"], []).append(operator["id"])
@@ -423,6 +582,9 @@ class TriggerFlowDefinition:
             node_id = f"{ prefix }_{ _sanitize_mermaid_id(signal['id']) }"
             external_nodes[signal["id"]] = node_id
             node_defs[node_id] = f'{ node_id }["{ _escape_mermaid_label(_format_signal_label(signal)) }"]'
+            if node_id not in external_node_seen:
+                external_node_ids.append(node_id)
+                external_node_seen.add(node_id)
             return node_id
 
         def add_edge(source: str, target: str, label: str):
@@ -441,19 +603,22 @@ class TriggerFlowDefinition:
             if not producers:
                 source_node = ensure_external_node(signal, prefix="signal_in")
                 for consumer_id in consumers:
-                    add_edge(
-                        source_node,
-                        operator_node_ids[consumer_id],
-                        _format_signal_label(signal),
-                    )
+                    for target_node in operator_input_node_ids[consumer_id]:
+                        add_edge(
+                            source_node,
+                            target_node,
+                            _format_signal_label(signal),
+                        )
                 continue
             for producer_id in producers:
                 for consumer_id in consumers:
-                    add_edge(
-                        operator_node_ids[producer_id],
-                        operator_node_ids[consumer_id],
-                        _format_signal_label(signal) if mode == "detailed" else "",
-                    )
+                    for source_node in operator_output_node_ids[producer_id]:
+                        for target_node in operator_input_node_ids[consumer_id]:
+                            add_edge(
+                                source_node,
+                                target_node,
+                                _format_signal_label(signal) if mode == "detailed" else "",
+                            )
 
         for signal_id, producers in emitted_by_signal.items():
             if signal_id in consumed_by_signal:
@@ -463,13 +628,86 @@ class TriggerFlowDefinition:
                 continue
             target_node = ensure_external_node(signal, prefix="signal_out")
             for producer_id in producers:
-                add_edge(
-                    operator_node_ids[producer_id],
-                    target_node,
-                    _format_signal_label(signal),
-                )
+                for source_node in operator_output_node_ids[producer_id]:
+                    add_edge(
+                        source_node,
+                        target_node,
+                        _format_signal_label(signal),
+                    )
 
         lines = ["flowchart TD"]
-        lines.extend(node_defs.values())
+
+        rendered_nodes: set[str] = set()
+        rendered_groups: set[str] = set()
+        rendered_sub_flows: set[str] = set()
+
+        def render_operator(operator_id: str, *, indent: int = 0):
+            operator = operator_lookup[operator_id]
+            if operator["kind"] == "sub_flow":
+                if operator_id in rendered_sub_flows:
+                    return
+                rendered_sub_flows.add(operator_id)
+                sub_flow_info = sub_flow_infos[operator_id]
+                subgraph_id = sub_flow_info["subgraph_id"]
+                lines.append(
+                    f'{ "  " * indent }subgraph { subgraph_id }["{ _escape_mermaid_label(str(sub_flow_info["label"])) }"]'
+                )
+                input_node_id = str(sub_flow_info["input_node_id"])
+                output_node_id = str(sub_flow_info["output_node_id"])
+                if input_node_id not in rendered_nodes:
+                    rendered_nodes.add(input_node_id)
+                    lines.append(f"{ '  ' * (indent + 1) }{ node_defs[input_node_id] }")
+                for child_line in sub_flow_info["child_lines"]:
+                    lines.append(f"{ '  ' * (indent + 1) }{ child_line }")
+                if output_node_id not in rendered_nodes:
+                    rendered_nodes.add(output_node_id)
+                    lines.append(f"{ '  ' * (indent + 1) }{ node_defs[output_node_id] }")
+                for internal_edge in sub_flow_info["internal_edges"]:
+                    lines.append(f"{ '  ' * (indent + 1) }{ internal_edge }")
+                lines.append(f"{ '  ' * indent }end")
+                style_lines.append(
+                    f"style { subgraph_id } fill:#F6F8FB,stroke:#7B8BA3,stroke-width:1px,stroke-dasharray: 5 5"
+                )
+                return
+
+            node_id = visual_input_node_ids(operator)[0]
+            if node_id in rendered_nodes:
+                return
+            rendered_nodes.add(node_id)
+            lines.append(f"{ '  ' * indent }{ node_defs[node_id] }")
+
+        def render_group(group_id: str, *, indent: int = 0):
+            if group_id in rendered_groups:
+                return
+            rendered_groups.add(group_id)
+            group_info = group_infos[group_id]
+            mermaid_group_id = f"group_{ _sanitize_mermaid_id(group_id) }"
+            group_label = str(group_info.get("group_kind") or "group")
+            lines.append(
+                f'{ "  " * indent }subgraph { mermaid_group_id }["{ _escape_mermaid_label(group_label) }"]'
+            )
+            for item_kind, item_id in group_items.get(group_id, []):
+                if item_kind == "group":
+                    render_group(item_id, indent=indent + 1)
+                else:
+                    render_operator(item_id, indent=indent + 1)
+            lines.append(f"{ '  ' * indent }end")
+
+        for item_kind, item_id in top_level_items:
+            if item_kind == "group":
+                render_group(item_id)
+            else:
+                render_operator(item_id)
+
+        for operator in self.operators:
+            render_operator(operator["id"])
+
+        for node_id in external_node_ids:
+            if node_id in rendered_nodes:
+                continue
+            rendered_nodes.add(node_id)
+            lines.append(node_defs[node_id])
+
+        lines.extend(style_lines)
         lines.extend(edges)
         return "\n".join(lines)

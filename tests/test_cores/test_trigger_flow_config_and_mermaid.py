@@ -195,6 +195,203 @@ def test_trigger_flow_mermaid_shows_external_signal_and_declared_emit():
     assert any(signal.get("role") == "declared_emit" and signal["trigger_event"] == "Alert" for signal in chunk_operator["emit_signals"])
 
 
+def test_trigger_flow_mermaid_simplified_shows_if_condition_internal_nodes():
+    flow = TriggerFlow(name="if-condition-mermaid")
+
+    async def prepare(data: TriggerFlowRuntimeData):
+        return {"score": data.value}
+
+    def is_a(data: TriggerFlowRuntimeData):
+        return data.value["score"] >= 90
+
+    def is_b(data: TriggerFlowRuntimeData):
+        return data.value["score"] >= 80
+
+    async def grade_a(data: TriggerFlowRuntimeData):
+        return "A"
+
+    async def grade_b(data: TriggerFlowRuntimeData):
+        return "B"
+
+    async def grade_c(data: TriggerFlowRuntimeData):
+        return "C"
+
+    async def finalize(data: TriggerFlowRuntimeData):
+        return f"grade:{ data.value }"
+
+    (
+        flow.to(prepare)
+        .if_condition(is_a)
+        .to(grade_a)
+        .elif_condition(is_b)
+        .to(grade_b)
+        .else_condition()
+        .to(grade_c)
+        .end_condition()
+        .to(finalize)
+        .end()
+    )
+
+    mermaid = flow.to_mermaid()
+    config = flow.get_flow_config()
+    finalize_operator = next(
+        operator
+        for operator in config["operators"]
+        if operator["kind"] == "chunk" and operator["name"] == "finalize"
+    )
+
+    assert "subgraph" in mermaid
+    assert "grade_a" in mermaid
+    assert "grade_b" in mermaid
+    assert "grade_c" in mermaid
+    assert "finalize" in mermaid
+    assert "case" in mermaid
+    assert "else" in mermaid
+    assert "--> group_" not in mermaid
+    assert finalize_operator["group_id"] is None
+
+
+def test_trigger_flow_mermaid_simplified_shows_nested_for_each_subflows():
+    flow = TriggerFlow(name="nested-for-mermaid")
+
+    async def outer_items(data: TriggerFlowRuntimeData):
+        return [data.value, data.value + 1]
+
+    async def middle_items(data: TriggerFlowRuntimeData):
+        return [data.value, data.value * 10]
+
+    async def leaf_items(data: TriggerFlowRuntimeData):
+        return [f"{ data.value }-a", f"{ data.value }-b"]
+
+    async def render_leaf(data: TriggerFlowRuntimeData):
+        return data.value
+
+    async def finalize(data: TriggerFlowRuntimeData):
+        return data.value
+
+    (
+        flow.to(outer_items)
+        .for_each()
+        .to(middle_items)
+        .for_each()
+        .to(leaf_items)
+        .for_each()
+        .to(render_leaf)
+        .end_for_each()
+        .end_for_each()
+        .end_for_each()
+        .to(finalize)
+        .end()
+    )
+
+    mermaid = flow.to_mermaid()
+    config = flow.get_flow_config()
+    finalize_operator = next(
+        operator
+        for operator in config["operators"]
+        if operator["kind"] == "chunk" and operator["name"] == "finalize"
+    )
+
+    assert mermaid.count("subgraph ") >= 3
+    assert "outer_items" in mermaid
+    assert "middle_items" in mermaid
+    assert "leaf_items" in mermaid
+    assert "render_leaf" in mermaid
+    assert "finalize" in mermaid
+    assert "for each collect" in mermaid
+    assert "--> group_" not in mermaid
+    assert finalize_operator["group_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_trigger_flow_sub_flow_round_trip_and_runtime():
+    child_flow = TriggerFlow(name="child-flow")
+
+    async def child_prepare(data: TriggerFlowRuntimeData):
+        return data.value * 2
+
+    async def child_finalize(data: TriggerFlowRuntimeData):
+        return data.value + 1
+
+    child_flow.to(child_prepare).to(child_finalize).end()
+
+    parent_flow = TriggerFlow(name="parent-flow")
+
+    async def parent_prepare(data: TriggerFlowRuntimeData):
+        return data.value + 3
+
+    async def parent_finalize(data: TriggerFlowRuntimeData):
+        return data.value * 5
+
+    parent_flow.to(parent_prepare).to_sub_flow(child_flow).to(parent_finalize).end()
+
+    assert await parent_flow.async_start(2) == 55
+
+    config = parent_flow.get_flow_config()
+    assert _operator_by_kind(config, "sub_flow")
+
+    restored = TriggerFlow()
+    restored.register_chunk_handler(parent_prepare)
+    restored.register_chunk_handler(parent_finalize)
+    restored.register_chunk_handler(child_prepare)
+    restored.register_chunk_handler(child_finalize)
+    restored.load_flow_config(config)
+
+    assert await restored.async_start(2) == 55
+
+
+@pytest.mark.asyncio
+async def test_trigger_flow_sub_flow_rejects_child_pause_resume():
+    child_flow = TriggerFlow(name="child-pause-flow")
+
+    async def child_pause(data: TriggerFlowRuntimeData):
+        return await data.async_pause_for(
+            type="human_input",
+            payload={"question": "continue?"},
+            resume_event="ResumeChild",
+        )
+
+    child_flow.to(child_pause).end()
+
+    parent_flow = TriggerFlow(name="parent-pause-flow")
+    parent_flow.to(child_flow).end()
+
+    with pytest.raises(NotImplementedError, match="pause/resume"):
+        await parent_flow.async_start("topic")
+
+
+def test_trigger_flow_mermaid_shows_sub_flow_box_and_nested_flow():
+    child_flow = TriggerFlow(name="child-mermaid-flow")
+
+    async def child_step_one(data: TriggerFlowRuntimeData):
+        return data.value + 1
+
+    async def child_step_two(data: TriggerFlowRuntimeData):
+        return data.value * 2
+
+    child_flow.to(child_step_one).to(child_step_two).end()
+
+    parent_flow = TriggerFlow(name="parent-mermaid-flow")
+
+    async def parent_prepare(data: TriggerFlowRuntimeData):
+        return data.value
+
+    async def parent_finalize(data: TriggerFlowRuntimeData):
+        return data.value
+
+    parent_flow.to(parent_prepare).to(child_flow).to(parent_finalize).end()
+
+    mermaid = parent_flow.to_mermaid()
+
+    assert "subgraph subflow_" in mermaid
+    assert "style subflow_" in mermaid
+    assert "fill:#F6F8FB" in mermaid
+    assert "child_step_one" in mermaid
+    assert "child_step_two" in mermaid
+    assert "parent_prepare" in mermaid
+    assert "parent_finalize" in mermaid
+
+
 @pytest.mark.asyncio
 async def test_trigger_flow_repeated_internal_helper_names_do_not_conflict():
     flow = TriggerFlow(name="internal-helper-dup")

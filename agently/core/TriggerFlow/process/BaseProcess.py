@@ -24,10 +24,13 @@ from typing_extensions import Self
 if TYPE_CHECKING:
     from ..BluePrint import TriggerFlowBluePrint
     from agently.types.trigger_flow import TriggerFlowHandler, TriggerFlowRuntimeData
+    from ..TriggerFlow import TriggerFlow
 
 from ..Chunk import TriggerFlowChunk
 from agently.types.data import EMPTY
 from agently.types.trigger_flow import TriggerFlowBlockData
+
+_UNSET = object()
 
 
 class TriggerFlowBaseProcess:
@@ -41,8 +44,8 @@ class TriggerFlowBaseProcess:
         block_data: "TriggerFlowBlockData",
         trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
         definition_signals: list[dict[str, Any]] | None = None,
-        definition_group_id: str | None = None,
-        definition_group_kind: str | None = None,
+        definition_group_id: str | None | object = _UNSET,
+        definition_group_kind: str | None | object = _UNSET,
         **options,
     ):
         self._flow_chunk = flow_chunk
@@ -52,8 +55,8 @@ class TriggerFlowBaseProcess:
         self._block_data = block_data
         self._options = options
         self._definition_signals = copy.deepcopy(definition_signals) if definition_signals is not None else []
-        self._definition_group_id = definition_group_id
-        self._definition_group_kind = definition_group_kind
+        self._definition_group_id = None if definition_group_id is _UNSET else definition_group_id
+        self._definition_group_kind = None if definition_group_kind is _UNSET else definition_group_kind
 
     def _new(
         self,
@@ -62,8 +65,8 @@ class TriggerFlowBaseProcess:
         block_data: "TriggerFlowBlockData",
         trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
         definition_signals: list[dict[str, Any]] | None = None,
-        definition_group_id: str | None = None,
-        definition_group_kind: str | None = None,
+        definition_group_id: str | None | object = _UNSET,
+        definition_group_kind: str | None | object = _UNSET,
         **options,
     ):
         return type(self)(
@@ -74,10 +77,10 @@ class TriggerFlowBaseProcess:
             block_data=block_data,
             definition_signals=definition_signals if definition_signals is not None else self._definition_signals,
             definition_group_id=(
-                definition_group_id if definition_group_id is not None else self._definition_group_id
+                self._definition_group_id if definition_group_id is _UNSET else definition_group_id
             ),
             definition_group_kind=(
-                definition_group_kind if definition_group_kind is not None else self._definition_group_kind
+                self._definition_group_kind if definition_group_kind is _UNSET else definition_group_kind
             ),
             **options,
         )
@@ -90,6 +93,14 @@ class TriggerFlowBaseProcess:
         while current.outer_block is not None:
             current = current.outer_block
         return current
+
+    def _current_definition_parent_group(self):
+        if self._definition_group_id is None or self._definition_group_kind is None:
+            return None, None
+        return (
+            self._block_data.data.get("definition_outer_group_id"),
+            self._block_data.data.get("definition_outer_group_kind"),
+        )
 
     def _event_signal(self, trigger_event: str, *, role: str | None = None):
         return self._blue_print.make_signal("event", trigger_event, role=role)
@@ -287,10 +298,18 @@ class TriggerFlowBaseProcess:
 
     def to(
         self,
-        chunk: "TriggerFlowChunk | TriggerFlowHandler | str | tuple[str, TriggerFlowHandler]",
+        chunk: "TriggerFlowChunk | TriggerFlowHandler | TriggerFlow | str | tuple[str, TriggerFlowHandler]",
         side_branch: bool = False,
         name: str | None = None,
     ):
+        from ..TriggerFlow import TriggerFlow
+
+        if isinstance(chunk, TriggerFlow):
+            return self.to_sub_flow(
+                chunk,
+                side_branch=side_branch,
+                name=name,
+            )
         if isinstance(chunk, str):
             if chunk in self._blue_print.chunks:
                 chunk = self._blue_print.chunks[chunk]
@@ -304,6 +323,7 @@ class TriggerFlowBaseProcess:
             if callable(chunk):
                 chunk = self._flow_chunk(chunk) if name is None else self._flow_chunk(name)(chunk)
         assert isinstance(chunk, TriggerFlowChunk)
+        parent_group_id, parent_group_kind = self._current_definition_parent_group()
         self._blue_print.add_handler(
             self.trigger_type,
             self.trigger_event,
@@ -314,6 +334,8 @@ class TriggerFlowBaseProcess:
             self._definition_signals,
             group_id=self._definition_group_id,
             group_kind=self._definition_group_kind,
+            parent_group_id=parent_group_id,
+            parent_group_kind=parent_group_kind,
         )
         return self._new(
             trigger_event=chunk.trigger if not side_branch else self.trigger_event,
@@ -321,6 +343,39 @@ class TriggerFlowBaseProcess:
             blue_print=self._blue_print,
             block_data=self._block_data,
             definition_signals=[self._event_signal(chunk.trigger)] if not side_branch else self._definition_signals,
+            definition_group_id=self._definition_group_id,
+            definition_group_kind=self._definition_group_kind,
+            **self._options,
+        )
+
+    def to_sub_flow(
+        self,
+        trigger_flow: "TriggerFlow",
+        *,
+        side_branch: bool = False,
+        name: str | None = None,
+        inherit_runtime_resources: bool = True,
+        concurrency: int | None = None,
+    ):
+        parent_group_id, parent_group_kind = self._current_definition_parent_group()
+        operator = self._blue_print.attach_sub_flow(
+            trigger_flow,
+            self._definition_signals,
+            name=name,
+            inherit_runtime_resources=inherit_runtime_resources,
+            concurrency=concurrency,
+            group_id=self._definition_group_id,
+            group_kind=self._definition_group_kind,
+            parent_group_id=parent_group_id,
+            parent_group_kind=parent_group_kind,
+        )
+        emit_signal = operator["emit_signals"][0]
+        return self._new(
+            trigger_event=emit_signal["trigger_event"] if not side_branch else self.trigger_event,
+            trigger_type="event" if not side_branch else self.trigger_type,
+            blue_print=self._blue_print,
+            block_data=self._block_data,
+            definition_signals=[emit_signal] if not side_branch else self._definition_signals,
             definition_group_id=self._definition_group_id,
             definition_group_kind=self._definition_group_kind,
             **self._options,
@@ -426,6 +481,8 @@ class TriggerFlowBaseProcess:
                 [branch_input_signal],
                 group_id=batch_id,
                 group_kind="batch",
+                parent_group_id=self._definition_group_id,
+                parent_group_kind=self._definition_group_kind,
             )
 
         self._blue_print.definition.add_operator(
@@ -437,6 +494,8 @@ class TriggerFlowBaseProcess:
             options={"concurrency": concurrency},
             group_id=batch_id,
             group_kind="batch",
+            parent_group_id=self._definition_group_id,
+            parent_group_kind=self._definition_group_kind,
         )
         self._blue_print.definition.add_operator(
             id=f"batch-collect-{ batch_id }",
@@ -447,6 +506,8 @@ class TriggerFlowBaseProcess:
             options={"result_keys": result_keys},
             group_id=batch_id,
             group_kind="batch",
+            parent_group_id=self._definition_group_id,
+            parent_group_kind=self._definition_group_kind,
         )
 
         return self._new(
@@ -530,6 +591,8 @@ class TriggerFlowBaseProcess:
             },
             group_id=collect_id,
             group_kind="collect",
+            parent_group_id=self._definition_group_id,
+            parent_group_kind=self._definition_group_kind,
         )
         collection_config["definition_operator_ids"].append(operator_id)
         for definition_operator_id in collection_config["definition_operator_ids"]:
