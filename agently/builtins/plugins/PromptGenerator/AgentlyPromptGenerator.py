@@ -17,6 +17,7 @@ import yaml
 
 from typing import (
     Any,
+    Generator,
     List,
     Mapping,
     Sequence,
@@ -72,9 +73,11 @@ class AgentlyPromptGenerator(PromptGenerator):
         def root(self):
             return getattr(self, "list")
 
-        def __iter__(self):
+        def __iter__(self) -> Generator[Any, None, None]:
             value = getattr(self, "list", None)
-            return iter(value if value is not None else [])
+            if value is None:
+                return
+            yield from value
 
         def __len__(self):
             value = getattr(self, "list", None)
