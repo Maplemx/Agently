@@ -1,14 +1,6 @@
-from pathlib import Path
 from typing import cast
 
 from agently import TriggerFlow, TriggerFlowRuntimeData
-
-
-ASSET_DIR = Path(__file__).with_name("11-triggerflow-16_assets")
-JSON_PATH = ASSET_DIR / "sub_flow_review_flow.json"
-YAML_PATH = ASSET_DIR / "sub_flow_review_flow.yaml"
-SIMPLIFIED_MERMAID_PATH = ASSET_DIR / "sub_flow_review_simplified.mmd"
-DETAILED_MERMAID_PATH = ASSET_DIR / "sub_flow_review_detailed.mmd"
 
 
 class SimpleLogger:
@@ -21,18 +13,6 @@ def has_multiple_sections(data: TriggerFlowRuntimeData):
         return False
     sections = data.value.get("sections", [])
     return isinstance(sections, list) and len(sections) > 1
-
-
-async def collect_request(data: TriggerFlowRuntimeData):
-    topic = str(data.value).strip()
-    sections = ["summary"] if "brief" in topic.lower() else ["overview", "risks", "actions"]
-    request_context = {
-        "topic": topic,
-        "sections": sections,
-    }
-    data.set_runtime_data("request_context", request_context)
-    data.set_flow_data("locale", "zh-CN")
-    return request_context
 
 
 async def use_multi_section_mode(data: TriggerFlowRuntimeData):
@@ -66,6 +46,14 @@ async def draft_section(data: TriggerFlowRuntimeData):
     section = str(data.value)
     logger = cast(SimpleLogger, data.require_resource("logger"))
     logger.info(f"drafting section '{section}' for '{topic}'")
+    await data.async_put_into_stream(
+        {
+            "scope": "child",
+            "section": section,
+            "mode": mode,
+            "locale": locale,
+        }
+    )
     return f"[{locale}|{mode}] {section}: {topic}"
 
 
@@ -80,30 +68,37 @@ async def summarize_child_report(data: TriggerFlowRuntimeData):
     }
 
 
+async def prepare_request(data: TriggerFlowRuntimeData):
+    topic = str(data.value).strip()
+    sections = ["summary"] if "brief" in topic.lower() else ["overview", "risks", "actions"]
+    request_context = {
+        "topic": topic,
+        "sections": sections,
+    }
+    data.set_runtime_data("request_context", request_context)
+    data.set_flow_data("locale", "zh-CN")
+    return request_context
+
+
 async def finalize_request(data: TriggerFlowRuntimeData):
     child_report = data.get_runtime_data("child_report") or {}
+    await data.async_put_into_stream(
+        {
+            "scope": "parent",
+            "topic": data.get_flow_data("last_topic"),
+            "summary": data.value,
+        }
+    )
+    await data.async_stop_stream()
     return {
         "topic": data.get_flow_data("last_topic"),
         "summary": data.value,
-        "mode": child_report.get("mode"),
-        "section_count": len(child_report.get("sections", [])),
+        "child_report": child_report,
     }
 
 
-def register_handlers(flow: TriggerFlow):
-    flow.register_condition_handler(has_multiple_sections)
-    flow.register_chunk_handler(collect_request)
-    flow.register_chunk_handler(use_multi_section_mode)
-    flow.register_chunk_handler(use_single_section_mode)
-    flow.register_chunk_handler(list_sections)
-    flow.register_chunk_handler(draft_section)
-    flow.register_chunk_handler(summarize_child_report)
-    flow.register_chunk_handler(finalize_request)
-    return flow
-
-
 def build_child_flow() -> TriggerFlow:
-    flow = TriggerFlow(name="review-child-flow")
+    flow = TriggerFlow(name="draft-sections-sub-flow")
     (
         flow.if_condition(has_multiple_sections)
         .to(use_multi_section_mode)
@@ -120,14 +115,13 @@ def build_child_flow() -> TriggerFlow:
     return flow
 
 
-def build_flow() -> TriggerFlow:
-    flow = TriggerFlow(name="step-by-step-sub-flow-review")
-    register_handlers(flow)
+def build_parent_flow() -> TriggerFlow:
+    flow = TriggerFlow(name="parent-sub-flow-demo")
     flow.update_runtime_resources(logger=SimpleLogger())
     child_flow = build_child_flow()
 
     (
-        flow.to(collect_request)
+        flow.to(prepare_request)
         .to_sub_flow(
             child_flow,
             capture={
@@ -158,46 +152,25 @@ def build_flow() -> TriggerFlow:
     return flow
 
 
-def export_assets(flow: TriggerFlow):
-    ASSET_DIR.mkdir(parents=True, exist_ok=True)
-    flow.get_json_flow(JSON_PATH)
-    flow.get_yaml_flow(YAML_PATH)
-    SIMPLIFIED_MERMAID_PATH.write_text(flow.to_mermaid(mode="simplified"), encoding="utf-8")
-    DETAILED_MERMAID_PATH.write_text(flow.to_mermaid(mode="detailed"), encoding="utf-8")
+## TriggerFlow Sub Flow: capture, write_back, and runtime stream bridge
+def triggerflow_sub_flow_capture_write_back_demo():
+    # Idea: treat child flow as an isolated function-like block, explicitly capture
+    # the parent snapshot into it, then write the child result back into the parent.
+    # Flow: prepare_request -> sub_flow(if + for_each) -> finalize_request
+    # Expect: child stream events appear in the parent stream, and child result writes
+    # back to parent value/runtime_data/flow_data.
+    flow = build_parent_flow()
 
-    print("Exported assets:")
-    print(" -", JSON_PATH)
-    print(" -", YAML_PATH)
-    print(" -", SIMPLIFIED_MERMAID_PATH)
-    print(" -", DETAILED_MERMAID_PATH)
+    print("=== Multi-section request stream ===")
+    execution = flow.create_execution()
+    for event in execution.get_runtime_stream(initial_value="AI infra weekly", timeout=5):
+        print(event)
 
+    print("\n=== Multi-section final result ===")
+    print(execution.get_result(timeout=5))
 
-## TriggerFlow Flow Config + Mermaid: export nested sub flow and load it back
-def triggerflow_flow_config_and_mermaid_demo():
-    # Idea: export a flow whose Mermaid contains a child sub flow plus internal
-    # if_condition / for_each groups, then reload the JSON/YAML config.
-    # Flow: collect_request -> sub_flow(if + for_each) -> finalize_request
-    # Expect: source flow, JSON flow, and YAML flow all run; Mermaid renders both
-    # the nested sub flow box and the branch internals inside it.
-    source_flow = build_flow()
-    export_assets(source_flow)
-
-    print("\n=== Source Flow ===")
-    print(source_flow.start("AI infra weekly"))
-
-    json_flow = TriggerFlow()
-    register_handlers(json_flow)
-    json_flow.update_runtime_resources(logger=SimpleLogger())
-    json_flow.load_json_flow(JSON_PATH)
-    print("\n=== JSON Loaded Flow ===")
-    print(json_flow.start("Brief release note"))
-
-    yaml_flow = TriggerFlow()
-    register_handlers(yaml_flow)
-    yaml_flow.update_runtime_resources(logger=SimpleLogger())
-    yaml_flow.load_yaml_flow(YAML_PATH)
-    print("\n=== YAML Loaded Flow ===")
-    print(yaml_flow.start("Customer support quality review"))
+    print("\n=== Single-section final result ===")
+    print(flow.start("Brief release note"))
 
 
-# triggerflow_flow_config_and_mermaid_demo()
+# triggerflow_sub_flow_capture_write_back_demo()
