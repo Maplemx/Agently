@@ -17,7 +17,7 @@ import uuid
 import copy
 from asyncio import Event, Semaphore
 
-from typing import Callable, Any, Literal, TYPE_CHECKING, overload, cast
+from typing import Callable, Any, Literal, TYPE_CHECKING, overload, cast, TypeAlias
 from typing_extensions import Self
 
 
@@ -35,7 +35,14 @@ from ..Chunk import TriggerFlowChunk
 from agently.types.data import EMPTY
 from agently.types.trigger_flow import TriggerFlowBlockData
 
-_UNSET = object()
+
+class _UnsetType:
+    __slots__ = ()
+
+
+_UNSET = _UnsetType()
+_DefinitionGroupValue: TypeAlias = str | None
+_DefinitionGroupArg: TypeAlias = _DefinitionGroupValue | _UnsetType
 
 
 class TriggerFlowBaseProcess:
@@ -49,8 +56,8 @@ class TriggerFlowBaseProcess:
         block_data: "TriggerFlowBlockData",
         trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
         definition_signals: list[dict[str, Any]] | None = None,
-        definition_group_id: str | None | object = _UNSET,
-        definition_group_kind: str | None | object = _UNSET,
+        definition_group_id: _DefinitionGroupArg = _UNSET,
+        definition_group_kind: _DefinitionGroupArg = _UNSET,
         **options,
     ):
         self._flow_chunk = flow_chunk
@@ -60,8 +67,12 @@ class TriggerFlowBaseProcess:
         self._block_data = block_data
         self._options = options
         self._definition_signals = copy.deepcopy(definition_signals) if definition_signals is not None else []
-        self._definition_group_id = None if definition_group_id is _UNSET else definition_group_id
-        self._definition_group_kind = None if definition_group_kind is _UNSET else definition_group_kind
+        self._definition_group_id: _DefinitionGroupValue = (
+            None if definition_group_id is _UNSET else cast(_DefinitionGroupValue, definition_group_id)
+        )
+        self._definition_group_kind: _DefinitionGroupValue = (
+            None if definition_group_kind is _UNSET else cast(_DefinitionGroupValue, definition_group_kind)
+        )
 
     def _new(
         self,
@@ -70,8 +81,8 @@ class TriggerFlowBaseProcess:
         block_data: "TriggerFlowBlockData",
         trigger_type: Literal["event", "runtime_data", "flow_data"] = "event",
         definition_signals: list[dict[str, Any]] | None = None,
-        definition_group_id: str | None | object = _UNSET,
-        definition_group_kind: str | None | object = _UNSET,
+        definition_group_id: _DefinitionGroupArg = _UNSET,
+        definition_group_kind: _DefinitionGroupArg = _UNSET,
         **options,
     ):
         return type(self)(
