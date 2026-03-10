@@ -61,7 +61,6 @@ class TriggerFlow:
         self.del_flow_data = FunctionShifter.syncify(self.async_del_flow_data)
 
         self.start_execution = FunctionShifter.syncify(self.async_start_execution)
-        self.start = FunctionShifter.syncify(self.async_start)
         self.register_chunk_handler = self._blue_print.register_chunk_handler
         self.register_condition_handler = self._blue_print.register_condition_handler
         self.set_runtime_resource = self._set_runtime_resource
@@ -252,6 +251,67 @@ class TriggerFlow:
     ):
         return await self._async_change_flow_data("del", key, None, emit=emit)
 
+    @overload
+    def start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: Literal[True] = True,
+        timeout: float | None = 10.0,
+        concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
+    ) -> Any: ...
+
+    @overload
+    def start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: Literal[False],
+        timeout: float | None = 10.0,
+        concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
+    ) -> None: ...
+
+    def start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: bool = True,
+        timeout: float | None = 10.0,
+        concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
+    ) -> Any | None:
+        return FunctionShifter.syncify(self.async_start)(
+            initial_value,
+            wait_for_result=wait_for_result,
+            timeout=timeout,
+            concurrency=concurrency,
+            runtime_resources=runtime_resources,
+        )
+
+    @overload
+    async def async_start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: Literal[True] = True,
+        timeout: float | None = 10.0,
+        concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
+    ) -> Any: ...
+
+    @overload
+    async def async_start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: Literal[False],
+        timeout: float | None = 10.0,
+        concurrency: int | None = None,
+        runtime_resources: dict[str, Any] | None = None,
+    ) -> None: ...
+
     async def async_start(
         self,
         initial_value: Any = None,
@@ -260,7 +320,7 @@ class TriggerFlow:
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ):
+    ) -> Any | None:
         execution = await self.async_start_execution(
             initial_value,
             concurrency=concurrency,

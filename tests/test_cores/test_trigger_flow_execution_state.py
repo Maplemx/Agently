@@ -6,6 +6,20 @@ import pytest
 from agently import TriggerFlow, TriggerFlowRuntimeData
 
 
+def test_trigger_flow_sync_start_returns_result_or_none_by_wait_flag():
+    flow = TriggerFlow()
+    flow.to(lambda data: {"value": data.value}).end()
+
+    assert flow.start("ok") == {"value": "ok"}
+    assert flow.start("ok", wait_for_result=False) is None
+
+    execution = flow.create_execution()
+    assert execution.start("ok") == {"value": "ok"}
+
+    another_execution = flow.create_execution()
+    assert another_execution.start("ok", wait_for_result=False) is None
+
+
 @pytest.mark.asyncio
 async def test_trigger_flow_execution_save_and_load_then_continue():
     flow = TriggerFlow()

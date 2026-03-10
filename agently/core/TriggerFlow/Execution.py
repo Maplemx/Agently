@@ -22,7 +22,7 @@ from pathlib import Path
 from json import JSONDecodeError
 from contextvars import ContextVar
 
-from typing import Any, Literal, TYPE_CHECKING
+from typing import Any, Literal, TYPE_CHECKING, overload
 
 if TYPE_CHECKING:
     from .TriggerFlow import TriggerFlow
@@ -99,9 +99,6 @@ class TriggerFlowExecution:
         self.del_runtime_resource = self._del_runtime_resource
         self.update_runtime_resources = self._update_runtime_resources
         self.clear_runtime_resources = self._clear_runtime_resources
-
-        # Start
-        self.start = FunctionShifter.syncify(self.async_start)
 
         # Runtime Stream
         self.put_into_stream = FunctionShifter.syncify(self.async_put_into_stream)
@@ -529,14 +526,62 @@ class TriggerFlowExecution:
     ):
         return await self._async_change_runtime_data("del", key, None, emit=emit)
 
-    # Start
+    @overload
+    def start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: Literal[True] = True,
+        timeout: float | None = 10,
+    ) -> Any: ...
+
+    @overload
+    def start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: Literal[False],
+        timeout: float | None = 10,
+    ) -> None: ...
+
+    def start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: bool = True,
+        timeout: float | None = 10,
+    ) -> Any | None:
+        return FunctionShifter.syncify(self.async_start)(
+            initial_value,
+            wait_for_result=wait_for_result,
+            timeout=timeout,
+        )
+
+    @overload
+    async def async_start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: Literal[True] = True,
+        timeout: float | None = 10,
+    ) -> Any: ...
+
+    @overload
+    async def async_start(
+        self,
+        initial_value: Any = None,
+        *,
+        wait_for_result: Literal[False],
+        timeout: float | None = 10,
+    ) -> None: ...
+
     async def async_start(
         self,
         initial_value: Any = None,
         *,
         wait_for_result: bool = True,
         timeout: float | None = 10,
-    ):
+    ) -> Any | None:
         if not self._started:
             self._started = True
             if self._status not in {TRIGGER_FLOW_STATUS_COMPLETED, TRIGGER_FLOW_STATUS_FAILED, TRIGGER_FLOW_STATUS_CANCELLED}:
