@@ -25,6 +25,13 @@ from agently.utils import DataLocator
 
 
 class ConfigurePromptExtension(BaseAgent):
+    @staticmethod
+    def _is_existing_file_path(path_or_content: str | Path):
+        path = Path(path_or_content)
+        try:
+            return path.exists() and path.is_file()
+        except (OSError, ValueError):
+            return False
 
     def get_json_prompt(
         self,
@@ -222,7 +229,7 @@ class ConfigurePromptExtension(BaseAgent):
         encoding: str | None = "utf-8",
     ):
         path = Path(path_or_content)
-        if path.exists() and path.is_file():
+        if self._is_existing_file_path(path_or_content):
             try:
                 with path.open("r", encoding=encoding) as file:
                     prompt = yaml.safe_load(file)
@@ -258,7 +265,7 @@ class ConfigurePromptExtension(BaseAgent):
         encoding: str | None = "utf-8",
     ):
         path = Path(path_or_content)
-        if path.exists() and path.is_file():
+        if self._is_existing_file_path(path_or_content):
             try:
                 with path.open("r", encoding=encoding) as file:
                     prompt = json5.load(file)
