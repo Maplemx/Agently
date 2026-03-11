@@ -7,7 +7,7 @@ Agently.set_settings(
         "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "model": "qwen3-coder-flash",
         "auth": "Aliyun API Key",
-        "options": {
+        "request_options": {
             "temperature": 0.7,
         },
     },

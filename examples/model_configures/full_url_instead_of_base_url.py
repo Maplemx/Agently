@@ -9,7 +9,7 @@ Agently.set_settings(
         "full_url": "http://localhost:11434/v1/chat/completions",
         # "base_url": "http://localhost:11434/v1",
         "model": "qwen2.5-coder:14b",
-        "options": {
+        "request_options": {
             "temperature": 0.7,
         },
         "content_mapping": {

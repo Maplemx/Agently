@@ -7,7 +7,7 @@ Agently.set_settings(
         "base_url": "https://api.deepseek.com/v1",
         "model": "deepseek-chat",
         "auth": "DEEPSEEK API Key",
-        "options": {
+        "request_options": {
             "temperature": 0.7,
         },
     },

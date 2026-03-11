@@ -7,7 +7,7 @@ Agently.set_settings(
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "model": "gemini-2.5-flash",
         "auth": "<Google-AIStudio-API-Key>",
-        "options": {
+        "request_options": {
             "temperature": 0.7,
         },
     },

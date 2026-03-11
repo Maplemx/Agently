@@ -58,7 +58,7 @@ def build_flow() -> TriggerFlow:
             "base_url": "https://api.deepseek.com/v1",
             "model": "deepseek-chat",
             "auth": DEEPSEEK_API_KEY,
-            "options": {"temperature": 0.7},
+            "request_options": {"temperature": 0.7},
         },
     )
 

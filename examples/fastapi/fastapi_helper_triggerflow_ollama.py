@@ -12,7 +12,7 @@ Agently.set_settings(
     {
         "base_url": OLLAMA_BASE_URL,
         "model": MODEL_NAME,
-        "options": {
+        "request_options": {
             "temperature": 0.3,
         },
     },

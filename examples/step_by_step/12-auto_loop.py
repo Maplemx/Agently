@@ -22,7 +22,7 @@ def auto_loop_demo():
             "base_url": "https://api.deepseek.com/v1",
             "model": "deepseek-chat",
             "auth": os.environ.get("DEEPSEEK_API_KEY"),
-            "options": {
+            "request_options": {
                 "temperature": 0.7,
             },
         },

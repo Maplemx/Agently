@@ -12,9 +12,9 @@ Agently.set_settings(
                 "X-User-Token": "<My-Customize-Token>",
             }
         },
-        "options": {
+        "request_options": {
             "temperature": 0.7,
-            # Or you can use options to pass customize keys
+            # Or you can use request_options to pass customize keys
             # "X-User-Token": "<My-Customize-Token>",
         },
     },

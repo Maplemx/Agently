@@ -9,7 +9,7 @@ Agently.set_settings(
         "auth": "<OpenAI-API-Key>",
         # Provide local proxy address if you need
         "proxy": "http://127.0.0.1:7890",
-        "options": {
+        "request_options": {
             "temperature": 0.7,
         },
     },

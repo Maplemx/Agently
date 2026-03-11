@@ -6,7 +6,7 @@ Agently.set_settings(
         "base_url": "https://qianfan.baidubce.com/v2",
         "model": "ernie-4.5-turbo-vl",
         "auth": "<QianFan-API-Key>",
-        "options": {
+        "request_options": {
             "temperature": 0.7,
         },
     },

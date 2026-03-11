@@ -11,7 +11,7 @@ Agently.set_settings(
                 "Authorization": "Customize <My-Customize-Token>",
             }
         },
-        "options": {
+        "request_options": {
             "temperature": 0.7,
         },
     },

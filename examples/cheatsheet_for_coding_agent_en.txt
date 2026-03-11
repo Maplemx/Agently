@@ -37,7 +37,7 @@ Agently.set_settings(
         "base_url": "https://api.deepseek.com/v1",
         "model": "deepseek-chat",
         "auth": "YOUR_API_KEY",
-        "options": {"temperature": 0.7},
+        "request_options": {"temperature": 0.7},
     },
 )
 agent = Agently.create_agent()
