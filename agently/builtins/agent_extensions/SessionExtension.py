@@ -128,9 +128,7 @@ class SessionExtension(BaseAgent):
 
     def clean_context_window(self):
         if self.activated_session is None:
-            if "chat_history" in self.agent_prompt:
-                del self.agent_prompt["chat_history"]
-            return self
+            return super().reset_chat_history()
         self.activated_session.clean_context_window()
         return self._refill_agent_chat_history_with_session()
 

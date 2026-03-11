@@ -142,22 +142,25 @@ class BaseAgent:
         self.request.prompt.set(key, None)
         return self
 
+    def _replace_agent_prompt_value(self, key: "PromptStandardSlot | str", value: Any):
+        if key in self.agent_prompt:
+            del self.agent_prompt[key]
+        self.agent_prompt.set(key, value)
+
     def reset_chat_history(self):
-        if "chat_history" in self.agent_prompt:
-            self.agent_prompt.set("chat_history", [])
+        self._replace_agent_prompt_value("chat_history", [])
         return self
 
     def set_chat_history(self, chat_history: "Sequence[ChatMessage | ChatMessageDict]"):
-        self.reset_chat_history()
         if not isinstance(chat_history, Sequence):
             chat_history = [chat_history]
-        self.agent_prompt.set("chat_history", chat_history)
+        self._replace_agent_prompt_value("chat_history", chat_history)
         return self
 
     def add_chat_history(self, chat_history: "Sequence[ChatMessage | ChatMessageDict] | ChatMessageDict | ChatMessage"):
         if not isinstance(chat_history, Sequence):
             chat_history = [chat_history]
-        self.agent_prompt.set("chat_history", chat_history)
+        self.agent_prompt.extend("chat_history", chat_history)
         return self
 
     def reset_action_results(self):
@@ -166,7 +169,7 @@ class BaseAgent:
         return self
 
     def set_action_results(self, action_results: list[dict[str, Any]]):
-        self.agent_prompt.set("action_results", action_results)
+        self._replace_agent_prompt_value("action_results", action_results)
         return self
 
     def add_action_results(self, action: str, result: Any):

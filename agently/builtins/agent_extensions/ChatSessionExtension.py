@@ -60,6 +60,11 @@ class ChatSessionExtension(BaseAgent):
         self.set_chat_history([])
         return self
 
+    def _replace_list_setting(self, key: str, value: list[Any]):
+        if key in self.settings:
+            del self.settings[key]
+        self.settings.set(key, value)
+
     def set_record_input_paths(
         self,
         *prompt_keys_and_paths: "PromptStandardSlot | tuple[PromptStandardSlot, str | None]",
@@ -83,7 +88,7 @@ class ChatSessionExtension(BaseAgent):
                     path = prompt_key_and_path
             if path not in record_input_paths:
                 record_input_paths.append(path)
-        self.settings.set("record_input_paths", record_input_paths)
+        self._replace_list_setting("record_input_paths", record_input_paths)
         return self
 
     def add_record_input_paths(
@@ -142,7 +147,7 @@ class ChatSessionExtension(BaseAgent):
             return result
 
     def clean_record_input_paths(self):
-        self.settings.set("record_input_paths", [])
+        self._replace_list_setting("record_input_paths", [])
         return self
 
     def set_record_output_paths(
@@ -156,7 +161,7 @@ class ChatSessionExtension(BaseAgent):
                 path = DataPathBuilder.convert_slash_to_dot(path)
             if path not in record_output_paths:
                 record_output_paths.append(path)
-        self.settings.set("record_output_paths", record_output_paths)
+        self._replace_list_setting("record_output_paths", record_output_paths)
         return self
 
     def add_record_output_paths(
@@ -190,7 +195,7 @@ class ChatSessionExtension(BaseAgent):
         return self
 
     def clean_record_output_paths(self):
-        self.settings.set("record_output_paths", [])
+        self._replace_list_setting("record_output_paths", [])
         return self
 
     def get_record_output_paths(self, *, style: Literal["dot", "slash"] = "dot"):
