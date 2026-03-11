@@ -1,5 +1,6 @@
 import pytest
 import json5
+from typing import cast
 from agently.utils import DataFormatter, DataLocator, StreamingJSONCompleter
 
 
@@ -126,4 +127,5 @@ def test_locate_output_json_with_root_list_schema():
 
     parsed = json5.loads(chosen_json)
     assert isinstance(parsed, list)
+    parsed = cast(list[dict[str, str]], parsed)
     assert parsed[0]["title"] == "A"

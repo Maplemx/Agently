@@ -1,4 +1,5 @@
 import json
+from typing import Any, Callable, cast
 
 import pytest
 
@@ -101,7 +102,7 @@ async def test_trigger_flow_execution_load_requires_reinjecting_runtime_resource
         )
 
     async def finalize(data: TriggerFlowRuntimeData):
-        service = data.require_resource("resume_service")
+        service = cast(Callable[[Any], Any], data.require_resource("resume_service"))
         return service(data.value)
 
     flow.to(ask_feedback)
@@ -159,7 +160,7 @@ async def test_trigger_flow_config_round_trip_with_runtime_resources():
     flow = TriggerFlow(name="runtime-resources-config")
 
     async def render(data: TriggerFlowRuntimeData):
-        renderer = data.require_resource("renderer")
+        renderer = cast(Callable[[Any], Any], data.require_resource("renderer"))
         return renderer(data.value)
 
     flow.to(render).end()

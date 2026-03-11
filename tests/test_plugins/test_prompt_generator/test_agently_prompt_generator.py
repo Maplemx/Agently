@@ -1,5 +1,4 @@
 import pytest
-import rich
 
 from agently.core import Prompt
 from agently import Agently
@@ -289,9 +288,9 @@ def test_output_model():
 
     output_from_raw_list: "BaseModel" = MyOutputModel.model_validate(test_data)
     assert output_from_raw_list.model_dump()["list"] == [456]
-    assert output_from_raw_list.root == [456]
+    assert hasattr(output_from_raw_list, "root") and getattr(output_from_raw_list, "root") == [456]
     assert list(output_from_raw_list) == [456]
-    assert output_from_raw_list[0] == 456
+    assert list(output_from_raw_list)[0] == 456
 
 
 def test_rich_prompt():

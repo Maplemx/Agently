@@ -1,4 +1,5 @@
 import pytest
+from typing import Any, cast
 
 from agently import TriggerFlow, TriggerFlowRuntimeData
 
@@ -484,9 +485,9 @@ def test_trigger_flow_sub_flow_rejects_invalid_capture_and_write_back_specs():
     with pytest.raises(TypeError, match="scope 'runtime_data' only accepts key-path mappings"):
         parent_flow.to_sub_flow(
             child_flow,
-            capture={
+            capture=cast(Any, {
                 "runtime_data": "runtime_data",
-            },
+            }),
         )
 
     with pytest.raises(ValueError, match="source scope 'value' is not supported"):
