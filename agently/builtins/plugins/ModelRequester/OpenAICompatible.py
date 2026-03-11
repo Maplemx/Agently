@@ -356,17 +356,23 @@ class OpenAICompatible(ModelRequester):
             default_key="api_key",
         )
         api_key = self.plugin_settings.get("api_key", None)
-        if api_key is not None and auth["api_key"] == "None":
+        auth_api_key = auth.get("api_key", "None")
+        if api_key is not None and auth_api_key == "None":
             auth["api_key"] = str(api_key)
+            auth_api_key = auth["api_key"]
+        headers_with_auth = request_data.headers.copy()
         if "headers" in auth and isinstance(auth["headers"], dict):
-            headers_with_auth = {**request_data.headers, **auth["headers"]}
-        elif "body" in auth and isinstance(auth["body"], dict):
-            headers_with_auth = request_data.headers.copy()
+            headers_with_auth.update(
+                DataFormatter.to_str_key_dict(
+                    auth["headers"],
+                    value_format="str",
+                    default_value={},
+                )
+            )
+        if "body" in auth and isinstance(auth["body"], dict):
             request_data.data.update(**auth["body"])
-        if "api_key" in auth and auth["api_key"] != "None":
-            headers_with_auth = {**request_data.headers, "Authorization": f"Bearer { auth['api_key'] }"}
-        else:
-            headers_with_auth = request_data.headers.copy()
+        if auth_api_key != "None":
+            headers_with_auth["Authorization"] = f"Bearer { auth_api_key }"
 
         # request
         # stream request
