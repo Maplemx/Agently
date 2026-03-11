@@ -29,6 +29,10 @@ def build_plugin(config: dict, prompt_values: dict | None = None):
     return OpenAICompatible(prompt, settings)
 
 
+def generate_request(config: dict, prompt_values: dict | None = None):
+    return build_plugin(config, prompt_values).generate_request_data().model_dump()
+
+
 async def capture_request_headers(monkeypatch: pytest.MonkeyPatch, config: dict, prompt_values: dict | None = None):
     captured: dict = {}
 
@@ -92,6 +96,33 @@ async def test_main():
             print(event, message)
     except Exception as e:
         raise e
+
+
+def test_plugin_root_options_are_treated_as_request_options():
+    request = generate_request(
+        {
+            "base_url": "https://api.example.com/v1",
+            "model": "m1",
+            "options": {"temperature": 0.7, "top_p": 0.9},
+        },
+        {"input": "hello"},
+    )
+
+    assert request["request_options"] == {"temperature": 0.7, "top_p": 0.9, "model": "m1", "stream": True}
+
+
+def test_request_options_override_legacy_plugin_root_options():
+    request = generate_request(
+        {
+            "base_url": "https://api.example.com/v1",
+            "model": "m1",
+            "options": {"temperature": 0.7, "top_p": 0.9},
+            "request_options": {"temperature": 0.2},
+        },
+        {"input": "hello", "options": {"top_p": 0.5}},
+    )
+
+    assert request["request_options"] == {"temperature": 0.2, "top_p": 0.5, "model": "m1", "stream": True}
 
 
 @pytest.mark.asyncio

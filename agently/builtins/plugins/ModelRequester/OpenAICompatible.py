@@ -257,11 +257,19 @@ class OpenAICompatible(ModelRequester):
         agently_request_dict["client_options"] = client_options
 
         # request_options
+        legacy_options = DataFormatter.to_str_key_dict(
+            self.plugin_settings.get("options"),
+            value_format="serializable",
+            default_value={},
+        )
         request_options = DataFormatter.to_str_key_dict(
             self.plugin_settings.get("request_options"),
             value_format="serializable",
             default_value={},
         )
+        # Backward compatibility for older examples/configs that still use
+        # plugin-root `options` for default request-body parameters.
+        request_options = {**legacy_options, **request_options}
         request_options_in_prompt = self.prompt.get("options", {})
         if request_options_in_prompt:
             request_options.update(request_options_in_prompt)
