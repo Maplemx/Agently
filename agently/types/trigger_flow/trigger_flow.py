@@ -15,7 +15,7 @@
 import uuid
 from collections.abc import Mapping
 
-from typing import Any, Callable, Literal, TYPE_CHECKING, Protocol, TypeAlias, runtime_checkable
+from typing import Any, Callable, Literal, TYPE_CHECKING, Protocol, TypeAlias, runtime_checkable, Generic, TypeVar
 from typing_extensions import TypedDict
 from agently.types.data import AVOID_COPY
 
@@ -71,6 +71,9 @@ class TriggerFlowPathWritable(Protocol):
 
 
 _MISSING = object()
+ValueT = TypeVar("ValueT")
+StreamT = TypeVar("StreamT")
+ResultT = TypeVar("ResultT")
 
 
 class _TriggerFlowDataNamespace:
@@ -227,13 +230,21 @@ class _TriggerFlowSignalInfo:
         }
 
 
-class TriggerFlowRuntimeData:
+class TriggerFlowRuntimeData(Generic[ValueT, StreamT, ResultT]):
+    value: ValueT
+    put: Callable[[StreamT], None]
+    async_put: Callable[[StreamT], Any]
+    put_into_stream: Callable[[StreamT], None]
+    async_put_into_stream: Callable[[StreamT], Any]
+    set_result: Callable[[ResultT], None]
+    get_result: Callable[..., ResultT | None]
+
     def __init__(
         self,
         *,
         trigger_event: str,
         trigger_type: Literal["event", "runtime_data", "flow_data", "collect"],
-        value: Any,
+        value: ValueT,
         execution: "TriggerFlowExecution",
         _layer_marks: list[str] | None = None,
         signal: "TriggerFlowSignal | None" = None,
@@ -342,7 +353,7 @@ class TriggerFlowRuntimeData:
 
 
 TriggerFlowEventData = TriggerFlowRuntimeData
-TriggerFlowHandler = Callable[[TriggerFlowRuntimeData], Any]
+TriggerFlowHandler = Callable[[TriggerFlowRuntimeData[Any, Any, Any]], Any]
 TriggerFlowHandlers = dict[str, dict[str, TriggerFlowHandler]]
 TriggerFlowAllHandlers = dict[Literal["event", "flow_data", "runtime_data"], TriggerFlowHandlers]
 

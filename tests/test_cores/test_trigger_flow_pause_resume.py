@@ -1,8 +1,9 @@
 import asyncio
 
 import pytest
+from pydantic import TypeAdapter
 
-from agently import TriggerFlow, TriggerFlowRuntimeData
+from agently import TriggerFlow, TriggerFlowInterruptEvent, TriggerFlowRuntimeData
 
 
 @pytest.mark.asyncio
@@ -49,6 +50,28 @@ async def test_trigger_flow_pause_continue_with_saved_interrupt():
         "draft": {"topic": "pricing"},
         "feedback": {"approved": True},
     }
+
+
+def test_trigger_flow_public_interrupt_event_type_matches_runtime_stream_shape():
+    flow = TriggerFlow()
+
+    async def ask_feedback(data: TriggerFlowRuntimeData):
+        return await data.async_pause_for(
+            type="human_input",
+            payload={"question": "approve?"},
+            resume_event="UserFeedback",
+        )
+
+    flow.to(ask_feedback)
+
+    interrupt_event = next(flow.get_runtime_stream("pricing", timeout=1))
+    validated_event = TypeAdapter(TriggerFlowInterruptEvent).validate_python(interrupt_event)
+
+    assert validated_event["type"] == "interrupt"
+    assert validated_event["action"] == "pause"
+    assert validated_event["execution_id"]
+    assert validated_event["interrupt"]["type"] == "human_input"
+    assert validated_event["interrupt"].get("resume_event") == "UserFeedback"
 
 
 @pytest.mark.asyncio

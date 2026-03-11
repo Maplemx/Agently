@@ -16,21 +16,28 @@ import uuid
 import asyncio
 from pathlib import Path
 
-from typing import Callable, Any, Literal, TYPE_CHECKING, overload
+from typing import Callable, Any, Literal, TYPE_CHECKING, overload, AsyncGenerator, Generator, Generic, TypeVar, cast
 
 if TYPE_CHECKING:
     from .Execution import TriggerFlowExecution
     from .Chunk import TriggerFlowHandler
     from agently.types.data import SerializableValue
 
-from agently.types.trigger_flow import TriggerFlowBlockData
+from agently.types.trigger_flow import TriggerFlowBlockData, TriggerFlowInterruptEvent
 from agently.utils import Settings, RuntimeData, FunctionShifter
 from .BluePrint import TriggerFlowBluePrint
 from .Process import TriggerFlowProcess
 from .Chunk import TriggerFlowChunk
+from .Contract import CONTRACT_UNSET, TriggerFlowContract, TriggerFlowContractSpec
 
+InputT = TypeVar("InputT")
+StreamT = TypeVar("StreamT")
+ResultT = TypeVar("ResultT")
+ContractInputT = TypeVar("ContractInputT")
+ContractStreamT = TypeVar("ContractStreamT")
+ContractResultT = TypeVar("ContractResultT")
 
-class TriggerFlow:
+class TriggerFlow(Generic[InputT, StreamT, ResultT]):
     def __init__(
         self,
         blue_print: TriggerFlowBluePrint | None = None,
@@ -52,7 +59,8 @@ class TriggerFlow:
         )
         self._blue_print = blue_print if blue_print is not None else TriggerFlowBluePrint()
         self._skip_exceptions = skip_exceptions
-        self._executions: dict[str, "TriggerFlowExecution"] = {}
+        self._executions: dict[str, "TriggerFlowExecution[InputT, StreamT, ResultT]"] = {}
+        self._contract = TriggerFlowContract[InputT, StreamT, ResultT]()
         self.set_settings = self.settings.set_settings
 
         self.get_flow_data = self._flow_data.get
@@ -125,7 +133,7 @@ class TriggerFlow:
         skip_exceptions: bool | None = None,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ):
+    ) -> "TriggerFlowExecution[InputT, StreamT, ResultT]":
         execution_id = uuid.uuid4().hex
         skip_exceptions = skip_exceptions if skip_exceptions is not None else self._skip_exceptions
         execution = self._blue_print.create_execution(
@@ -137,7 +145,95 @@ class TriggerFlow:
         if runtime_resources:
             execution.update_runtime_resources(runtime_resources)
         self._executions[execution_id] = execution
-        return execution
+        return cast("TriggerFlowExecution[InputT, StreamT, ResultT]", execution)
+
+    @overload
+    def set_contract(
+        self,
+        *,
+        meta: dict[str, Any] | None = None,
+    ) -> "TriggerFlow[InputT, StreamT, ResultT]": ...
+
+    @overload
+    def set_contract(
+        self,
+        *,
+        initial_input: type[ContractInputT],
+        meta: dict[str, Any] | None = None,
+    ) -> "TriggerFlow[ContractInputT, StreamT, ResultT]": ...
+
+    @overload
+    def set_contract(
+        self,
+        *,
+        stream: type[ContractStreamT],
+        meta: dict[str, Any] | None = None,
+    ) -> "TriggerFlow[InputT, ContractStreamT, ResultT]": ...
+
+    @overload
+    def set_contract(
+        self,
+        *,
+        result: type[ContractResultT],
+        meta: dict[str, Any] | None = None,
+    ) -> "TriggerFlow[InputT, StreamT, ContractResultT]": ...
+
+    @overload
+    def set_contract(
+        self,
+        *,
+        initial_input: type[ContractInputT],
+        stream: type[ContractStreamT],
+        meta: dict[str, Any] | None = None,
+    ) -> "TriggerFlow[ContractInputT, ContractStreamT, ResultT]": ...
+
+    @overload
+    def set_contract(
+        self,
+        *,
+        initial_input: type[ContractInputT],
+        result: type[ContractResultT],
+        meta: dict[str, Any] | None = None,
+    ) -> "TriggerFlow[ContractInputT, StreamT, ContractResultT]": ...
+
+    @overload
+    def set_contract(
+        self,
+        *,
+        stream: type[ContractStreamT],
+        result: type[ContractResultT],
+        meta: dict[str, Any] | None = None,
+    ) -> "TriggerFlow[InputT, ContractStreamT, ContractResultT]": ...
+
+    @overload
+    def set_contract(
+        self,
+        *,
+        initial_input: type[ContractInputT],
+        stream: type[ContractStreamT],
+        result: type[ContractResultT],
+        meta: dict[str, Any] | None = None,
+    ) -> "TriggerFlow[ContractInputT, ContractStreamT, ContractResultT]": ...
+
+    def set_contract(
+        self,
+        *,
+        initial_input: Any = CONTRACT_UNSET,
+        stream: Any = CONTRACT_UNSET,
+        result: Any = CONTRACT_UNSET,
+        meta: dict[str, Any] | None | object = CONTRACT_UNSET,
+    ) -> "TriggerFlow[Any, Any, Any]":
+        self._contract.update(
+            initial_input=initial_input,
+            stream=stream,
+            result=result,
+            meta=meta,
+        )
+        self._blue_print.definition.contract = self._contract.export_metadata()
+        return self
+
+    def get_contract(self) -> TriggerFlowContractSpec[InputT, StreamT, ResultT]:
+        return self._contract.snapshot()
 
     def _set_runtime_resource(self, key: str, value: Any):
         self._runtime_resources.set(str(key), value)
@@ -176,12 +272,12 @@ class TriggerFlow:
 
     async def async_start_execution(
         self,
-        initial_value: Any,
+        initial_value: InputT | None,
         *,
         wait_for_result: bool = False,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ):
+    ) -> "TriggerFlowExecution[InputT, StreamT, ResultT]":
         execution = self.create_execution(
             concurrency=concurrency,
             runtime_resources=runtime_resources,
@@ -255,18 +351,18 @@ class TriggerFlow:
     @overload
     def start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: Literal[True] = True,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ) -> Any: ...
+    ) -> ResultT: ...
 
     @overload
     def start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: Literal[False],
         timeout: float | None = 10.0,
@@ -276,13 +372,13 @@ class TriggerFlow:
 
     def start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: bool = True,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ) -> Any | None:
+    ) -> ResultT | None:
         return FunctionShifter.syncify(self.async_start)(
             initial_value,
             wait_for_result=wait_for_result,
@@ -294,18 +390,18 @@ class TriggerFlow:
     @overload
     async def async_start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: Literal[True] = True,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ) -> Any: ...
+    ) -> ResultT: ...
 
     @overload
     async def async_start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: Literal[False],
         timeout: float | None = 10.0,
@@ -315,13 +411,13 @@ class TriggerFlow:
 
     async def async_start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: bool = True,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ) -> Any | None:
+    ) -> ResultT | None:
         execution = await self.async_start_execution(
             initial_value,
             concurrency=concurrency,
@@ -332,12 +428,12 @@ class TriggerFlow:
 
     def get_async_runtime_stream(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ):
+    ) -> AsyncGenerator[StreamT | TriggerFlowInterruptEvent, None]:
         execution = self.create_execution(
             concurrency=concurrency,
             runtime_resources=runtime_resources,
@@ -349,12 +445,12 @@ class TriggerFlow:
 
     def get_runtime_stream(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
-    ):
+    ) -> Generator[StreamT | TriggerFlowInterruptEvent, None, None]:
         execution = self.create_execution(
             concurrency=concurrency,
             runtime_resources=runtime_resources,
@@ -369,6 +465,7 @@ class TriggerFlow:
 
     def load_blue_print(self, new_blue_print: TriggerFlowBluePrint):
         self._blue_print = new_blue_print
+        self._contract = TriggerFlowContract[InputT, StreamT, ResultT]()
         self.register_chunk_handler = self._blue_print.register_chunk_handler
         self.register_condition_handler = self._blue_print.register_condition_handler
         self._bind_start_process()
@@ -408,6 +505,7 @@ class TriggerFlow:
         replace: bool = True,
     ):
         self._blue_print.load_flow_config(config, replace=replace)
+        self._contract = TriggerFlowContract[InputT, StreamT, ResultT]()
         self.name = self._blue_print.name
         self._bind_start_process()
         return self
@@ -424,6 +522,7 @@ class TriggerFlow:
             replace=replace,
             encoding=encoding,
         )
+        self._contract = TriggerFlowContract[InputT, StreamT, ResultT]()
         self.name = self._blue_print.name
         self._bind_start_process()
         return self
@@ -440,6 +539,7 @@ class TriggerFlow:
             replace=replace,
             encoding=encoding,
         )
+        self._contract = TriggerFlowContract[InputT, StreamT, ResultT]()
         self.name = self._blue_print.name
         self._bind_start_process()
         return self

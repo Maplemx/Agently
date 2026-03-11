@@ -22,7 +22,7 @@ from pathlib import Path
 from json import JSONDecodeError
 from contextvars import ContextVar
 
-from typing import Any, Literal, TYPE_CHECKING, overload
+from typing import Any, Literal, TYPE_CHECKING, overload, AsyncGenerator, Generator, Generic, TypeVar, cast
 
 if TYPE_CHECKING:
     from .TriggerFlow import TriggerFlow
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from agently.types.data import SerializableValue
 
 from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer, Settings
-from agently.types.trigger_flow import TriggerFlowRuntimeData, RUNTIME_STREAM_STOP
+from agently.types.trigger_flow import TriggerFlowInterruptEvent, TriggerFlowRuntimeData, RUNTIME_STREAM_STOP
 from agently.types.data import EMPTY
 from .Control import (
     TriggerFlowPauseSignal,
@@ -43,13 +43,17 @@ from .Control import (
 )
 from .Signal import TriggerFlowSignal, TriggerFlowSignalType
 
+InputT = TypeVar("InputT")
+StreamT = TypeVar("StreamT")
+ResultT = TypeVar("ResultT")
 
-class TriggerFlowExecution:
+
+class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
     def __init__(
         self,
         *,
         handlers: "TriggerFlowAllHandlers",
-        trigger_flow: "TriggerFlow",
+        trigger_flow: "TriggerFlow[InputT, StreamT, ResultT]",
         id: str | None = None,
         skip_exceptions: bool = False,
         concurrency: int | None = None,
@@ -529,16 +533,16 @@ class TriggerFlowExecution:
     @overload
     def start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: Literal[True] = True,
         timeout: float | None = 10,
-    ) -> Any: ...
+    ) -> ResultT: ...
 
     @overload
     def start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: Literal[False],
         timeout: float | None = 10,
@@ -546,11 +550,11 @@ class TriggerFlowExecution:
 
     def start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: bool = True,
         timeout: float | None = 10,
-    ) -> Any | None:
+    ) -> ResultT | None:
         return FunctionShifter.syncify(self.async_start)(
             initial_value,
             wait_for_result=wait_for_result,
@@ -560,16 +564,16 @@ class TriggerFlowExecution:
     @overload
     async def async_start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: Literal[True] = True,
         timeout: float | None = 10,
-    ) -> Any: ...
+    ) -> ResultT: ...
 
     @overload
     async def async_start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: Literal[False],
         timeout: float | None = 10,
@@ -577,15 +581,16 @@ class TriggerFlowExecution:
 
     async def async_start(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         wait_for_result: bool = True,
         timeout: float | None = 10,
-    ) -> Any | None:
+    ) -> ResultT | None:
         if not self._started:
             self._started = True
             if self._status not in {TRIGGER_FLOW_STATUS_COMPLETED, TRIGGER_FLOW_STATUS_FAILED, TRIGGER_FLOW_STATUS_CANCELLED}:
                 self._set_status(TRIGGER_FLOW_STATUS_RUNNING)
+            initial_value = cast(InputT | None, self._trigger_flow._contract.validate_initial_input(initial_value))
             await self._async_dispatch_signal(
                 self._build_signal(
                     "START",
@@ -625,7 +630,8 @@ class TriggerFlowExecution:
                 "execution_id": self.id,
                 "interrupt": self._to_serializable_value(interrupt),
                 "signal": self._serialize_signal(self.get_last_signal()),
-            }
+            },
+            _skip_contract_validation=True,
         )
         return TriggerFlowPauseSignal(interrupt)
 
@@ -654,7 +660,8 @@ class TriggerFlowExecution:
                 "execution_id": self.id,
                 "interrupt": self._to_serializable_value(interrupt),
                 "value": self._to_serializable_value(value),
-            }
+            },
+            _skip_contract_validation=True,
         )
         resume_event = interrupt.get("resume_event")
         if resume_event:
@@ -670,7 +677,14 @@ class TriggerFlowExecution:
         return interrupt
 
     # Runtime Stream
-    async def async_put_into_stream(self, stream_item: Any):
+    async def async_put_into_stream(
+        self,
+        stream_item: StreamT | TriggerFlowInterruptEvent,
+        *,
+        _skip_contract_validation: bool = False,
+    ):
+        if not _skip_contract_validation:
+            stream_item = cast(StreamT, self._trigger_flow._contract.validate_stream_item(stream_item))
         await self._runtime_stream_queue.put(stream_item)
 
     async def async_stop_stream(self):
@@ -679,9 +693,9 @@ class TriggerFlowExecution:
     async def _consume_runtime_stream(
         self,
         *,
-        initial_value: Any,
+        initial_value: InputT | None,
         timeout: float | None,
-    ):
+    ) -> AsyncGenerator[StreamT | TriggerFlowInterruptEvent, None]:
         temp_execution_task = None
         try:
             if not self._started:
@@ -717,10 +731,10 @@ class TriggerFlowExecution:
 
     def get_async_runtime_stream(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         timeout: float | None = 10,
-    ):
+    ) -> AsyncGenerator[StreamT | TriggerFlowInterruptEvent, None]:
         if self._runtime_stream_consumer is None:
             self._runtime_stream_consumer = GeneratorConsumer(
                 self._consume_runtime_stream(
@@ -732,10 +746,10 @@ class TriggerFlowExecution:
 
     def get_runtime_stream(
         self,
-        initial_value: Any = None,
+        initial_value: InputT | None = None,
         *,
         timeout: float | None = 10,
-    ):
+    ) -> Generator[StreamT | TriggerFlowInterruptEvent, None, None]:
         if self._runtime_stream_consumer is None:
             self._runtime_stream_consumer = GeneratorConsumer(
                 self._consume_runtime_stream(
@@ -746,27 +760,28 @@ class TriggerFlowExecution:
         return self._runtime_stream_consumer.get_generator()
 
     # Result
-    def set_result(self, result: Any):
+    def set_result(self, result: ResultT):
+        result = cast(ResultT, self._trigger_flow._contract.validate_result(result))
         self._system_runtime_data.set("result", result)
         result_ready = self._system_runtime_data.get("result_ready")
         if isinstance(result_ready, asyncio.Event):
             result_ready.set()
         self._set_status(TRIGGER_FLOW_STATUS_COMPLETED)
 
-    async def async_get_result(self, *, timeout: float | None = None):
+    async def async_get_result(self, *, timeout: float | None = None) -> ResultT | None:
         if timeout is None:
             result_ready = self._system_runtime_data.get("result_ready")
             if isinstance(result_ready, asyncio.Event):
                 await result_ready.wait()
             self._result = self._system_runtime_data.get("result")
-            return self._result
+            return cast(ResultT | None, self._result)
         else:
             try:
                 result_ready = self._system_runtime_data.get("result_ready")
                 if isinstance(result_ready, asyncio.Event):
                     await asyncio.wait_for(result_ready.wait(), timeout=timeout)
                 self._result = self._system_runtime_data.get("result")
-                return self._result
+                return cast(ResultT | None, self._result)
             except asyncio.TimeoutError:
                 warnings.warn(
                     f"Can not get the result of trigger flow { self.id } for it took too long and timeout.\n"
@@ -774,4 +789,4 @@ class TriggerFlowExecution:
                     f"Timeout: { timeout }"
                 )
                 self._result = None
-                return self._result
+                return cast(ResultT | None, self._result)

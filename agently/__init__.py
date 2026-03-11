@@ -14,15 +14,24 @@
 
 from .base import print_, async_print, AgentlyMain
 from .core import TriggerFlow, TriggerFlowBluePrint
-from .types.trigger_flow import TriggerFlowRuntimeData, TriggerFlowEventData
+from .types.trigger_flow import (
+    TriggerFlowContractSpec,
+    TriggerFlowEventData,
+    TriggerFlowInterruptEvent,
+    TriggerFlowRuntimeData,
+    TriggerFlowSystemStreamEvent,
+)
 
 Agently = AgentlyMain()
 
 __all__ = [
     "Agently",
     "TriggerFlow",
+    "TriggerFlowContractSpec",
     "TriggerFlowRuntimeData",
     "TriggerFlowEventData",
+    "TriggerFlowInterruptEvent",
+    "TriggerFlowSystemStreamEvent",
     "TriggerFlowBluePrint",
     "print_",
     "async_print",
