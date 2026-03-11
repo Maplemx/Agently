@@ -29,15 +29,30 @@
 
 ---
 
+## 官方可安装 Skills
+
+Agently 官方可安装 skills 已正式发布：
+
+- GitHub: https://github.com/AgentEra/Agently-Skills
+- 安装命令：`npx skills add AgentEra/Agently-Skills`
+
+安装后你能直接获得：
+
+- 面向真实 Agently 开发任务的实现路由能力，从单次请求设计一路覆盖 TriggerFlow、多智能体、MCP、工具、Session 和 FastAPI 集成
+- 针对常见生产场景的现成 skill 指南，不用每次都从零给 coding agent 解释框架概念
+- LangChain 和 LangGraph 迁移 playbook，帮助已有智能体系统更快落到 Agently
+- 更稳定的 coding-agent 体验，因为 skills 会为 agent 提供明确的 Agently 模式、边界和推荐实现路径
+
+---
+
 ## 📚 核心资源
 
 - **官方文档（中文）**: https://agently.cn/docs
 - **官方文档（英文）**: https://agently.tech/docs
 - **智能体系统 Playbook（中文）**: https://agently.cn/docs/agent-systems/overview.html
 - **智能体系统 Playbook（英文）**: https://agently.tech/docs/en/agent-systems/overview.html
-- **Coding Agent 指南（中文）**: https://agently.cn/docs/agent-docs.html
-- **Coding Agent 指南（英文）**: https://agently.tech/docs/en/agent-docs.html
-- **Agent 文档包（离线版）**: https://agently.cn/docs/agent_docs.zip
+- **官方 Agently Skills 仓库**: https://github.com/AgentEra/Agently-Skills
+- **安装 Agently Skills**: `npx skills add AgentEra/Agently-Skills`
 
 ## 🤔 为什么需要 Agently？
 
@@ -289,7 +304,7 @@ print(flow.start("这个产品多少钱？"))
 - **快速开始与入口**
   - 快速开始: https://agently.cn/docs/quickstart.html
   - 常见模型配置: https://agently.cn/docs/model-settings.html
-  - Coding Agent 指南: https://agently.cn/docs/agent-docs.html
+  - 官方 Agently Skills 仓库: https://github.com/AgentEra/Agently-Skills
 - **输出控制（结构化输出）**
   - 概览: https://agently.cn/docs/output-control/overview.html
   - Output Format 语法: https://agently.cn/docs/output-control/format.html

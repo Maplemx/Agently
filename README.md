@@ -29,15 +29,30 @@
 
 ---
 
+## Official Skills
+
+Official installable Agently skills are now published at:
+
+- GitHub: https://github.com/AgentEra/Agently-Skills
+- Install: `npx skills add AgentEra/Agently-Skills`
+
+What you get after installing:
+
+- Better implementation routing for real Agently work, from single-request design to TriggerFlow, multi-agent, MCP, tools, session, and FastAPI integration
+- Ready-to-use skill guidance for common production tasks instead of re-explaining framework concepts in every coding session
+- Migration playbooks for LangChain and LangGraph, so existing agent systems can be translated into Agently faster
+- A higher-quality coding-agent experience, because the skills package gives the agent concrete Agently patterns, boundaries, and recommended implementation paths
+
+---
+
 ## 📚 Quick Links
 
 - **Docs (EN)**: https://agently.tech/docs
 - **Docs (中文)**: https://agently.cn/docs
 - **Agent Systems Playbook (EN)**: https://agently.tech/docs/en/agent-systems/overview.html
 - **Agent Systems Playbook (中文)**: https://agently.cn/docs/agent-systems/overview.html
-- **Coding Agent Guide (EN)**: https://agently.tech/docs/en/agent-docs.html
-- **Coding Agent Guide (中文)**: https://agently.cn/docs/agent-docs.html
-- **Agent Docs Pack**: https://agently.cn/docs/agent_docs.zip
+- **Official Agently Skills**: https://github.com/AgentEra/Agently-Skills
+- **Install Agently Skills**: `npx skills add AgentEra/Agently-Skills`
 
 ## 🤔 Why Agently?
 
@@ -289,7 +304,7 @@ Based on teams shipping real projects with Agently, this **production readiness 
 - **Getting Started**
   - Quickstart: https://agently.tech/docs/en/quickstart.html
   - Model Settings: https://agently.tech/docs/en/model-settings.html
-  - Coding Agent Guide: https://agently.tech/docs/en/agent-docs.html
+  - Official Agently Skills: https://github.com/AgentEra/Agently-Skills
 - **Output Control (Structured Output)**
   - Overview: https://agently.tech/docs/en/output-control/overview.html
   - Output Format: https://agently.tech/docs/en/output-control/format.html
