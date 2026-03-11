@@ -200,8 +200,8 @@ class Session:
     ):
         if isinstance(chat_history, Sequence):
             messages = self._to_standard_chat_messages(chat_history)
-            self._full_context = messages
-            self._context_window = messages
+            self._full_context = messages.copy()
+            self._context_window = messages.copy()
         else:
             if isinstance(chat_history, dict):
                 chat_history = ChatMessage(

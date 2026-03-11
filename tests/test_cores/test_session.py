@@ -70,6 +70,23 @@ def test_session_yaml_export_and_load_by_path():
     assert loaded.context_window[0].content == "content-from-yaml"
 
 
+def test_session_set_then_add_chat_history_does_not_duplicate_turns():
+    session = Session(auto_resize=False)
+    session.set_chat_history(
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "world"},
+        ]
+    )
+
+    session.add_chat_history({"role": "user", "content": "follow-up"})
+
+    history = session.full_context
+    assert len(history) == 3
+    assert [message.content for message in history] == ["hello", "world", "follow-up"]
+    assert [message.content for message in session.context_window] == ["hello", "world", "follow-up"]
+
+
 @pytest.mark.asyncio
 async def test_session_legacy_execution_aliases():
     session = Session(auto_resize=False)
