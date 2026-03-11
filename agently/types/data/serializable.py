@@ -17,4 +17,5 @@ from typing import Sequence, Mapping, TypeAlias
 SerializableValue: TypeAlias = (
     None | bool | int | float | str | Sequence["SerializableValue"] | Mapping[str, "SerializableValue"]
 )
-SerializableData: TypeAlias = Mapping[str, "SerializableValue"]
+SerializableMapping: TypeAlias = Mapping[str, "SerializableValue"]
+SerializableData: TypeAlias = SerializableMapping | Sequence["SerializableValue"]

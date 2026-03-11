@@ -23,7 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from agently.utils import FunctionShifter
-from agently.types.data import SerializableData, SerializableValue
+from agently.types.data import SerializableMapping, SerializableValue
 
 from typing import Any, Sequence, Callable, AsyncGenerator, Generator, Protocol, TYPE_CHECKING, ParamSpec, cast
 
@@ -37,7 +37,7 @@ P = ParamSpec("P")
 class FastAPIHelperGeneratorFunction(Protocol[P]):
     def __call__(
         self,
-        request_data: SerializableData,
+        request_data: SerializableMapping,
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> Generator[SerializableValue, None, None] | AsyncGenerator[SerializableValue, None]: ...
@@ -142,9 +142,9 @@ class FastAPIHelper(FastAPI):
 
     def _get_async_generator(
         self,
-        request_data: "SerializableData",
+        request_data: "SerializableMapping",
         *,
-        options: "SerializableData | None" = None,
+        options: "SerializableMapping | None" = None,
     ) -> AsyncGenerator:
         from agently.core import BaseAgent, ModelRequest, TriggerFlow, TriggerFlowExecution
 
@@ -205,9 +205,9 @@ class FastAPIHelper(FastAPI):
 
     async def _async_get_result(
         self,
-        request_data: "SerializableData",
+        request_data: "SerializableMapping",
         *,
-        options: "SerializableData | None" = None,
+        options: "SerializableMapping | None" = None,
     ):
         from agently.core import BaseAgent, ModelRequest, TriggerFlow, TriggerFlowExecution
 

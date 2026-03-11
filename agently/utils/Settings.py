@@ -22,14 +22,14 @@ from .LazyImport import LazyImport
 from .DataFormatter import DataFormatter
 
 if TYPE_CHECKING:
-    from agently.types.data import SerializableData, SerializableValue
+    from agently.types.data import SerializableMapping, SerializableValue
 
 
 class Settings(SerializableRuntimeData):
 
     def __init__(
         self,
-        data: "SerializableData | None" = None,
+        data: "SerializableMapping | None" = None,
         *,
         name: str | None = None,
         parent: "Settings | None" = None,
@@ -54,7 +54,7 @@ class Settings(SerializableRuntimeData):
         self,
         simplify_path: str,
         simplify_value: str | int | float | bool,
-        actual_settings: "SerializableData",
+        actual_settings: "SerializableMapping",
     ):
         if simplify_path in self._path_mappings:
             raise ValueError(
@@ -138,7 +138,7 @@ class Settings(SerializableRuntimeData):
         elif key in self._kv_mappings:
             actual_settings = self._kv_mappings.get(f"{ key }.{ value }")
             if actual_settings:
-                self.update(cast("SerializableData", actual_settings))
+                self.update(cast("SerializableMapping", actual_settings))
                 return self
         self.set(key, value)
         return self

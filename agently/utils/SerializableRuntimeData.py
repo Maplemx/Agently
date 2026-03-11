@@ -15,7 +15,7 @@
 from typing import TypeVar
 
 from agently.utils import RuntimeData, RuntimeDataNamespace
-from agently.types.data import SerializableData, SerializableValue
+from agently.types.data import SerializableMapping, SerializableValue
 
 T = TypeVar("T")
 
@@ -23,7 +23,7 @@ T = TypeVar("T")
 class SerializableRuntimeData(RuntimeData):
     def __init__(
         self,
-        data: SerializableData | None = None,
+        data: SerializableMapping | None = None,
         *,
         name: str | None = None,
         parent: "SerializableRuntimeData | None" = None,
@@ -59,7 +59,7 @@ class SerializableRuntimeData(RuntimeData):
     def set(self, key: str, value: SerializableValue):
         super().set(key, value)
 
-    def update(self, new: SerializableData):
+    def update(self, new: SerializableMapping):
         super().update(dict(new))
 
     def __delitem__(self, key: str):
@@ -97,7 +97,7 @@ class SerializableRuntimeDataNamespace(RuntimeDataNamespace):
     def set(self, key: str, value: SerializableValue):
         return super().set(key, value)
 
-    def update(self, new: SerializableData):
+    def update(self, new: SerializableMapping):
         return super().update(dict(new))
 
     def __delitem__(self, key: str):

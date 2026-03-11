@@ -18,6 +18,7 @@ from typing import (
     Mapping,
     Sequence,
     Annotated,
+    TypeAlias,
 )
 from typing_extensions import TypedDict, NotRequired
 from pydantic import (
@@ -115,6 +116,7 @@ def validate_attachment(attachment) -> list[ChatMessageContent]:
 
 
 OutputFormat = Literal["markdown", "text", "json"]
+PromptOutputStructure: TypeAlias = Mapping[str, Any] | list[Any]
 PromptStandardSlot = Literal[
     "system",
     "developer",

@@ -14,11 +14,14 @@
 
 import json
 import json5
-from typing import Any, Dict, AsyncGenerator, List
+from typing import Any, AsyncGenerator, List, TYPE_CHECKING
 import copy
 
 from agently.utils import DataLocator, DataPathBuilder, StreamingJSONCompleter
 from agently.types.data import StreamingData
+
+if TYPE_CHECKING:
+    from agently.types.data import PromptOutputStructure
 
 
 class StreamingJSONParser:
@@ -31,15 +34,15 @@ class StreamingJSONParser:
     or downstream processing.
 
     Attributes:
-        schema (Dict[str, Any]): The schema describing the expected JSON structure.
+        schema (PromptOutputStructure): The schema describing the expected JSON structure.
     """
 
-    def __init__(self, schema: Dict[str, Any]):
+    def __init__(self, schema: "PromptOutputStructure"):
         """
         Initialize an AsyncStreamingJSONParser instance.
 
         Args:
-            schema (Dict[str, Any]): The schema dict describing the expected JSON structure.
+            schema (PromptOutputStructure): The schema describing the expected JSON structure.
         """
         self.schema = schema
         self.completer = StreamingJSONCompleter()

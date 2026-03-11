@@ -35,7 +35,7 @@ from agently.utils import (
 
 if TYPE_CHECKING:
     from agently.core import Prompt
-    from agently.types.data import AgentlyModelResult, AgentlyResponseGenerator, SerializableData, SpecificEvents
+    from agently.types.data import AgentlyModelResult, AgentlyResponseGenerator, SerializableMapping, SpecificEvents
     from agently.utils import Settings
 
 DEFAULT_SPECIFIC_EVENTS = cast(
@@ -242,7 +242,7 @@ class AgentlyResponseParser(ResponseParser):
                 with contextlib.suppress(RuntimeError):
                     await self.response_generator.aclose()
 
-    async def async_get_meta(self) -> "SerializableData":
+    async def async_get_meta(self) -> "SerializableMapping":
         await self._ensure_consumer()
         await cast(GeneratorConsumer, self._response_consumer).get_result()
         return self.full_result_data["meta"]

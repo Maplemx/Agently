@@ -33,13 +33,14 @@ class AVOID_COPY:
 
 EMPTY = AVOID_COPY()
 
-from .serializable import SerializableData, SerializableValue
+from .serializable import SerializableData, SerializableMapping, SerializableValue
 from .prompt import (
     ChatMessage,
     ChatMessageDict,
     ChatMessageContent,
     TextMessageContent,
     PromptModel,
+    PromptOutputStructure,
     PromptStandardSlot,
     ToolMeta,
 )

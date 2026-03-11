@@ -17,7 +17,7 @@ import json5
 from typing import Literal, Any, Mapping, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agently.types.data import SerializableData
+    from agently.types.data import PromptOutputStructure
 
 
 class DataLocator:
@@ -26,7 +26,7 @@ class DataLocator:
         return not isinstance(value, str) and isinstance(value, Sequence)
 
     @staticmethod
-    def _matches_output_schema_shape(parsed_json: Any, output_prompt: "SerializableData") -> bool:
+    def _matches_output_schema_shape(parsed_json: Any, output_prompt: "PromptOutputStructure") -> bool:
         if isinstance(output_prompt, Mapping):
             return isinstance(parsed_json, Mapping) and (
                 len(output_prompt) == 0 or any(key in parsed_json for key in output_prompt.keys())
@@ -229,7 +229,7 @@ class DataLocator:
         return json_blocks
 
     @staticmethod
-    def locate_output_json(original_text: str, output_prompt_dict: "SerializableData"):
+    def locate_output_json(original_text: str, output_prompt_dict: "PromptOutputStructure"):
         all_json = DataLocator.locate_all_json(original_text)
         if len(all_json) == 0:
             return None

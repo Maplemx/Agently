@@ -25,7 +25,7 @@ if TYPE_CHECKING:
         AgentlyResponseGenerator,
         InstantStreamingContentType,
         ResponseContentType,
-        SerializableData,
+        SerializableMapping,
         SpecificEvents,
         StreamingData,
     )
@@ -59,9 +59,9 @@ class ResponseParser(AgentlyPlugin, Protocol):
     @staticmethod
     def _on_unregister(): ...
 
-    def get_meta(self) -> "SerializableData": ...
+    def get_meta(self) -> "SerializableMapping": ...
 
-    async def async_get_meta(self) -> "SerializableData": ...
+    async def async_get_meta(self) -> "SerializableMapping": ...
 
     def get_data(
         self,

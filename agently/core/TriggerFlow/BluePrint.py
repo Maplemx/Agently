@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     )
     from .TriggerFlow import TriggerFlow
 
-from agently.types.data import EMPTY, SerializableData
+from agently.types.data import EMPTY, SerializableMapping
 from agently.types.trigger_flow import RUNTIME_STREAM_STOP
 from agently.utils import RuntimeData, RuntimeDataNamespace
 from .Chunk import TriggerFlowChunk
@@ -653,7 +653,7 @@ class TriggerFlowBluePrint:
             raise TypeError(
                 f"TriggerFlow settings snapshot must be a mapping, got: { type(settings_snapshot) }."
             )
-        isolated_sub_flow.settings.update(cast(SerializableData, settings_snapshot))
+        isolated_sub_flow.settings.update(cast(SerializableMapping, settings_snapshot))
         isolated_sub_flow._flow_data.update(
             copy.deepcopy(trigger_flow._flow_data.get(None, {}, inherit=False))
         )

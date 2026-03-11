@@ -43,7 +43,7 @@ from agently.utils import SettingsNamespace, DataFormatter, TimeInfo
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
-    from agently.types.data import SerializableData
+    from agently.types.data import SerializableMapping
     from agently.core import Prompt
     from agently.utils import Settings
 
@@ -815,7 +815,7 @@ class AgentlyPromptGenerator(PromptGenerator):
             else:
                 return list(output_prompt_part)
 
-    def to_serializable_prompt_data(self, inherit: bool = False) -> "SerializableData":
+    def to_serializable_prompt_data(self, inherit: bool = False) -> "SerializableMapping":
         prompt_data = self.prompt.get(
             default={},
             inherit=inherit,
