@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     from agently.core.ModelRequest import ModelResponseResult
     from agently.utils import Settings
 
+PromptPathArg = str | tuple[str, str | None]
+
 
 class ChatSessionExtension(BaseAgent):
 
@@ -67,7 +69,7 @@ class ChatSessionExtension(BaseAgent):
 
     def set_record_input_paths(
         self,
-        *prompt_keys_and_paths: "PromptStandardSlot | tuple[PromptStandardSlot, str | None]",
+        *prompt_keys_and_paths: "PromptPathArg",
         style: Literal["dot", "slash"] = "dot",
     ):
         record_input_paths = []
@@ -93,7 +95,7 @@ class ChatSessionExtension(BaseAgent):
 
     def add_record_input_paths(
         self,
-        *prompt_keys_and_paths: "PromptStandardSlot | tuple[PromptStandardSlot, str | None]",
+        *prompt_keys_and_paths: "PromptPathArg",
         style: Literal["dot", "slash"] = "dot",
     ):
         record_input_paths = self.settings.get("record_input_paths", [])
