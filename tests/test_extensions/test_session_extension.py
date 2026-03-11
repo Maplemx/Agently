@@ -5,6 +5,41 @@ from agently import Agently
 from agently.builtins.plugins.ModelRequester.OpenAICompatible import OpenAICompatible
 
 
+def _history_contents(history):
+    assert isinstance(history, list)
+    return [item["content"] if isinstance(item, dict) else item.content for item in history]
+
+
+def test_agent_chat_history_set_replaces_and_add_preserves_duplicates_without_session():
+    agent = Agently.create_agent()
+
+    agent.add_chat_history({"role": "user", "content": "same"})
+    agent.add_chat_history({"role": "user", "content": "same"})
+    assert _history_contents(agent.agent_prompt.get("chat_history", inherit=False)) == ["same", "same"]
+
+    agent.set_chat_history([{"role": "assistant", "content": "new"}])
+    assert _history_contents(agent.agent_prompt.get("chat_history", inherit=False)) == ["new"]
+
+
+def test_agent_reset_chat_history_clears_local_history_without_session():
+    agent = Agently.create_agent()
+
+    agent.set_chat_history([{"role": "user", "content": "hello"}])
+    agent.add_chat_history({"role": "assistant", "content": "hi"})
+    agent.reset_chat_history()
+
+    assert agent.agent_prompt.get("chat_history", inherit=False) == []
+
+
+def test_agent_set_action_results_replaces_existing_results():
+    agent = Agently.create_agent()
+
+    agent.set_action_results([{"first": 1}])
+    agent.set_action_results([{"second": 2}])
+
+    assert agent.agent_prompt.get("action_results", inherit=False) == [{"second": 2}]
+
+
 def test_session_extension_activate_and_override_chat_history():
     agent = Agently.create_agent()
     agent.activate_session(session_id="session-extension-test")
@@ -31,6 +66,15 @@ def test_session_extension_clean_context_window():
 
     assert len(agent.activated_session.context_window) == 0
     assert agent.agent_prompt.get("chat_history") == []
+
+
+def test_session_extension_clean_context_window_without_activated_session_clears_chat_history():
+    agent = Agently.create_agent()
+
+    agent.add_chat_history({"role": "user", "content": "hello"})
+    agent.clean_context_window()
+
+    assert agent.agent_prompt.get("chat_history", inherit=False) == []
 
 
 def test_session_extension_deactivate_cleans_chat_history():
