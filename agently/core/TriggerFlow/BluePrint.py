@@ -1404,7 +1404,20 @@ class TriggerFlowBluePrint:
         *,
         replace: bool = True,
     ):
-        self.definition = TriggerFlowDefinition.from_dict(config)
+        loaded_definition = TriggerFlowDefinition.from_dict(config)
+        has_existing_definition = bool(self.definition.operators) or bool(self.definition.meta)
+
+        if replace or not has_existing_definition:
+            self.definition = loaded_definition
+        else:
+            merged_definition = self.definition.copy()
+            merged_definition.meta = {
+                **merged_definition.meta,
+                **loaded_definition.meta,
+            }
+            for operator in loaded_definition.operators:
+                merged_definition.add_operator(**operator)
+            self.definition = merged_definition
         self.name = self.definition.name
         self._compile_definition()
         return self

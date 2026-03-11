@@ -8,6 +8,10 @@ def _operator_by_kind(config: dict, kind: str):
     return [operator for operator in config["operators"] if operator["kind"] == kind]
 
 
+def _operator_ids(config: dict):
+    return {operator["id"] for operator in config["operators"]}
+
+
 @pytest.mark.asyncio
 async def test_trigger_flow_config_round_trip_with_inspected_chunk_handler():
     flow = TriggerFlow(name="inspectable-flow")
@@ -572,3 +576,118 @@ def test_trigger_flow_import_fails_without_registered_handler():
     restored = TriggerFlow()
     with pytest.raises(ValueError, match="not registered"):
         restored.load_flow_config(config)
+
+
+def test_trigger_flow_load_flow_config_respects_replace_flag():
+    first_flow = TriggerFlow(name="first-flow")
+
+    async def first(data: TriggerFlowRuntimeData):
+        return data.value + 1
+
+    first_flow.to(first).end()
+    first_config = first_flow.get_flow_config()
+
+    second_flow = TriggerFlow(name="second-flow")
+
+    async def second(data: TriggerFlowRuntimeData):
+        return data.value * 2
+
+    second_flow.when("UserSignal").to(second).end()
+    second_config = second_flow.get_flow_config()
+
+    restored = TriggerFlow()
+    restored.register_chunk_handler(first)
+    restored.register_chunk_handler(second)
+
+    restored.load_flow_config(first_config, replace=False)
+    restored.load_flow_config(second_config, replace=False)
+    merged_config = restored.get_flow_config()
+
+    assert merged_config["name"] == first_config["name"]
+    assert _operator_ids(first_config).issubset(_operator_ids(merged_config))
+    assert _operator_ids(second_config).issubset(_operator_ids(merged_config))
+    assert len(merged_config["operators"]) == len(first_config["operators"]) + len(second_config["operators"])
+
+    restored.load_flow_config(second_config, replace=True)
+    replaced_config = restored.get_flow_config()
+
+    assert replaced_config["name"] == second_config["name"]
+    assert _operator_ids(replaced_config) == _operator_ids(second_config)
+
+
+def test_trigger_flow_load_json_flow_respects_replace_flag():
+    first_flow = TriggerFlow(name="first-json-flow")
+
+    async def first_json(data: TriggerFlowRuntimeData):
+        return data.value + 1
+
+    first_flow.to(first_json).end()
+    first_json_content = first_flow.get_json_flow()
+    first_config = first_flow.get_flow_config()
+
+    second_flow = TriggerFlow(name="second-json-flow")
+
+    async def second_json(data: TriggerFlowRuntimeData):
+        return data.value * 2
+
+    second_flow.when("UserSignal").to(second_json).end()
+    second_json_content = second_flow.get_json_flow()
+    second_config = second_flow.get_flow_config()
+
+    restored = TriggerFlow()
+    restored.register_chunk_handler(first_json)
+    restored.register_chunk_handler(second_json)
+
+    restored.load_json_flow(first_json_content, replace=False)
+    restored.load_json_flow(second_json_content, replace=False)
+    merged_config = restored.get_flow_config()
+
+    assert merged_config["name"] == first_config["name"]
+    assert _operator_ids(first_config).issubset(_operator_ids(merged_config))
+    assert _operator_ids(second_config).issubset(_operator_ids(merged_config))
+    assert len(merged_config["operators"]) == len(first_config["operators"]) + len(second_config["operators"])
+
+    restored.load_json_flow(second_json_content, replace=True)
+    replaced_config = restored.get_flow_config()
+
+    assert replaced_config["name"] == second_config["name"]
+    assert _operator_ids(replaced_config) == _operator_ids(second_config)
+
+
+def test_trigger_flow_load_yaml_flow_respects_replace_flag():
+    first_flow = TriggerFlow(name="first-yaml-flow")
+
+    async def first_yaml(data: TriggerFlowRuntimeData):
+        return data.value + 1
+
+    first_flow.to(first_yaml).end()
+    first_yaml_content = first_flow.get_yaml_flow()
+    first_config = first_flow.get_flow_config()
+
+    second_flow = TriggerFlow(name="second-yaml-flow")
+
+    async def second_yaml(data: TriggerFlowRuntimeData):
+        return data.value * 2
+
+    second_flow.when("UserSignal").to(second_yaml).end()
+    second_yaml_content = second_flow.get_yaml_flow()
+    second_config = second_flow.get_flow_config()
+
+    restored = TriggerFlow()
+    restored.register_chunk_handler(first_yaml)
+    restored.register_chunk_handler(second_yaml)
+
+    restored.load_yaml_flow(first_yaml_content, replace=False)
+    restored.load_yaml_flow(second_yaml_content, replace=False)
+    merged_config = restored.get_flow_config()
+
+    assert merged_config["name"] == first_config["name"]
+    assert _operator_ids(first_config).issubset(_operator_ids(merged_config))
+    assert _operator_ids(second_config).issubset(_operator_ids(merged_config))
+    assert len(merged_config["operators"]) == len(first_config["operators"]) + len(second_config["operators"])
+
+    restored.load_yaml_flow(second_yaml_content, replace=True)
+    replaced_config = restored.get_flow_config()
+
+    assert replaced_config["name"] == second_config["name"]
+    assert _operator_ids(replaced_config) == _operator_ids(second_config)
