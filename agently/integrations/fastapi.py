@@ -19,8 +19,9 @@ LazyImport.import_package("fastapi", version_constraint=">=0.104")
 
 import json
 from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, create_model
 
 from agently.utils import FunctionShifter
 from agently.types.data import SerializableMapping, SerializableValue
@@ -47,8 +48,8 @@ FastAPIHelperResponseWarper = Callable[[SerializableValue | Exception], Serializ
 
 
 class FastAPIHelperRequestData(BaseModel):
-    data: dict[str, Any]
-    options: dict[str, Any]
+    data: Any
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 class FastAPIHelper(FastAPI):
@@ -61,9 +62,12 @@ class FastAPIHelper(FastAPI):
     ):
         super().__init__(**kwargs)
         self.response_provider = response_provider
+        self._use_default_response_warper = response_warper is None
         self.response_warper: FastAPIHelperResponseWarper = (
             response_warper if response_warper is not None else self._default_response_warper
         )
+        self._typed_request_model = self._build_request_model()
+        self._typed_response_model = self._build_response_model()
 
     def _default_response_warper(self, response_data: SerializableValue | Exception):
         if isinstance(response_data, Exception):
@@ -80,13 +84,13 @@ class FastAPIHelper(FastAPI):
             }
         return {
             "status": 200,
-            "data": response_data,
+            "data": self._to_json_safe(response_data),
             "msg": None,
         }
 
     @staticmethod
     def _to_json_safe(value: Any) -> SerializableValue:
-        return cast(SerializableValue, json.loads(json.dumps(value, ensure_ascii=False, default=str)))
+        return cast(SerializableValue, jsonable_encoder(value))
 
     def _serialize_exception(self, error: Exception) -> SerializableValue:
         error_data: dict[str, SerializableValue] = {
@@ -123,13 +127,15 @@ class FastAPIHelper(FastAPI):
 
     def _dump_json(self, item: SerializableValue | Exception):
         return json.dumps(
-            self.response_warper(item),
+            self._to_json_safe(self.response_warper(item)),
             ensure_ascii=False,
             default=str,
         )
 
     def _parse_request_payload(self, payload: Any) -> FastAPIHelperRequestData:
         try:
+            if isinstance(payload, BaseModel):
+                payload = payload.model_dump()
             if isinstance(payload, (str, bytes)):
                 if isinstance(payload, bytes):
                     payload = payload.decode("utf-8", errors="replace")
@@ -139,6 +145,66 @@ class FastAPIHelper(FastAPI):
             raise ValueError(
                 "Invalid request payload, expected JSON object with keys 'data' and 'options'. " f"Error: { e }"
             )
+
+    def _get_triggerflow_contract_metadata(self):
+        from agently.core import TriggerFlow, TriggerFlowExecution
+
+        if isinstance(self.response_provider, (TriggerFlow, TriggerFlowExecution)):
+            return self.response_provider.get_contract_metadata()
+        return {}
+
+    def _get_triggerflow_contract_data_type(self):
+        from agently.core import TriggerFlow, TriggerFlowExecution
+
+        if isinstance(self.response_provider, (TriggerFlow, TriggerFlowExecution)):
+            contract = self.response_provider.get_contract()
+            return contract.initial_input
+        return None
+
+    def _get_triggerflow_result_type(self):
+        from agently.core import TriggerFlow, TriggerFlowExecution
+
+        if isinstance(self.response_provider, (TriggerFlow, TriggerFlowExecution)):
+            contract = self.response_provider.get_contract()
+            return contract.result
+        return None
+
+    def _build_request_model(self):
+        data_type = self._get_triggerflow_contract_data_type()
+        return create_model(
+            f"FastAPIHelperRequestData_{ id(self) }",
+            data=(data_type if data_type is not None else Any, ...),
+            options=(dict[str, Any], Field(default_factory=dict)),
+        )
+
+    def _build_response_model(self):
+        if not self._use_default_response_warper:
+            return None
+        result_type = self._get_triggerflow_result_type()
+        response_data_type = result_type | None if result_type is not None else Any | None
+        return create_model(
+            f"FastAPIHelperResponseData_{ id(self) }",
+            status=(int, ...),
+            data=(response_data_type, None),
+            msg=(str | None, None),
+            error=(dict[str, Any] | None, None),
+        )
+
+    def _build_openapi_extra(self):
+        contract_metadata = self._get_triggerflow_contract_metadata()
+        if not contract_metadata:
+            return None
+        return {
+            "x-agently-triggerflow-contract": contract_metadata,
+        }
+
+    def _make_post_handler(self):
+        request_model = self._typed_request_model
+
+        async def typed_post_handler(body: request_model = Body(default=None)):  # type: ignore[valid-type]
+            return await self.post_handler(body)
+
+        return typed_post_handler
 
     def _get_async_generator(
         self,
@@ -327,10 +393,15 @@ class FastAPIHelper(FastAPI):
         *,
         dependencies: "Sequence[Depends] | None" = None,
     ):
+        route_kwargs = {}
+        openapi_extra = self._build_openapi_extra()
+        if openapi_extra is not None:
+            route_kwargs["openapi_extra"] = openapi_extra
         self.get(
             path,
             name=name,
             dependencies=dependencies,
+            **route_kwargs,
         )(self.sse_handler)
         return self
 
@@ -355,11 +426,19 @@ class FastAPIHelper(FastAPI):
         *,
         dependencies: "Sequence[Depends] | None" = None,
     ):
+        route_kwargs = {}
+        openapi_extra = self._build_openapi_extra()
+        if openapi_extra is not None:
+            route_kwargs["openapi_extra"] = openapi_extra
+        if self._typed_response_model is not None:
+            route_kwargs["response_model"] = self._typed_response_model
+            route_kwargs["response_model_exclude_unset"] = True
         self.post(
             path,
             name=name,
             dependencies=dependencies,
-        )(self.post_handler)
+            **route_kwargs,
+        )(self._make_post_handler())
         return self
 
     def use_get(
@@ -369,9 +448,17 @@ class FastAPIHelper(FastAPI):
         *,
         dependencies: "Sequence[Depends] | None" = None,
     ):
+        route_kwargs = {}
+        openapi_extra = self._build_openapi_extra()
+        if openapi_extra is not None:
+            route_kwargs["openapi_extra"] = openapi_extra
+        if self._typed_response_model is not None:
+            route_kwargs["response_model"] = self._typed_response_model
+            route_kwargs["response_model_exclude_unset"] = True
         self.get(
             path,
             name=name,
             dependencies=dependencies,
+            **route_kwargs,
         )(self.get_handler)
         return self

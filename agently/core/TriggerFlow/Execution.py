@@ -30,7 +30,13 @@ if TYPE_CHECKING:
     from agently.types.data import SerializableValue
 
 from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer, Settings
-from agently.types.trigger_flow import TriggerFlowInterruptEvent, TriggerFlowRuntimeData, RUNTIME_STREAM_STOP
+from agently.types.trigger_flow import (
+    TriggerFlowContractMetadata,
+    TriggerFlowContractSpec,
+    TriggerFlowInterruptEvent,
+    TriggerFlowRuntimeData,
+    RUNTIME_STREAM_STOP,
+)
 from agently.types.data import EMPTY
 from .Control import (
     TriggerFlowPauseSignal,
@@ -241,6 +247,12 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
 
     def get_last_signal(self):
         return self._restore_signal(self._system_runtime_data.get("last_signal", None, inherit=False))
+
+    def get_contract_metadata(self) -> TriggerFlowContractMetadata:
+        return self._trigger_flow.get_contract_metadata()
+
+    def get_contract(self) -> TriggerFlowContractSpec[InputT, StreamT, ResultT]:
+        return self._trigger_flow.get_contract()
 
     def save(
         self,

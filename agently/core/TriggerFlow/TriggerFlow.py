@@ -23,7 +23,11 @@ if TYPE_CHECKING:
     from .Chunk import TriggerFlowHandler
     from agently.types.data import SerializableValue
 
-from agently.types.trigger_flow import TriggerFlowBlockData, TriggerFlowInterruptEvent
+from agently.types.trigger_flow import (
+    TriggerFlowBlockData,
+    TriggerFlowContractMetadata,
+    TriggerFlowInterruptEvent,
+)
 from agently.utils import Settings, RuntimeData, FunctionShifter
 from .BluePrint import TriggerFlowBluePrint
 from .Process import TriggerFlowProcess
@@ -234,6 +238,9 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
 
     def get_contract(self) -> TriggerFlowContractSpec[InputT, StreamT, ResultT]:
         return self._contract.snapshot()
+
+    def get_contract_metadata(self) -> TriggerFlowContractMetadata:
+        return self._contract.export_metadata()
 
     def _set_runtime_resource(self, key: str, value: Any):
         self._runtime_resources.set(str(key), value)
