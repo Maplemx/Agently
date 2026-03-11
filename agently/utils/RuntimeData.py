@@ -314,6 +314,13 @@ class RuntimeData:
                 self._data[key] = self._copy(value)
 
     def set(self, key: Any, value: Any):
+        """
+        Set a value using RuntimeData's merge semantics.
+
+        For existing dict/list/set targets this method merges into the current
+        value instead of replacing it. Delete the key first when exact
+        replacement is required.
+        """
         return self.__setitem__(key, value)
 
     def setdefault(self, key: Any, value: Any, *, inherit: bool = True):
@@ -415,6 +422,12 @@ class RuntimeData:
                 del self._data[key]
 
     def append(self, key: Any, value: Any):
+        """
+        Append one item to a collection key.
+
+        Unlike `set()`, this always appends to the current list/set snapshot and
+        preserves duplicates for list values.
+        """
         if isinstance(key, str) and "." in key:
             current = self._get_item_by_dot_path(key, inherit=False)
         else:
@@ -439,6 +452,12 @@ class RuntimeData:
             self._data[key] = new_value
 
     def extend(self, key: Any, values: Sequence[Any]):
+        """
+        Extend a collection key with multiple values.
+
+        Use this when callers need ordered append behavior instead of `set()`'s
+        merge-and-deduplicate logic for existing list values.
+        """
         if isinstance(key, str) and "." in key:
             current = self._get_item_by_dot_path(key, inherit=False)
         else:
