@@ -16,7 +16,9 @@ import copy
 import inspect
 import re
 import uuid
-from typing import Any, Literal
+from typing import Any, Literal, cast
+
+from agently.types.trigger_flow import TriggerFlowContractMetadata
 
 
 FLOW_CONFIG_VERSION = "trigger_flow/v1"
@@ -168,9 +170,11 @@ class TriggerFlowDefinition:
         name: str | None = None,
         operators: list[dict[str, Any]] | None = None,
         meta: dict[str, Any] | None = None,
+        contract: TriggerFlowContractMetadata | None = None,
     ):
         self.name = name if name is not None else f"TriggerFlowDefinition-{ uuid.uuid4().hex }"
         self.meta = copy.deepcopy(meta) if meta is not None else {}
+        self.contract: TriggerFlowContractMetadata = copy.deepcopy(contract) if contract is not None else {}
         self.operators = copy.deepcopy(operators) if operators is not None else []
         self._operator_index: dict[str, dict[str, Any]] = {}
         for operator in self.operators:
@@ -181,6 +185,7 @@ class TriggerFlowDefinition:
             name=self.name,
             operators=self.operators,
             meta=self.meta,
+            contract=self.contract,
         )
 
     def add_operator(
@@ -256,6 +261,7 @@ class TriggerFlowDefinition:
             "name": name if name is not None else self.name,
             "operators": copy.deepcopy(self.operators),
             "meta": copy.deepcopy(self.meta),
+            "contract": copy.deepcopy(self.contract),
         }
 
     @classmethod
@@ -273,6 +279,9 @@ class TriggerFlowDefinition:
         meta = config.get("meta", {})
         if not isinstance(meta, dict):
             raise TypeError("Cannot load TriggerFlow config, expect key 'meta' as a dictionary.")
+        contract = config.get("contract", {})
+        if not isinstance(contract, dict):
+            raise TypeError("Cannot load TriggerFlow config, expect key 'contract' as a dictionary.")
 
         normalized_operators: list[dict[str, Any]] = []
         for operator in operators:
@@ -309,6 +318,7 @@ class TriggerFlowDefinition:
             name=str(config.get("name", f"TriggerFlowDefinition-{ uuid.uuid4().hex }")),
             operators=normalized_operators,
             meta=meta,
+            contract=cast(TriggerFlowContractMetadata, contract),
         )
 
     def validate_serializable(self):
@@ -400,7 +410,7 @@ class TriggerFlowDefinition:
         style_lines: list[str] = []
         sub_flow_infos: dict[str, dict[str, Any]] = {}
         generated_id_pattern = re.compile(
-            r"\b(op_|group_|signal_in_|signal_out_|subflow_|subflow_in_|subflow_out_)([A-Za-z0-9_]+)\b"
+            r"\b(op_|group_|signal_in_|signal_out_|subflow_|subflow_in_|subflow_out_|contract_)([A-Za-z0-9_]+)\b"
         )
 
         def prefix_generated_mermaid_ids(line: str, prefix: str):
@@ -636,6 +646,31 @@ class TriggerFlowDefinition:
                     )
 
         lines = ["flowchart TD"]
+
+        contract_label_lines: list[str] = []
+        contract_sections = [
+            ("input", self.contract.get("initial_input")),
+            ("stream", self.contract.get("stream")),
+            ("result", self.contract.get("result")),
+        ]
+        for section_name, section_data in contract_sections:
+            if isinstance(section_data, dict):
+                label = section_data.get("label")
+                if label:
+                    contract_label_lines.append(f"{ section_name }: { label }")
+        contract_meta = self.contract.get("meta")
+        if isinstance(contract_meta, dict) and contract_meta:
+            meta_keys = ", ".join(sorted(str(key) for key in contract_meta.keys()))
+            contract_label_lines.append(f"meta: { meta_keys }")
+        system_stream = self.contract.get("system_stream")
+        if isinstance(system_stream, dict) and "interrupt" in system_stream:
+            contract_label_lines.append("system: interrupt")
+        if contract_label_lines:
+            contract_node_id = f"contract_{ _sanitize_mermaid_id(str(self.name)) }"
+            contract_node_label = _escape_mermaid_label("contract\n" + "\n".join(contract_label_lines))
+            lines.append(
+                f'{ contract_node_id }[["{ contract_node_label }"]]'
+            )
 
         rendered_nodes: set[str] = set()
         rendered_groups: set[str] = set()

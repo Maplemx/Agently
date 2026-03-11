@@ -1415,6 +1415,8 @@ class TriggerFlowBluePrint:
                 **merged_definition.meta,
                 **loaded_definition.meta,
             }
+            if loaded_definition.contract:
+                merged_definition.contract = loaded_definition.contract.copy()
             for operator in loaded_definition.operators:
                 merged_definition.add_operator(**operator)
             self.definition = merged_definition

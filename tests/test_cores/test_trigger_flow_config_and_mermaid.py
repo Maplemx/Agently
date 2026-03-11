@@ -1,5 +1,6 @@
 import pytest
 from typing import Any, cast
+from pydantic import BaseModel
 
 from agently import TriggerFlow, TriggerFlowRuntimeData
 
@@ -10,6 +11,18 @@ def _operator_by_kind(config: dict, kind: str):
 
 def _operator_ids(config: dict):
     return {operator["id"] for operator in config["operators"]}
+
+
+class ContractConfigInput(BaseModel):
+    topic: str
+
+
+class ContractConfigStream(BaseModel):
+    stage: str
+
+
+class ContractConfigResult(BaseModel):
+    answer: str
 
 
 @pytest.mark.asyncio
@@ -33,6 +46,45 @@ async def test_trigger_flow_config_round_trip_with_inspected_chunk_handler():
 
     result = await restored.async_start(3)
     assert result == 6
+
+
+def test_trigger_flow_config_and_mermaid_include_contract_metadata():
+    flow = TriggerFlow(name="contract-config-flow").set_contract(
+        initial_input=ContractConfigInput,
+        stream=ContractConfigStream,
+        result=ContractConfigResult,
+        meta={"domain": "qa"},
+    )
+
+    async def worker(data: TriggerFlowRuntimeData[Any, ContractConfigStream, ContractConfigResult]):
+        data.put(ContractConfigStream(stage="working"))
+        data.set_result(ContractConfigResult(answer=data.value.topic.upper()))
+
+    flow.to(worker).end()
+
+    config = flow.get_flow_config()
+    mermaid = flow.to_mermaid(mode="detailed")
+
+    assert config["contract"]["initial_input"]["label"] == "ContractConfigInput"
+    assert config["contract"]["stream"]["label"] == "ContractConfigStream"
+    assert config["contract"]["result"]["label"] == "ContractConfigResult"
+    assert config["contract"]["initial_input"]["schema"]["type"] == "object"
+    assert config["contract"]["meta"] == {"domain": "qa"}
+    assert config["contract"]["system_stream"]["interrupt"]["label"] == "TriggerFlowInterruptEvent"
+    assert config["contract"]["system_stream"]["interrupt"]["schema"]["properties"]["type"]["const"] == "interrupt"
+    assert "contract" in mermaid
+    assert "input: ContractConfigInput" in mermaid
+    assert "stream: ContractConfigStream" in mermaid
+    assert "result: ContractConfigResult" in mermaid
+    assert "meta: domain" in mermaid
+    assert "system: interrupt" in mermaid
+
+    restored = TriggerFlow()
+    restored.register_chunk_handler(worker)
+    restored.load_flow_config(config)
+
+    assert restored.get_flow_config()["contract"] == config["contract"]
+    assert "ContractConfigInput" in restored.to_mermaid(mode="detailed")
 
 
 @pytest.mark.asyncio
