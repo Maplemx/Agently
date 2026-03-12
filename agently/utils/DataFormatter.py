@@ -15,6 +15,7 @@
 import re
 import datetime
 import warnings
+from enum import Enum
 from typing import (
     Any,
     Literal,
@@ -75,6 +76,14 @@ class DataFormatter:
                         }
                     )
                 return extracted_value
+            elif issubclass(value, Enum):
+                if remain_type:
+                    return value
+                return (
+                    "Literal["
+                    + ", ".join(str(DataFormatter.sanitize(member.value, remain_type=remain_type)) for member in value)
+                    + "]"
+                )
             else:
                 if remain_type:
                     return value

@@ -14,6 +14,7 @@
 
 import json
 import yaml
+from enum import Enum
 
 from typing import (
     Any,
@@ -105,6 +106,15 @@ class AgentlyPromptGenerator(PromptGenerator):
     @staticmethod
     def _on_unregister():
         pass
+
+    @staticmethod
+    def _get_enum_type(value: Any) -> type[Enum] | None:
+        if isinstance(value, type) and issubclass(value, Enum):
+            return value
+        for arg in get_args(value):
+            if isinstance(arg, type) and issubclass(arg, Enum):
+                return arg
+        return None
 
     def _check_prompt_all_empty(self, prompt_object: PromptModel):
         # If prompt is customized, skip the check
@@ -643,11 +653,24 @@ class AgentlyPromptGenerator(PromptGenerator):
         fields = {}
         validators = {}
 
+        def cast_enum_value(value: Any, enum_type: type[Enum]):
+            if value is None or isinstance(value, enum_type):
+                return value
+            if isinstance(value, str):
+                enum_member = enum_type.__members__.get(value)
+                if enum_member is not None:
+                    return enum_member
+            return enum_type(value)
+
         def ensure_list_and_cast(v: Any, target_type: Any):
             if not isinstance(v, list):
                 v = [v]
             casted = []
+            enum_type = self._get_enum_type(target_type)
             for item in v:
+                if enum_type is not None:
+                    casted.append(cast_enum_value(item, enum_type))
+                    continue
                 if target_type is Any or not isinstance(target_type, type):
                     casted.append(item)
                     continue
@@ -706,6 +729,22 @@ class AgentlyPromptGenerator(PromptGenerator):
                                 Annotated[
                                     field_type,
                                     PlainValidator(lambda value: ensure_list_and_cast(value, elem_type)),
+                                ],
+                                Field(default_value, description=field_desc),
+                            )
+                        }
+                    )
+                elif self._get_enum_type(field_type) is not None:
+                    enum_type = cast(type[Enum], self._get_enum_type(field_type))
+                    fields.update(
+                        {
+                            field_name: (
+                                Annotated[
+                                    field_type,
+                                    PlainValidator(
+                                        lambda value,
+                                        enum_type=enum_type: cast_enum_value(value, enum_type),
+                                    ),
                                 ],
                                 Field(default_value, description=field_desc),
                             )

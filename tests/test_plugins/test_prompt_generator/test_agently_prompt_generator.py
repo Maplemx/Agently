@@ -293,6 +293,65 @@ def test_output_model():
     assert list(output_from_raw_list)[0] == 456
 
 
+def test_output_model_supports_enum():
+    from enum import Enum, IntEnum
+    import json
+
+    Agently.set_settings("plugins.PromptGenerator.name", "AgentlyPromptGenerator")
+    prompt = Prompt(Agently.plugin_manager, Agently.settings)
+
+    class TicketStatus(Enum):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class TicketPriority(IntEnum):
+        LOW = 1
+        HIGH = 2
+
+    prompt.set(
+        "output",
+        {
+            "status": (TicketStatus, "ticket status"),
+            "priority": (TicketPriority, "ticket priority"),
+        },
+    )
+
+    assert (
+        prompt.to_text()
+        == """user:
+[OUTPUT REQUIREMENT]:
+Data Format: JSON
+Data Structure:
+{
+  "status": <Literal[open, closed]>, // ticket status
+  "priority": <Literal[1, 2]> // ticket priority
+}
+
+[OUTPUT]:
+assistant:"""
+    )
+
+    assert json.loads(prompt.to_json_prompt())["output"] == {
+        "status": {
+            "$type": "Literal[open, closed]",
+            "$desc": "ticket status",
+        },
+        "priority": {
+            "$type": "Literal[1, 2]",
+            "$desc": "ticket priority",
+        },
+    }
+
+    OutputModel = prompt.to_output_model()
+    output_by_value = OutputModel.model_validate({"status": "open", "priority": 1}).model_dump()
+    assert output_by_value["status"] == TicketStatus.OPEN
+    assert output_by_value["priority"] == TicketPriority.LOW
+
+    output_by_name = OutputModel.model_validate({"status": "OPEN", "priority": "HIGH"}).model_dump()
+    assert output_by_name["status"] == TicketStatus.OPEN
+    assert output_by_name["priority"] == TicketPriority.HIGH
+
+
 def test_rich_prompt():
     Agently.set_settings("plugins.PromptGenerator.name", "AgentlyPromptGenerator")
     prompt = Prompt(Agently.plugin_manager, Agently.settings)
