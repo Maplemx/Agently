@@ -34,6 +34,7 @@ from pydantic import (
     PlainValidator,
     TypeAdapter,
     Field,
+    ValidationInfo,
     create_model,
     model_validator,
 )
@@ -662,6 +663,12 @@ class AgentlyPromptGenerator(PromptGenerator):
                     return enum_member
             return enum_type(value)
 
+        def make_enum_validator(enum_type: type[Enum]):
+            def validate_enum(value: Any, _: ValidationInfo):
+                return cast_enum_value(value, enum_type)
+
+            return validate_enum
+
         def ensure_list_and_cast(v: Any, target_type: Any):
             if not isinstance(v, list):
                 v = [v]
@@ -741,10 +748,7 @@ class AgentlyPromptGenerator(PromptGenerator):
                             field_name: (
                                 Annotated[
                                     field_type,
-                                    PlainValidator(
-                                        lambda value,
-                                        enum_type=enum_type: cast_enum_value(value, enum_type),
-                                    ),
+                                    PlainValidator(make_enum_validator(enum_type)),
                                 ],
                                 Field(default_value, description=field_desc),
                             )
