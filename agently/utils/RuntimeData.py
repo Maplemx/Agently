@@ -343,7 +343,7 @@ class RuntimeData:
             "toml",
         ],
         value: str,
-    ):
+    ) -> Any:
         data = None
         if data_type.endswith("_file"):
             with open(value, "r", encoding="utf-8") as file:

@@ -66,6 +66,7 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         self._executions: dict[str, "TriggerFlowExecution[InputT, StreamT, ResultT]"] = {}
         self._contract = TriggerFlowContract[InputT, StreamT, ResultT]()
         self.set_settings = self.settings.set_settings
+        self.load_settings = self.settings.load
 
         self.get_flow_data = self._flow_data.get
         self.set_flow_data = FunctionShifter.syncify(self.async_set_flow_data)

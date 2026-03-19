@@ -86,6 +86,8 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
             parent=self._trigger_flow.settings,
             name=f"TriggerFlowExecution-{ self.id }-Settings",
         )
+        self.set_settings = self.settings.set_settings
+        self.load_settings = self.settings.load
 
         # Emit
         self.emit = FunctionShifter.syncify(self.async_emit)
@@ -388,11 +390,6 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
         if runtime_resources:
             self.update_runtime_resources(runtime_resources)
 
-        return self
-
-    # Set Settings
-    def set_settings(self, key: str, value: "SerializableValue"):
-        self.settings.set_settings(key, value)
         return self
 
     # Set Concurrency

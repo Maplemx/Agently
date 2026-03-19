@@ -76,6 +76,7 @@ class ModelRequest:
         )
 
         self.set_settings = self.settings.set_settings
+        self.load_settings = self.settings.load
 
         self.get_meta = FunctionShifter.syncify(self.async_get_meta)
         self.get_text = FunctionShifter.syncify(self.async_get_text)

@@ -277,6 +277,7 @@ class DataFormatter:
         variable_mappings: dict[str, Any],
         *,
         placeholder_pattern: "Pattern | None" = None,
+        raise_empty: bool = False,
     ) -> T | Any:
         if placeholder_pattern is None:
             placeholder_pattern = DEFAULT_PLACEHOLDER_PATTERN
@@ -288,11 +289,15 @@ class DataFormatter:
             full_match = placeholder_pattern.fullmatch(obj)
             if full_match:
                 key = full_match.group(1).strip()
+                if raise_empty and key not in variable_mappings:
+                    raise KeyError(f"Placeholder variable '{ key }' is not found.")
                 return variable_mappings.get(key, obj)
             else:
 
                 def replacer(match):
                     key = match.group(1).strip()
+                    if raise_empty and key not in variable_mappings:
+                        raise KeyError(f"Placeholder variable '{ key }' is not found.")
                     return str(variable_mappings.get(key, match.group(0)))
 
                 return placeholder_pattern.sub(replacer, obj)
@@ -303,10 +308,12 @@ class DataFormatter:
                     key,
                     variable_mappings,
                     placeholder_pattern=placeholder_pattern,
+                    raise_empty=raise_empty,
                 ): DataFormatter.substitute_placeholder(
                     value,
                     variable_mappings,
                     placeholder_pattern=placeholder_pattern,
+                    raise_empty=raise_empty,
                 )
                 for key, value in obj.items()
             }
@@ -318,6 +325,7 @@ class DataFormatter:
                         value,
                         variable_mappings,
                         placeholder_pattern=placeholder_pattern,
+                        raise_empty=raise_empty,
                     )
                     for value in obj
                 )
@@ -327,6 +335,7 @@ class DataFormatter:
                         value,
                         variable_mappings,
                         placeholder_pattern=placeholder_pattern,
+                        raise_empty=raise_empty,
                     )
                     for value in obj
                 ]
@@ -337,6 +346,7 @@ class DataFormatter:
                     value,
                     variable_mappings,
                     placeholder_pattern=placeholder_pattern,
+                    raise_empty=raise_empty,
                 )
                 for value in obj
             }

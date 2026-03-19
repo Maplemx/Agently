@@ -65,6 +65,7 @@ class BaseAgent:
         self.prompt = self.request_prompt
 
         self.set_settings = self.settings.set_settings
+        self.load_settings = self.settings.load
 
         self.get_response = self.request.get_response
         self.get_result = self.request.get_result

@@ -136,7 +136,8 @@ Purpose: settings with mapping shortcuts and env substitution.
 Key behaviors:
 - `register_path_mappings("short", "actual.path")`: alias keys.
 - `register_kv_mappings("key", "value", actual_settings)`: map a key+value to a settings dict.
-- `set_settings(key, value, auto_load_env=False)`: apply mappings and optionally expand `${ENV.X}`.
+- `load(..., auto_load_env=False, raise_empty=False)`: settings-level load API for JSON/YAML/TOML text or files with optional `${ENV.X}` expansion.
+- `set_settings(key, value, auto_load_env=False, raise_empty=False)`: apply mappings and optionally expand `${ENV.X}`.
 
 When to use:
 - Global or per-agent configuration with shortcuts.

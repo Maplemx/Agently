@@ -127,16 +127,37 @@ class AgentlyMain(Generic[A]):
         self.tool = tool
         self.AgentType = AgentType
 
-        def set_settings(key: str, value: "SerializableValue", *, auto_load_env: bool = False):
-            self.settings.set_settings(key, value, auto_load_env=auto_load_env)
+        def refresh_httpx_log_level():
+            level_name = self.settings.get("runtime.httpx_log_level", "WARNING")
+            level = getattr(logging, str(level_name).upper(), logging.WARNING)
+            logging.getLogger("httpx").setLevel(level)
+            logging.getLogger("httpcore").setLevel(level)
+
+        def set_settings(
+            key: str,
+            value: "SerializableValue",
+            *,
+            auto_load_env: bool = False,
+            raise_empty: bool = False,
+        ):
+            self.settings.set_settings(key, value, auto_load_env=auto_load_env, raise_empty=raise_empty)
             if key in ("runtime.httpx_log_level", "debug"):
-                level_name = self.settings.get("runtime.httpx_log_level", "WARNING")
-                level = getattr(logging, str(level_name).upper(), logging.WARNING)
-                logging.getLogger("httpx").setLevel(level)
-                logging.getLogger("httpcore").setLevel(level)
+                refresh_httpx_log_level()
+            return self
+
+        def load_settings(
+            data_type: Literal["json_file", "yaml_file", "toml_file", "json", "yaml", "toml"],
+            value: str,
+            *,
+            auto_load_env: bool = False,
+            raise_empty: bool = False,
+        ):
+            self.settings.load(data_type, value, auto_load_env=auto_load_env, raise_empty=raise_empty)
+            refresh_httpx_log_level()
             return self
 
         self.set_settings = set_settings
+        self.load_settings = load_settings
 
     def set_debug_console(self, debug_console_status: Literal["ON", "OFF"]):
         # Deprecated: debug console mode is retired and no longer participates in runtime.
