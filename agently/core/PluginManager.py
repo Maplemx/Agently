@@ -14,7 +14,7 @@
 
 from typing import Optional, Any, Type, cast, overload
 from agently.utils import (
-    RuntimeData,
+    StateData,
     Settings,
 )
 from agently.types.plugins import AgentlyPlugin, AgentlyPluginType
@@ -31,7 +31,7 @@ class PluginManager:
     ):
         self.name = f"PluginManager-{ name }" if name is not None else "PluginManager"
         self.settings = settings
-        self.plugins = RuntimeData(
+        self.plugins = StateData(
             name=f"{ self.name }-Plugins",
             parent=parent.plugins if parent is not None else None,
         )

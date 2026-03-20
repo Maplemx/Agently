@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, cast
 
 from agently import Agently
 from agently.core import ModelRequest
-from agently.utils import SerializableRuntimeDataNamespace
+from agently.utils import SerializableStateDataNamespace
 
 if TYPE_CHECKING:
     from agently.builtins.plugins.ModelRequester.OpenAICompatible import ModelRequesterSettings
@@ -36,7 +36,7 @@ def test_model_request():
     )
     request_settings = cast(
         "ModelRequesterSettings",
-        SerializableRuntimeDataNamespace(Agently.settings, "plugins.ModelRequester.OpenAICompatible"),
+        SerializableStateDataNamespace(Agently.settings, "plugins.ModelRequester.OpenAICompatible"),
     )
     configure_ollama(request_settings)
     request.set_prompt("input", "hello")

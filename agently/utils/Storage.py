@@ -35,14 +35,14 @@ from sqlmodel import SQLModel, select, inspect, create_engine, Session  # type: 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker  # type: ignore
 from sqlalchemy.sql import ColumnElement  # type: ignore
 
-from .RuntimeData import RuntimeData
+from .StateData import StateData
 
 T = TypeVar("T", bound=SQLModel)
 
 
 class AsyncStorage:
-    def __init__(self, parent_settings: RuntimeData | None = None, *, db_url: str | None = None):
-        self.settings = RuntimeData(name="Storage-Settings", parent=parent_settings).namespace("storage")
+    def __init__(self, parent_settings: StateData | None = None, *, db_url: str | None = None):
+        self.settings = StateData(name="Storage-Settings", parent=parent_settings).namespace("storage")
 
         self.db_url = self.settings.get("db_url", db_url)
         if not self.db_url:
@@ -165,8 +165,8 @@ class AsyncStorage:
 
 
 class Storage:
-    def __init__(self, parent_settings: RuntimeData | None = None, *, db_url: str | None = None):
-        self.settings = RuntimeData(name="Storage-Settings", parent=parent_settings).namespace("storage")
+    def __init__(self, parent_settings: StateData | None = None, *, db_url: str | None = None):
+        self.settings = StateData(name="Storage-Settings", parent=parent_settings).namespace("storage")
 
         self.db_url = self.settings.get("db_url", db_url)
         if not self.db_url:

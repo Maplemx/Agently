@@ -11,7 +11,7 @@ from typing import AsyncGenerator, cast
 
 from agently import Agently
 from agently.core.ModelRequest import ModelRequest
-from agently.utils import SerializableRuntimeDataNamespace
+from agently.utils import SerializableStateDataNamespace
 from agently.builtins.plugins.ModelRequester.OpenAICompatible import (
     ModelRequesterSettings,
 )
@@ -35,7 +35,7 @@ async def test_single_request():
     )
     request_settings = cast(
         ModelRequesterSettings,
-        SerializableRuntimeDataNamespace(
+        SerializableStateDataNamespace(
             Agently.settings,
             "plugins.ModelRequester.OpenAICompatible",
         ),
@@ -56,7 +56,7 @@ async def test_multiple_responses_independent_consumption():
     )
     request_settings = cast(
         ModelRequesterSettings,
-        SerializableRuntimeDataNamespace(
+        SerializableStateDataNamespace(
             Agently.settings,
             "plugins.ModelRequester.OpenAICompatible",
         ),

@@ -15,7 +15,7 @@
 
 from typing import Any, Literal, Callable, TYPE_CHECKING, overload
 
-from agently.utils import RuntimeData
+from agently.utils import StateData
 
 if TYPE_CHECKING:
     from agently.core import Prompt
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from agently.types.data import AgentlyModelResponseEvent, AgentlyModelResult
 
 
-class ExtensionHandlers(RuntimeData):
+class ExtensionHandlers(StateData):
     @overload
     def append(
         self,

@@ -21,7 +21,7 @@ from typing import Any, Literal, Sequence, TYPE_CHECKING, cast
 
 from agently.core import BaseAgent
 from agently.types.data import ChatMessage, ChatMessageDict
-from agently.utils import RuntimeData, DataPathBuilder
+from agently.utils import StateData, DataPathBuilder
 
 if TYPE_CHECKING:
     from agently.types.data import ChatMessage, AgentlyModelResult, PromptStandardSlot
@@ -41,7 +41,7 @@ class ChatSessionExtension(BaseAgent):
         self.settings.setdefault("record_input_mode", "all", inherit=True)
         self.settings.setdefault("record_output_paths", [], inherit=True)
         self.settings.setdefault("record_output_mode", "all", inherit=True)
-        self.chat_session_runtime = RuntimeData()
+        self.chat_session_runtime = StateData()
 
         self.extension_handlers.append("finally", self.__finally)
 

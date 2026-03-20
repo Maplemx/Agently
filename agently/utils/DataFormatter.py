@@ -42,7 +42,7 @@ DEFAULT_PLACEHOLDER_PATTERN = re.compile(r"\$\{\s*([^}]+?)\s*\}")
 class DataFormatter:
     @staticmethod
     def sanitize(value: Any, *, remain_type: bool = False) -> Any:
-        from .RuntimeData import RuntimeData, RuntimeDataNamespace
+        from .StateData import StateData, StateDataNamespace
 
         if isinstance(value, (str, int, float, bool)) or value is None:
             return value
@@ -50,7 +50,7 @@ class DataFormatter:
         if isinstance(value, (datetime.datetime, datetime.date)):
             return value.isoformat()
 
-        if issubclass(type(value), RuntimeData) or issubclass(type(value), RuntimeDataNamespace):
+        if issubclass(type(value), StateData) or issubclass(type(value), StateDataNamespace):
             return DataFormatter.sanitize(value.data, remain_type=remain_type)
 
         if isinstance(value, type):

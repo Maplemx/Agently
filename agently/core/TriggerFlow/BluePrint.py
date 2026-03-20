@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 from agently.types.data import EMPTY, SerializableMapping
 from agently.types.trigger_flow import RUNTIME_STREAM_STOP
-from agently.utils import RuntimeData, RuntimeDataNamespace
+from agently.utils import StateData, StateDataNamespace
 from .Chunk import TriggerFlowChunk
 from .Execution import TriggerFlowExecution
 from .Definition import (
@@ -110,9 +110,9 @@ class _SubFlowCaptureTarget:
     def __init__(self):
         self._has_input = False
         self._input_value = None
-        self._runtime_data = RuntimeData()
-        self._flow_data = RuntimeData()
-        self._resources = RuntimeData()
+        self._runtime_data = StateData()
+        self._flow_data = StateData()
+        self._resources = StateData()
 
     def write_path(self, scope: str, path: tuple[str, ...], value: Any):
         copied_value = _clone_sub_flow_value(value)
@@ -122,7 +122,7 @@ class _SubFlowCaptureTarget:
                 self._has_input = True
                 return
             current_input = self._input_value if isinstance(self._input_value, dict) else {}
-            input_data = RuntimeData(_clone_sub_flow_value(current_input))
+            input_data = StateData(_clone_sub_flow_value(current_input))
             input_data.set(".".join(path), copied_value)
             self._input_value = input_data.get(None, {}, inherit=False)
             self._has_input = True
@@ -153,9 +153,9 @@ class _SubFlowWriteBackTarget:
         self._has_value_binding = False
         self._current_value = _clone_sub_flow_value(initial_value)
         initial_mapping = self._current_value if isinstance(self._current_value, dict) else {}
-        self._value_data = RuntimeData(_clone_sub_flow_value(initial_mapping))
-        self._runtime_data = RuntimeData()
-        self._flow_data = RuntimeData()
+        self._value_data = StateData(_clone_sub_flow_value(initial_mapping))
+        self._runtime_data = StateData()
+        self._flow_data = StateData()
 
     def write_path(self, scope: str, path: tuple[str, ...], value: Any):
         copied_value = _clone_sub_flow_value(value)
@@ -166,7 +166,7 @@ class _SubFlowWriteBackTarget:
                 return
             if not isinstance(self._current_value, dict):
                 self._current_value = {}
-                self._value_data = RuntimeData({})
+                self._value_data = StateData({})
             self._value_data.set(".".join(path), copied_value)
             self._current_value = self._value_data.get(None, {}, inherit=False)
             return
@@ -1137,7 +1137,7 @@ class TriggerFlowBluePrint:
             for_each_instance_id = data.upper_layer_mark
             item_id = data.layer_mark
             assert for_each_instance_id is not None and item_id is not None
-            for_each_results = RuntimeDataNamespace(data._system_runtime_data, "for_each_results")
+            for_each_results = StateDataNamespace(data._system_runtime_data, "for_each_results")
             if for_each_instance_id in for_each_results and item_id in for_each_results[for_each_instance_id]:
                 for_each_results.set(f"{ for_each_instance_id }.{ item_id }", data.value)
                 for value in for_each_results.get(for_each_instance_id, {}).values():

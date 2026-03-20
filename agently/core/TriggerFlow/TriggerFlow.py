@@ -28,7 +28,7 @@ from agently.types.trigger_flow import (
     TriggerFlowContractMetadata,
     TriggerFlowInterruptEvent,
 )
-from agently.utils import Settings, RuntimeData, FunctionShifter
+from agently.utils import Settings, StateData, FunctionShifter
 from .BluePrint import TriggerFlowBluePrint
 from .Process import TriggerFlowProcess
 from .Chunk import TriggerFlowChunk
@@ -57,8 +57,8 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
             parent=settings,
         )
 
-        self._flow_data = RuntimeData()
-        self._runtime_resources = RuntimeData(
+        self._flow_data = StateData()
+        self._runtime_resources = StateData(
             name=f"TriggerFlow-{ self.name }-RuntimeResources",
         )
         self._blue_print = blue_print if blue_print is not None else TriggerFlowBluePrint()

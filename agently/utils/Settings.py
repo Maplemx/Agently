@@ -18,7 +18,7 @@ import re
 import yaml
 import toml
 from typing import TYPE_CHECKING, Any, Literal, cast
-from .SerializableRuntimeData import SerializableRuntimeData, SerializableRuntimeDataNamespace
+from .SerializableStateData import SerializableStateData, SerializableStateDataNamespace
 from .LazyImport import LazyImport
 from .DataFormatter import DataFormatter
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from agently.types.data import SerializableMapping, SerializableValue
 
 
-class Settings(SerializableRuntimeData):
+class Settings(SerializableStateData):
 
     def __init__(
         self,
@@ -40,8 +40,8 @@ class Settings(SerializableRuntimeData):
             name=name,
             parent=parent,
         )
-        self._path_mappings = SerializableRuntimeData(parent=parent._path_mappings if parent is not None else None)
-        self._kv_mappings = SerializableRuntimeData(parent=parent._kv_mappings if parent is not None else None)
+        self._path_mappings = SerializableStateData(parent=parent._path_mappings if parent is not None else None)
+        self._kv_mappings = SerializableStateData(parent=parent._kv_mappings if parent is not None else None)
 
     @staticmethod
     def _load_environ() -> dict[str, str]:
@@ -205,6 +205,6 @@ class Settings(SerializableRuntimeData):
         return self
 
 
-class SettingsNamespace(SerializableRuntimeDataNamespace):
+class SettingsNamespace(SerializableStateDataNamespace):
     def __init__(self, root_settings: "Settings", namespace: str):
         super().__init__(root_runtime_data=root_settings, namespace=namespace)

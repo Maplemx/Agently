@@ -3,18 +3,18 @@ import json
 import yaml
 import toml
 from typing import cast
-from agently.utils import RuntimeData
+from agently.utils import StateData
 
 
 class TestRuntimeData:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.GLOBAL = object()
-        self.grand_parent = RuntimeData(
+        self.grand_parent = StateData(
             {"grand_parent": {"test": "OK"}, self.GLOBAL: {"g": 1, "p": {"a": 1}}},
             name="grand_parent",
         )
-        self.parent = RuntimeData(
+        self.parent = StateData(
             {
                 "parent": {"test": "OK"},
                 self.GLOBAL: {
@@ -27,7 +27,7 @@ class TestRuntimeData:
             parent=self.grand_parent,
             name="parent",
         )
-        self.data = RuntimeData(
+        self.data = StateData(
             {
                 "data": {"test": "OK"},
                 self.GLOBAL: {
@@ -59,7 +59,7 @@ class TestRuntimeData:
         assert self.data["grand_parent"] == {"test": "OK"}
         assert self.data["parent.test"] == "OK"
         # Non-String Key Support
-        assert RuntimeData(self.data[self.GLOBAL])["p.a"] == 1
+        assert StateData(self.data[self.GLOBAL])["p.a"] == 1
         # Get Original Data without Inherit
         assert self.data.get(inherit=False) == {
             "data": {"test": "OK"},
@@ -115,7 +115,7 @@ class TestRuntimeData:
             "grand_parent": "OK",
             "global": {"g": 1, "p": {"a": 1, "b": 2, "c": 3}},
         }
-        # RuntimeData.data Read Only
+        # StateData.data Read Only
         with pytest.raises(AttributeError):
             self.data.data = {"new": "value"}  # type: ignore
 
@@ -125,7 +125,7 @@ class TestRuntimeData:
         assert self.data["delete_testing"] == {"to_keep": True}
 
     def test_namespace(self):
-        data = RuntimeData(
+        data = StateData(
             {
                 "test": {
                     "result": "OK",
@@ -161,7 +161,7 @@ class TestRuntimeData:
         }
 
     def test_not_exists_namespace(self):
-        data = RuntimeData(
+        data = StateData(
             {
                 "test": {
                     "result": "OK",
@@ -180,9 +180,9 @@ class TestRuntimeData:
         assert data["not_exists.test"] == "hello world"
 
     def test_deep_inheritance(self):
-        level3 = RuntimeData({"level": 3, "data": {"deep": "level3"}}, name="level3")
-        level2 = RuntimeData({"level": 2, "data": {"deep": "level2"}}, parent=level3, name="level2")
-        level1 = RuntimeData({"level": 1, "data": {"deep": "level1"}}, parent=level2, name="level1")
+        level3 = StateData({"level": 3, "data": {"deep": "level3"}}, name="level3")
+        level2 = StateData({"level": 2, "data": {"deep": "level2"}}, parent=level3, name="level2")
+        level1 = StateData({"level": 1, "data": {"deep": "level1"}}, parent=level2, name="level1")
 
         assert level1["data.deep"] == "level1"
         assert level1["level"] == 1
@@ -194,14 +194,14 @@ class TestRuntimeData:
                 self.value = value
 
         obj = CustomObj(123)
-        data = RuntimeData({"custom": obj, "none": None, "bool": True})
+        data = StateData({"custom": obj, "none": None, "bool": True})
 
         assert data["custom"].value == 123
         assert data["none"] is None
         assert data["bool"] is True
 
     def test_error_handling(self):
-        data = RuntimeData({"test": "value"})
+        data = StateData({"test": "value"})
 
         # Non-existed Key
         assert data.get("non_exist") is None
@@ -215,14 +215,14 @@ class TestRuntimeData:
         del data["non_exist"]
 
     def test_advanced_namespace(self):
-        data = RuntimeData({"ns1": {"a": 1, "b": {"deep": "value"}}, "ns2": {"x": [1, 2, 3]}})
+        data = StateData({"ns1": {"a": 1, "b": {"deep": "value"}}, "ns2": {"x": [1, 2, 3]}})
 
         ns1 = data.namespace("ns1")
         ns2 = data.namespace("ns2")
 
         assert ns1["b.deep"] == "value"
 
-        child_data = RuntimeData({"ns1": {"new": "child", "b": True}}, parent=data)
+        child_data = StateData({"ns1": {"new": "child", "b": True}}, parent=data)
         child_ns1 = child_data.namespace("ns1")
         assert child_ns1["a"] == 1
         assert child_ns1["new"] == "child"
@@ -237,7 +237,7 @@ class TestRuntimeData:
         assert "b" not in data["ns1"]
 
     def test_complex_merge(self):
-        parent = RuntimeData(
+        parent = StateData(
             {
                 "complex": {
                     "list": [1, 2],
@@ -248,7 +248,7 @@ class TestRuntimeData:
             }
         )
 
-        child = RuntimeData(
+        child = StateData(
             {
                 "complex": {
                     "list": [7],
@@ -266,7 +266,7 @@ class TestRuntimeData:
         assert child["complex.tuple"] == (9,)
 
     def test_copy_behavior(self):
-        data = RuntimeData({"a": {"b": 1}})
+        data = StateData({"a": {"b": 1}})
         # Result is a copy not a ref
         result = data["a"]
         result["b"] = 2
@@ -274,13 +274,13 @@ class TestRuntimeData:
         assert result == {"b": 2}
 
     def test_project_practices(self):
-        settings = RuntimeData()
+        settings = StateData()
         request_settings = settings.namespace("Request")
         request_settings["Test"] = True
         assert settings == {"Request": {"Test": True}}
         assert request_settings == {"Test": True}
 
-        prompts = RuntimeData()
+        prompts = StateData()
         prompts["INPUT"] = "Hello"
         assert prompts == {"INPUT": "Hello"}
 
@@ -309,39 +309,39 @@ class TestRuntimeData:
         toml_file.write_text(toml_data)
 
         # Load from string
-        data1 = RuntimeData()
+        data1 = StateData()
         data1.load("json", json_data)
         assert data1["name"] == "json_test"
         assert data1["nested.value"] == 123
 
-        data2 = RuntimeData()
+        data2 = StateData()
         data2.load("yaml", yaml_data)
         assert data2["name"] == "yaml_test"
         assert data2["nested.value"] == 456
 
-        data3 = RuntimeData()
+        data3 = StateData()
         data3.load("toml", toml_data)
         assert data3["name"] == "toml_test"
         assert data3["nested.value"] == 789
 
         # Load from file
-        data4 = RuntimeData()
+        data4 = StateData()
         data4.load("json_file", str(json_file))
         assert data4["name"] == "json_test"
         assert data4["nested.value"] == 123
 
-        data5 = RuntimeData()
+        data5 = StateData()
         data5.load("yaml_file", str(yaml_file))
         assert data5["name"] == "yaml_test"
         assert data5["nested.value"] == 456
 
-        data6 = RuntimeData()
+        data6 = StateData()
         data6.load("toml_file", str(toml_file))
         assert data6["name"] == "toml_test"
         assert data6["nested.value"] == 789
 
         # Exceptions
-        data7 = RuntimeData()
+        data7 = StateData()
         with pytest.raises(ValueError):
             data7.load("json", "invalid json data")
 
@@ -353,7 +353,7 @@ class TestRuntimeData:
         from pathlib import Path
 
         # Prepare test data with various serializable data types
-        data = RuntimeData(
+        data = StateData(
             {
                 # Basic types
                 "string": "hello",
@@ -371,8 +371,8 @@ class TestRuntimeData:
                 # Container types
                 "set": {1, 2, 3},
                 "tuple": (4, 5, 6),
-                # Nested RuntimeData
-                "runtime_data": RuntimeData({"nested": "value"}),
+                # Nested StateData
+                "runtime_data": StateData({"nested": "value"}),
             }
         )
 
@@ -405,7 +405,7 @@ class TestRuntimeData:
         assert set(loaded_json["set"]) == {1, 2, 3}
         assert loaded_json["tuple"] == [4, 5, 6]
 
-        # Validate nested RuntimeData
+        # Validate nested StateData
         assert loaded_json["runtime_data"] == {"nested": "value"}
 
         # Test YAML serialization
@@ -432,7 +432,7 @@ class TestRuntimeData:
         class CustomClass:
             pass
 
-        data_with_unserializable = RuntimeData(
+        data_with_unserializable = StateData(
             {
                 "normal": "data",
                 "custom_obj": CustomClass(),
@@ -455,6 +455,6 @@ class TestRuntimeData:
 
 
 def test_set_with_dot_path():
-    runtime_data = RuntimeData()
+    runtime_data = StateData()
     runtime_data.set("prompt.system.your_role", "Your Character")
     assert runtime_data["prompt"]["system"]["your_role"] == "Your Character"

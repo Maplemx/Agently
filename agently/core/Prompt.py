@@ -16,7 +16,7 @@ import re
 from textwrap import dedent
 from typing import Any, Literal, TYPE_CHECKING, cast, overload, TypeVar
 
-from agently.utils import RuntimeData, Settings, DataFormatter
+from agently.utils import StateData, Settings, DataFormatter
 
 if TYPE_CHECKING:
     from agently.types.data.prompt import ChatMessage, PromptStandardSlot
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-class Prompt(RuntimeData):
+class Prompt(StateData):
     """
     Represents a hierarchical, structured prompt container in the Agently framework.
 
@@ -55,13 +55,13 @@ class Prompt(RuntimeData):
 
     Args:
         plugin_manager (PluginManager): The plugin manager for loading prompt generator plugins.
-        parent_settings (SerializableRuntimeData): Parent settings for prompt configuration.
+        parent_settings (SerializableStateData): Parent settings for prompt configuration.
         prompt_dict (dict[str, Any] | None): Initial prompt data.
         parent_prompt (Prompt | None): Optional parent prompt for data inheritance.
         name (str | None): Optional name for the prompt instance.
 
     Attributes:
-        settings (SerializableRuntimeData): Prompt-specific settings, inheriting from parent settings.
+        settings (SerializableStateData): Prompt-specific settings, inheriting from parent settings.
         prompt_generator (PromptGenerator): The active prompt generator plugin instance.
         to_text (Callable): Convert prompt data to plain text (PromptGenerator plugin provide convert standard).
         to_messages (Callable): Convert prompt data to message list (PromptGenerator plugin provide convert standard).

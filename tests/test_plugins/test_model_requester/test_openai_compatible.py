@@ -8,7 +8,7 @@ load_dotenv(find_dotenv())
 from typing import cast
 from agently import Agently
 from agently.core.Prompt import Prompt
-from agently.utils import SerializableRuntimeDataNamespace
+from agently.utils import SerializableStateDataNamespace
 from agently.utils import Settings
 from agently.builtins.plugins.ModelRequester.OpenAICompatible import (
     OpenAICompatible,
@@ -74,7 +74,7 @@ async def capture_request_headers(monkeypatch: pytest.MonkeyPatch, config: dict,
 async def test_main():
     request_settings = cast(
         ModelRequesterSettings,
-        SerializableRuntimeDataNamespace(Agently.settings, "plugins.ModelRequester.OpenAICompatible"),
+        SerializableStateDataNamespace(Agently.settings, "plugins.ModelRequester.OpenAICompatible"),
     )
     request_settings["base_url"] = OLLAMA_BASE_URL
     request_settings["model"] = OLLAMA_MODEL

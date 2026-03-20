@@ -3,7 +3,7 @@
 Use this as a compact, agent-oriented guide to the utilities in `agently/utils`. It is intentionally brief and practical.
 
 ## Quick Map (TL;DR)
-- data shaping: `DataFormatter`, `RuntimeData`, `SerializableRuntimeData`, `Settings`
+- data shaping: `DataFormatter`, `StateData`, `SerializableStateData`, `Settings`
 - path and JSON helpers: `DataLocator`, `DataPathBuilder`, `StreamingJSONCompleter`, `StreamingJSONParser`
 - async/sync bridging: `FunctionShifter`, `GeneratorConsumer`
 - dynamic deps: `LazyImport`
@@ -17,7 +17,7 @@ Use this as a compact, agent-oriented guide to the utilities in `agently/utils`.
 Purpose: normalize complex values into safe, serializable, or string forms, and do placeholder substitution.
 
 Key methods:
-- `sanitize(value, remain_type=False)`: convert complex objects into JSON-ish values. Handles `datetime`, `RuntimeData`, `pydantic.BaseModel`, and typing constructs like `list[T]`, `Union`, `Literal`.
+- `sanitize(value, remain_type=False)`: convert complex objects into JSON-ish values. Handles `datetime`, `StateData`, `pydantic.BaseModel`, and typing constructs like `list[T]`, `Union`, `Literal`.
 - `to_str_key_dict(value, value_format=None, default_key=None, default_value=None)`: ensure dict keys are strings and values optionally sanitized or stringified. If input is not a dict, can wrap with `default_key`.
 - `from_schema_to_kwargs_format(schema)`: convert JSON Schema object fields into Agently kwargs-style `(type, desc)` mapping.
 - `substitute_placeholder(obj, variable_mappings, placeholder_pattern=None)`: recursive replace `${key}` placeholders in strings, dicts, lists, sets, tuples.
@@ -111,7 +111,7 @@ Key behaviors:
 When to use:
 - Run short user-defined expressions or filters with safety checks.
 
-### RuntimeData / RuntimeDataNamespace
+### StateData / StateDataNamespace
 Purpose: runtime-scoped hierarchical data with inheritance, dot-path access, and merge-friendly set semantics.
 
 Key behaviors:
@@ -124,8 +124,8 @@ Key behaviors:
 When to use:
 - Store workflow state, memo, runtime configs.
 
-### SerializableRuntimeData / SerializableRuntimeDataNamespace
-Purpose: same API as `RuntimeData` but value types restricted to JSON-serializable shapes.
+### SerializableStateData / SerializableStateDataNamespace
+Purpose: same API as `StateData` but value types restricted to JSON-serializable shapes.
 
 When to use:
 - Settings and serialized runtime state.

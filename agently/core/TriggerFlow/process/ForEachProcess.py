@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 from .BaseProcess import TriggerFlowBaseProcess
 from agently.types.data import EMPTY
 from agently.types.trigger_flow import TriggerFlowBlockData
-from agently.utils import RuntimeDataNamespace
+from agently.utils import StateDataNamespace
 
 
 class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
@@ -120,7 +120,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             item_id = data.layer_mark
             assert for_each_instance_id is not None and item_id is not None
 
-            for_each_results = RuntimeDataNamespace(data._system_runtime_data, "for_each_results")
+            for_each_results = StateDataNamespace(data._system_runtime_data, "for_each_results")
 
             if for_each_instance_id in for_each_results and item_id in for_each_results[for_each_instance_id]:
                 for_each_results.set(f"{ for_each_instance_id }.{ item_id }", data.value)

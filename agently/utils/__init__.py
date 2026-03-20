@@ -14,9 +14,14 @@
 
 from .Logger import create_logger
 from .Messenger import create_messenger
-from .RuntimeData import RuntimeData, RuntimeDataNamespace
-from .SerializableRuntimeData import SerializableRuntimeData, SerializableRuntimeDataNamespace
+from .StateData import StateData, StateDataNamespace
+from .SerializableStateData import SerializableStateData, SerializableStateDataNamespace
 from .Settings import Settings, SettingsNamespace
+
+RuntimeData = StateData
+RuntimeDataNamespace = StateDataNamespace
+SerializableRuntimeData = SerializableStateData
+SerializableRuntimeDataNamespace = SerializableStateDataNamespace
 
 # from .Storage import Storage, AsyncStorage
 from .FunctionShifter import FunctionShifter

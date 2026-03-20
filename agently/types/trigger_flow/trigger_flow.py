@@ -23,11 +23,11 @@ if TYPE_CHECKING:
     from agently.core import TriggerFlowExecution
     from agently.core.TriggerFlow.Signal import TriggerFlowSignal
 
-from agently.utils import RuntimeData
+from agently.utils import StateData
 
 
 class TriggerFlowBlockData:
-    global_data = RuntimeData()
+    global_data = StateData()
 
     def __init__(
         self,

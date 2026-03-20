@@ -25,7 +25,7 @@ from agently.types.plugins import ResponseParser
 from agently.types.data import StreamingData
 from agently.utils import (
     DataPathBuilder,
-    RuntimeDataNamespace,
+    StateDataNamespace,
     GeneratorConsumer,
     DataLocator,
     FunctionShifter,
@@ -67,7 +67,7 @@ class AgentlyResponseParser(ResponseParser):
         self.response_id = response_id
         self.response_generator = response_generator
         self.settings = settings
-        self.plugin_settings = RuntimeDataNamespace(self.settings, f"plugins.ResponseParser.{ self.name }")
+        self.plugin_settings = StateDataNamespace(self.settings, f"plugins.ResponseParser.{ self.name }")
         self.full_result_data: AgentlyModelResult = {
             "result_consumer": None,
             "meta": {},

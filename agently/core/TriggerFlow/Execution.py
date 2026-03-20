@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from agently.types.trigger_flow import TriggerFlowAllHandlers
     from agently.types.data import SerializableValue
 
-from agently.utils import RuntimeData, FunctionShifter, GeneratorConsumer, Settings
+from agently.utils import StateData, FunctionShifter, GeneratorConsumer, Settings
 from agently.types.trigger_flow import (
     TriggerFlowContractMetadata,
     TriggerFlowContractSpec,
@@ -68,12 +68,12 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
         self.id = id if id is not None else uuid.uuid4().hex
         self._handlers = handlers
         self._trigger_flow = trigger_flow
-        self._runtime_data = RuntimeData()
-        self._runtime_resources = RuntimeData(
+        self._runtime_data = StateData()
+        self._runtime_resources = StateData(
             name=f"TriggerFlowExecution-{ self.id }-RuntimeResources",
             parent=self._trigger_flow._runtime_resources,
         )
-        self._system_runtime_data = RuntimeData()
+        self._system_runtime_data = StateData()
         self._skip_exceptions = skip_exceptions
         self._concurrency_semaphore = asyncio.Semaphore(concurrency) if concurrency and concurrency > 0 else None
         self._concurrency_depth = ContextVar(
@@ -135,7 +135,7 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
         self._runtime_stream_consumer: GeneratorConsumer | None = None
 
     def _to_serializable_value(self, value: Any):
-        return json.loads(RuntimeData({"value": value}).dump("json"))["value"]
+        return json.loads(StateData({"value": value}).dump("json"))["value"]
 
     def _set_status(self, status: str):
         self._status = status
