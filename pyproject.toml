@@ -1,6 +1,6 @@
 [project]
 name = "agently"
-version = "4.0.8.5"
+version = "4.0.8.6"
 description = ""
 authors = [
     {name = "Agently Team",email = "developer@agently.tech"},
