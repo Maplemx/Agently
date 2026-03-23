@@ -226,7 +226,6 @@ class ToolExtension(BaseAgent):
             settings=settings,
             tool_list=tool_list,
             agent_name=self.name,
-            parent_run_context=getattr(settings, "_runtime_request_run_context", None),
             max_rounds=settings.get("tool.loop.max_rounds", 5),  # type: ignore
             concurrency=settings.get("tool.loop.concurrency", None),  # type: ignore
             timeout=settings.get("tool.loop.timeout", None),  # type: ignore

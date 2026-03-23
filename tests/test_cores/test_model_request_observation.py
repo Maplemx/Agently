@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from agently import Agently
+from agently import Agently, TriggerFlow, TriggerFlowRuntimeData
 from agently.core import ModelRequest, PluginManager
 from agently.types.data import AgentlyRequestData, RunContext
 from agently.utils import Settings
@@ -339,5 +339,54 @@ async def test_tool_runtime_uses_action_runs_under_request_scope():
         assert action_run.run_kind == "action"
         assert action_run.parent_run_id == tool_loop_start.run.run_id
         assert action_run.meta.get("action_type") == "tool"
+    finally:
+        Agently.event_center.unregister_hook(hook_name)
+
+
+@pytest.mark.asyncio
+async def test_trigger_flow_runtime_context_auto_inherits_parent_run_for_agent_and_request():
+    MockObservationRequester.reset()
+    captured = []
+
+    async def capture(event):
+        captured.append(event)
+
+    hook_name = "test_model_request_observation.trigger_flow_runtime_context_capture"
+    Agently.event_center.register_hook(capture, hook_name=hook_name)
+    try:
+        flow = TriggerFlow(name="runtime-context-auto-parent")
+
+        async def run_inside_flow(data: TriggerFlowRuntimeData):
+            agent = _create_agent()
+            agent.input("Summarize the runtime context flow.")
+            request = _create_request()
+            request.input("Provide a direct request summary.")
+            agent_text = await agent.async_get_text()
+            request_text = await request.async_get_text()
+            return {
+                "agent_text": agent_text,
+                "request_text": request_text,
+            }
+
+        flow.to(run_inside_flow).end()
+
+        result = await flow.async_start("start")
+
+        assert "Morning briefing prepared." in result["agent_text"]
+        assert "Morning briefing prepared." in result["request_text"]
+
+        workflow_start = next(event for event in captured if event.event_type == "workflow.execution_started")
+        workflow_run = workflow_start.run
+        assert workflow_run is not None
+
+        agent_turn_start = next(event for event in captured if event.event_type == "agent_turn.started")
+        assert agent_turn_start.run is not None
+        assert agent_turn_start.run.parent_run_id == workflow_run.run_id
+
+        request_starts = [event for event in captured if event.event_type == "request.started"]
+        assert len(request_starts) >= 2
+        parent_ids = {event.run.parent_run_id for event in request_starts if event.run is not None}
+        assert workflow_run.run_id in parent_ids
+        assert agent_turn_start.run.run_id in parent_ids
     finally:
         Agently.event_center.unregister_hook(hook_name)

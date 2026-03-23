@@ -20,6 +20,11 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, cast
 from typing_extensions import TypedDict
 
 from agently.utils import Settings, SettingsNamespace, FunctionShifter
+from agently.core.runtime_context import (
+    bind_runtime_context,
+    get_current_tool_phase_run_context,
+    resolve_parent_run_context,
+)
 from .TriggerFlow import TriggerFlow
 
 if TYPE_CHECKING:
@@ -226,7 +231,7 @@ class Tool:
     ) -> "ToolPlanDecision":
         from agently.core import ModelRequest
 
-        parent_run_context = getattr(settings, "_runtime_tool_phase_run_context", None)
+        parent_run_context = get_current_tool_phase_run_context()
         tool_plan_request = ModelRequest(
             self.plugin_manager,
             parent_settings=settings,
@@ -612,6 +617,8 @@ class Tool:
         from agently.base import async_emit_runtime
         from agently.types.data import RunContext
 
+        parent_run_context = resolve_parent_run_context(parent_run_context)
+
         if len(tool_list) == 0:
             return []
 
@@ -814,14 +821,16 @@ class Tool:
         flow.when("EXECUTE").to(execute_step)
         flow.when("DONE").to(lambda data: data.value).end()
 
-        previous_tool_phase_run_context = getattr(settings, "_runtime_tool_phase_run_context", None)
-        setattr(settings, "_runtime_tool_phase_run_context", tool_loop_run)
         execution = flow.create_execution(parent_run_context=tool_loop_run)
         try:
-            result = await execution.async_start(
-                wait_for_result=True,
-                timeout=timeout,
-            )
+            with bind_runtime_context(
+                parent_run_context=tool_loop_run,
+                tool_phase_run_context=tool_loop_run,
+            ):
+                result = await execution.async_start(
+                    wait_for_result=True,
+                    timeout=timeout,
+                )
         except Exception as error:
             await async_emit_runtime(
                 {
@@ -835,8 +844,6 @@ class Tool:
                 }
             )
             raise
-        finally:
-            setattr(settings, "_runtime_tool_phase_run_context", previous_tool_phase_run_context)
         if not isinstance(result, list):
             return []
         normalized = [self._normalize_execution_record(record, None, index) for index, record in enumerate(result)]

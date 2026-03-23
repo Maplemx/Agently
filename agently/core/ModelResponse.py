@@ -20,6 +20,7 @@ from typing import Any, AsyncGenerator, TYPE_CHECKING, cast
 
 from agently.core.Prompt import Prompt
 from agently.core.ExtensionHandlers import ExtensionHandlers
+from agently.core.runtime_context import bind_runtime_context
 from agently.utils import Settings, DataFormatter
 
 from agently.core.ModelResponseResult import ModelResponseResult
@@ -75,9 +76,6 @@ class ModelResponse:
         settings_snapshot = settings.get()
         self.settings = Settings(settings_snapshot if isinstance(settings_snapshot, dict) else {})
         self.settings.set("$log.cancel_logs", False)
-        setattr(self.settings, "_runtime_request_run_context", self.request_run_context)
-        setattr(self.settings, "_runtime_model_run_context", self.model_run_context)
-        setattr(self.settings, "_runtime_agent_turn_run_context", self.agent_turn_run_context)
         prompt_snapshot = prompt.get()
         self.prompt = Prompt(
             self.plugin_manager,
@@ -147,158 +145,17 @@ class ModelResponse:
     async def _get_response_generator(self) -> AsyncGenerator["AgentlyModelResponseMessage", None]:
         from agently.base import async_emit_runtime
 
-        await async_emit_runtime(
-            {
-                "event_type": "request.started",
-                "source": "ModelResponse",
-                "message": f"Starting request for agent '{ self.agent_name }'.",
-                "payload": {
-                    "agent_name": self.agent_name,
-                    "response_id": self.id,
-                    "attempt_index": self.attempt_index,
-                },
-                "run": self.request_run_context,
-            }
-        )
-        try:
-            ModelRequester = cast(
-                type["ModelRequester"],
-                self.plugin_manager.get_plugin(
-                    "ModelRequester",
-                    str(self.settings["plugins.ModelRequester.activate"]),
-                ),
-            )
-            request_prefixes = self.extension_handlers.get("request_prefixes", [])
-            for prefix in request_prefixes:
-                if inspect.iscoroutinefunction(prefix):
-                    await prefix(self.prompt, self.settings)
-                elif inspect.isfunction(prefix):
-                    prefix(self.prompt, self.settings)
+        with bind_runtime_context(
+            parent_run_context=self.request_run_context,
+            request_run_context=self.request_run_context,
+            model_run_context=self.model_run_context,
+            agent_turn_run_context=self.agent_turn_run_context,
+        ):
             await async_emit_runtime(
                 {
-                    "event_type": "model.request_started",
+                    "event_type": "request.started",
                     "source": "ModelResponse",
-                    "message": f"Starting model request attempt #{ self.attempt_index } for agent '{ self.agent_name }'.",
-                    "payload": {
-                        "agent_name": self.agent_name,
-                        "response_id": self.id,
-                        "attempt_index": self.attempt_index,
-                        "request_run_id": self.request_run_context.run_id,
-                    },
-                    "run": self.model_run_context,
-                }
-            )
-            prompt_payload = self._build_prompt_payload()
-            await async_emit_runtime(
-                {
-                    "event_type": "prompt.built",
-                    "source": "ModelResponse",
-                    "message": f"Prompt built for model request attempt #{ self.attempt_index }.",
-                    "payload": {
-                        "agent_name": self.agent_name,
-                        "response_id": self.id,
-                        "attempt_index": self.attempt_index,
-                        **prompt_payload,
-                    },
-                    "run": self.model_run_context,
-                }
-            )
-            model_requester = ModelRequester(self.prompt, self.settings)
-            request_data = model_requester.generate_request_data()
-            request_payload = self._build_request_payload(request_data)
-            await async_emit_runtime(
-                {
-                    "event_type": "model.requesting",
-                    "source": "ModelResponse",
-                    "message": f"Sending model request for agent '{ self.agent_name }'.",
-                    "payload": {
-                        "agent_name": self.agent_name,
-                        "response_id": self.id,
-                        "attempt_index": self.attempt_index,
-                        "request_run_id": self.request_run_context.run_id,
-                        **request_payload,
-                    },
-                    "run": self.model_run_context,
-                }
-            )
-            response_generator = model_requester.request_model(request_data)
-            broadcast_generator = model_requester.broadcast_response(response_generator)
-            broadcast_prefixes = self.extension_handlers.get("broadcast_prefixes", [])
-            broadcast_suffixes = self.extension_handlers.get("broadcast_suffixes", {})
-            for prefix in broadcast_prefixes:
-                if inspect.iscoroutinefunction(prefix):
-                    result = await prefix(
-                        self.result.full_result_data,
-                        self.settings,
-                    )
-                    if result is not None:
-                        yield result
-                elif inspect.isgeneratorfunction(prefix):
-                    for result in prefix(
-                        self.result.full_result_data,
-                        self.settings,
-                    ):
-                        if result is not None:
-                            yield result
-                elif inspect.isasyncgenfunction(prefix):
-                    async for result in prefix(
-                        self.result.full_result_data,
-                        self.settings,
-                    ):
-                        if result is not None:
-                            yield result
-                elif inspect.isfunction(prefix):
-                    result = prefix(
-                        self.result.full_result_data,
-                        self.settings,
-                    )
-                    if result is not None:
-                        yield result
-            async for event, data in broadcast_generator:
-                yield event, data
-                suffixes = broadcast_suffixes[event] if event in broadcast_suffixes else []
-                for suffix in suffixes:
-                    if inspect.iscoroutinefunction(suffix):
-                        result = await suffix(
-                            event,
-                            data,
-                            self.result.full_result_data,
-                            self.settings,
-                        )
-                        if result is not None:
-                            yield result
-                    elif inspect.isgeneratorfunction(suffix):
-                        for result in suffix(
-                            event,
-                            data,
-                            self.result.full_result_data,
-                            self.settings,
-                        ):
-                            if result is not None:
-                                yield result
-                    elif inspect.isasyncgenfunction(suffix):
-                        async for result in suffix(
-                            event,
-                            data,
-                            self.result.full_result_data,
-                            self.settings,
-                        ):
-                            if result is not None:
-                                yield result
-                    elif inspect.isfunction(suffix):
-                        result = suffix(
-                            event,
-                            data,
-                            self.result.full_result_data,
-                            self.settings,
-                        )
-                        if result is not None:
-                            yield result
-            await async_emit_runtime(
-                {
-                    "event_type": "request.completed",
-                    "source": "ModelResponse",
-                    "message": f"Request completed for agent '{ self.agent_name }'.",
+                    "message": f"Starting request for agent '{ self.agent_name }'.",
                     "payload": {
                         "agent_name": self.agent_name,
                         "response_id": self.id,
@@ -307,68 +164,215 @@ class ModelResponse:
                     "run": self.request_run_context,
                 }
             )
-            if self.agent_turn_run_context is not None:
+            try:
+                ModelRequester = cast(
+                    type["ModelRequester"],
+                    self.plugin_manager.get_plugin(
+                        "ModelRequester",
+                        str(self.settings["plugins.ModelRequester.activate"]),
+                    ),
+                )
+                request_prefixes = self.extension_handlers.get("request_prefixes", [])
+                for prefix in request_prefixes:
+                    if inspect.iscoroutinefunction(prefix):
+                        await prefix(self.prompt, self.settings)
+                    elif inspect.isfunction(prefix):
+                        prefix(self.prompt, self.settings)
                 await async_emit_runtime(
                     {
-                        "event_type": "agent_turn.completed",
+                        "event_type": "model.request_started",
                         "source": "ModelResponse",
-                        "message": f"Agent turn completed for '{ self.agent_name }'.",
+                        "message": f"Starting model request attempt #{ self.attempt_index } for agent '{ self.agent_name }'.",
                         "payload": {
                             "agent_name": self.agent_name,
                             "response_id": self.id,
                             "request_run_id": self.request_run_context.run_id,
-                            "attempt_count": self.attempt_index,
+                            "attempt_index": self.attempt_index,
                         },
-                        "run": self.agent_turn_run_context,
+                        "run": self.model_run_context,
                     }
                 )
-        except Exception as error:
-            await async_emit_runtime(
-                {
-                    "event_type": "model.request_failed",
-                    "source": "ModelResponse",
-                    "level": "ERROR",
-                    "message": f"Model request failed for agent '{ self.agent_name }'.",
-                    "payload": {
-                        "agent_name": self.agent_name,
-                        "response_id": self.id,
-                        "attempt_index": self.attempt_index,
-                        "request_run_id": self.request_run_context.run_id,
-                    },
-                    "error": error,
-                    "run": self.model_run_context,
-                }
-            )
-            await async_emit_runtime(
-                {
-                    "event_type": "request.failed",
-                    "source": "ModelResponse",
-                    "level": "ERROR",
-                    "message": f"Request failed for agent '{ self.agent_name }'.",
-                    "payload": {
-                        "agent_name": self.agent_name,
-                        "response_id": self.id,
-                        "attempt_index": self.attempt_index,
-                    },
-                    "error": error,
-                    "run": self.request_run_context,
-                }
-            )
-            if self.agent_turn_run_context is not None:
+                prompt_payload = self._build_prompt_payload()
                 await async_emit_runtime(
                     {
-                        "event_type": "agent_turn.failed",
+                        "event_type": "prompt.built",
+                        "source": "ModelResponse",
+                        "message": f"Prompt built for model request attempt #{ self.attempt_index }.",
+                        "payload": {
+                            "agent_name": self.agent_name,
+                            "response_id": self.id,
+                            "attempt_index": self.attempt_index,
+                            **prompt_payload,
+                        },
+                        "run": self.model_run_context,
+                    }
+                )
+                model_requester = ModelRequester(self.prompt, self.settings)
+                request_data = model_requester.generate_request_data()
+                request_payload = self._build_request_payload(request_data)
+                await async_emit_runtime(
+                    {
+                        "event_type": "model.requesting",
+                        "source": "ModelResponse",
+                        "message": f"Sending model request for agent '{ self.agent_name }'.",
+                        "payload": {
+                            "agent_name": self.agent_name,
+                            "response_id": self.id,
+                            "attempt_index": self.attempt_index,
+                            "request_run_id": self.request_run_context.run_id,
+                            **request_payload,
+                        },
+                        "run": self.model_run_context,
+                    }
+                )
+                response_generator = model_requester.request_model(request_data)
+                broadcast_generator = model_requester.broadcast_response(response_generator)
+                broadcast_prefixes = self.extension_handlers.get("broadcast_prefixes", [])
+                broadcast_suffixes = self.extension_handlers.get("broadcast_suffixes", {})
+                for prefix in broadcast_prefixes:
+                    if inspect.iscoroutinefunction(prefix):
+                        result = await prefix(
+                            self.result.full_result_data,
+                            self.settings,
+                        )
+                        if result is not None:
+                            yield result
+                    elif inspect.isgeneratorfunction(prefix):
+                        for result in prefix(
+                            self.result.full_result_data,
+                            self.settings,
+                        ):
+                            if result is not None:
+                                yield result
+                    elif inspect.isasyncgenfunction(prefix):
+                        async for result in prefix(
+                            self.result.full_result_data,
+                            self.settings,
+                        ):
+                            if result is not None:
+                                yield result
+                    elif inspect.isfunction(prefix):
+                        result = prefix(
+                            self.result.full_result_data,
+                            self.settings,
+                        )
+                        if result is not None:
+                            yield result
+                async for event, data in broadcast_generator:
+                    yield event, data
+                    suffixes = broadcast_suffixes[event] if event in broadcast_suffixes else []
+                    for suffix in suffixes:
+                        if inspect.iscoroutinefunction(suffix):
+                            result = await suffix(
+                                event,
+                                data,
+                                self.result.full_result_data,
+                                self.settings,
+                            )
+                            if result is not None:
+                                yield result
+                        elif inspect.isgeneratorfunction(suffix):
+                            for result in suffix(
+                                event,
+                                data,
+                                self.result.full_result_data,
+                                self.settings,
+                            ):
+                                if result is not None:
+                                    yield result
+                        elif inspect.isasyncgenfunction(suffix):
+                            async for result in suffix(
+                                event,
+                                data,
+                                self.result.full_result_data,
+                                self.settings,
+                            ):
+                                if result is not None:
+                                    yield result
+                        elif inspect.isfunction(suffix):
+                            result = suffix(
+                                event,
+                                data,
+                                self.result.full_result_data,
+                                self.settings,
+                            )
+                            if result is not None:
+                                yield result
+                await async_emit_runtime(
+                    {
+                        "event_type": "request.completed",
+                        "source": "ModelResponse",
+                        "message": f"Request completed for agent '{ self.agent_name }'.",
+                        "payload": {
+                            "agent_name": self.agent_name,
+                            "response_id": self.id,
+                            "attempt_index": self.attempt_index,
+                        },
+                        "run": self.request_run_context,
+                    }
+                )
+                if self.agent_turn_run_context is not None:
+                    await async_emit_runtime(
+                        {
+                            "event_type": "agent_turn.completed",
+                            "source": "ModelResponse",
+                            "message": f"Agent turn completed for '{ self.agent_name }'.",
+                            "payload": {
+                                "agent_name": self.agent_name,
+                                "response_id": self.id,
+                                "request_run_id": self.request_run_context.run_id,
+                                "attempt_count": self.attempt_index,
+                            },
+                            "run": self.agent_turn_run_context,
+                        }
+                    )
+            except Exception as error:
+                await async_emit_runtime(
+                    {
+                        "event_type": "model.request_failed",
                         "source": "ModelResponse",
                         "level": "ERROR",
-                        "message": f"Agent turn failed for '{ self.agent_name }'.",
+                        "message": f"Model request failed for agent '{ self.agent_name }'.",
                         "payload": {
                             "agent_name": self.agent_name,
                             "response_id": self.id,
+                            "attempt_index": self.attempt_index,
                             "request_run_id": self.request_run_context.run_id,
-                            "attempt_count": self.attempt_index,
                         },
                         "error": error,
-                        "run": self.agent_turn_run_context,
+                        "run": self.model_run_context,
                     }
                 )
-            raise
+                await async_emit_runtime(
+                    {
+                        "event_type": "request.failed",
+                        "source": "ModelResponse",
+                        "level": "ERROR",
+                        "message": f"Request failed for agent '{ self.agent_name }'.",
+                        "payload": {
+                            "agent_name": self.agent_name,
+                            "response_id": self.id,
+                            "attempt_index": self.attempt_index,
+                        },
+                        "error": error,
+                        "run": self.request_run_context,
+                    }
+                )
+                if self.agent_turn_run_context is not None:
+                    await async_emit_runtime(
+                        {
+                            "event_type": "agent_turn.failed",
+                            "source": "ModelResponse",
+                            "level": "ERROR",
+                            "message": f"Agent turn failed for '{ self.agent_name }'.",
+                            "payload": {
+                                "agent_name": self.agent_name,
+                                "response_id": self.id,
+                                "request_run_id": self.request_run_context.run_id,
+                                "attempt_count": self.attempt_index,
+                            },
+                            "error": error,
+                            "run": self.agent_turn_run_context,
+                        }
+                    )
+                raise

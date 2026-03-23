@@ -20,6 +20,7 @@ import warnings
 
 from typing import Any, AsyncGenerator, Literal, TYPE_CHECKING, cast, overload, Generator
 
+from agently.core.runtime_context import bind_runtime_context
 from agently.utils import FunctionShifter, DataLocator
 
 if TYPE_CHECKING:
@@ -107,29 +108,34 @@ class ModelResponseResult:
             # call result getters without re-entering this hook chain.
             self._finally_handlers_ran = True
             finally_handlers = self._extension_handlers.get("finally", [])
-            for handler in finally_handlers:
-                if inspect.iscoroutinefunction(handler):
-                    await handler(
-                        self,
-                        self.settings,
-                    )
-                elif inspect.isgeneratorfunction(handler):
-                    for _ in handler(
-                        self,
-                        self.settings,
-                    ):
-                        pass
-                elif inspect.isasyncgenfunction(handler):
-                    async for _ in handler(
-                        self,
-                        self.settings,
-                    ):
-                        pass
-                elif inspect.isfunction(handler):
-                    handler(
-                        self,
-                        self.settings,
-                    )
+            with bind_runtime_context(
+                parent_run_context=self.request_run_context,
+                request_run_context=self.request_run_context,
+                model_run_context=self.model_run_context,
+            ):
+                for handler in finally_handlers:
+                    if inspect.iscoroutinefunction(handler):
+                        await handler(
+                            self,
+                            self.settings,
+                        )
+                    elif inspect.isgeneratorfunction(handler):
+                        for _ in handler(
+                            self,
+                            self.settings,
+                        ):
+                            pass
+                    elif inspect.isasyncgenfunction(handler):
+                        async for _ in handler(
+                            self,
+                            self.settings,
+                        ):
+                            pass
+                    elif inspect.isfunction(handler):
+                        handler(
+                            self,
+                            self.settings,
+                        )
 
     @overload
     async def async_get_data(

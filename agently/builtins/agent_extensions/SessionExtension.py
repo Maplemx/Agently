@@ -17,6 +17,7 @@ from uuid import uuid4
 from typing import TYPE_CHECKING, Sequence
 
 from agently.core import BaseAgent, Session
+from agently.core.runtime_context import get_current_request_run_context
 
 if TYPE_CHECKING:
     from agently.core import Prompt
@@ -185,7 +186,7 @@ class SessionExtension(BaseAgent):
                         "context_window_size": self._runtime_size(self.activated_session.context_window),
                         "memo_size": memo_size,
                     },
-                    "run": getattr(_settings, "_runtime_request_run_context", None),
+                    "run": get_current_request_run_context(),
                 }
             )
 
@@ -217,6 +218,6 @@ class SessionExtension(BaseAgent):
                         "has_assistant_content": bool(assistant_content),
                         "context_window_size": self._runtime_size(self.activated_session.context_window),
                     },
-                    "run": getattr(settings, "_runtime_request_run_context", None),
+                    "run": get_current_request_run_context(),
                 }
             )

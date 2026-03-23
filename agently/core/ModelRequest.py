@@ -18,6 +18,7 @@ from typing import Any, AsyncGenerator, Literal, TYPE_CHECKING, overload, Genera
 
 from agently.core.Prompt import Prompt
 from agently.core.ExtensionHandlers import ExtensionHandlers
+from agently.core.runtime_context import resolve_parent_run_context
 from agently.utils import Settings, FunctionShifter
 
 from agently.core.ModelResponse import ModelResponse
@@ -97,6 +98,7 @@ class ModelRequest:
     ) -> "RunContext":
         from agently.types.data import RunContext
 
+        parent_run_context = resolve_parent_run_context(parent_run_context)
         session_id = self.settings.get("runtime.session_id", None)
         if session_id is not None:
             session_id = str(session_id)
@@ -209,6 +211,7 @@ class ModelRequest:
 
     # Response & Result
     def get_response(self, *, parent_run_context: "RunContext | None" = None):
+        parent_run_context = resolve_parent_run_context(parent_run_context)
         agent_turn_run_context = (
             parent_run_context
             if parent_run_context is not None and parent_run_context.run_kind == "agent_turn"

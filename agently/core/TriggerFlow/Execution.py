@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from agently.types.data import RunContext, SerializableValue
 
 from agently.utils import StateData, FunctionShifter, GeneratorConsumer, Settings
+from agently.core.runtime_context import bind_runtime_context
 from agently.types.trigger_flow import (
     TriggerFlowContractMetadata,
     TriggerFlowContractSpec,
@@ -517,17 +518,18 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
             )
 
                 async def run_handler(handler_func):
-                    if self._concurrency_semaphore is None:
-                        return await handler_func
-                    depth = self._concurrency_depth.get()
-                    token = self._concurrency_depth.set(depth + 1)
-                    try:
-                        if depth > 0:
+                    with bind_runtime_context(parent_run_context=self.run_context):
+                        if self._concurrency_semaphore is None:
                             return await handler_func
-                        async with self._concurrency_semaphore:
-                            return await handler_func
-                    finally:
-                        self._concurrency_depth.reset(token)
+                        depth = self._concurrency_depth.get()
+                        token = self._concurrency_depth.set(depth + 1)
+                        try:
+                            if depth > 0:
+                                return await handler_func
+                            async with self._concurrency_semaphore:
+                                return await handler_func
+                        finally:
+                            self._concurrency_depth.reset(token)
 
                 handler_task = FunctionShifter.asyncify(handler)(
                     TriggerFlowRuntimeData(
