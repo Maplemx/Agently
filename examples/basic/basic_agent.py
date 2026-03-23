@@ -10,12 +10,11 @@ from agently import Agently
 Agently.set_settings(
     "OpenAICompatible",
     {
-        "base_url": os.environ["QIANFAN_BASE_URL"],
-        "model": "ernie-lite-8k",
+        "base_url": "http://127.0.0.1:11434/v1",
+        "model": "qwen2.5:7b",
         "model_type": "chat",
-        "api_key": os.environ["QIANFAN_API_KEY"],
     },
-)
+).set_settings("debug", True)
 
 
 async def main():

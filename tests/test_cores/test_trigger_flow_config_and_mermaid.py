@@ -2,7 +2,7 @@ import pytest
 from typing import Any, cast
 from pydantic import BaseModel
 
-from agently import TriggerFlow, TriggerFlowRuntimeData
+from agently import Agently, TriggerFlow, TriggerFlowRuntimeData
 
 
 def _operator_by_kind(config: dict, kind: str):
@@ -526,6 +526,37 @@ async def test_trigger_flow_sub_flow_bridges_child_runtime_stream():
         {"scope": "parent", "value": 3},
     ]
     assert await execution.async_get_result(timeout=1) == 3
+
+
+@pytest.mark.asyncio
+async def test_trigger_flow_sub_flow_inherits_parent_run_lineage():
+    child_flow = TriggerFlow(name="child-lineage-flow")
+    child_flow.to(lambda data: data.value + 1).end()
+
+    parent_flow = TriggerFlow(name="parent-lineage-flow")
+    parent_flow.to(lambda data: data.value).to_sub_flow(child_flow).end()
+
+    captured = []
+
+    async def capture(event):
+        if event.event_type == "workflow.execution_started" and event.run is not None:
+            captured.append(event)
+
+    hook_name = "test_trigger_flow_sub_flow_inherits_parent_run_lineage.capture"
+    Agently.event_center.register_hook(capture, event_types="workflow.execution_started", hook_name=hook_name)
+    try:
+        assert await parent_flow.async_start(2) == 3
+    finally:
+        Agently.event_center.unregister_hook(hook_name)
+
+    assert len(captured) == 2
+    root_event = next(event for event in captured if event.run.parent_run_id is None)
+    child_event = next(event for event in captured if event.run.parent_run_id == root_event.run.run_id)
+
+    assert root_event.run.meta["flow_name"] == "parent-lineage-flow"
+    assert child_event.run.meta["flow_name"] == "child-lineage-flow"
+    assert child_event.run.root_run_id == root_event.run.root_run_id
+    assert child_event.run.parent_run_id == root_event.run.run_id
 
 
 def test_trigger_flow_sub_flow_rejects_invalid_capture_and_write_back_specs():

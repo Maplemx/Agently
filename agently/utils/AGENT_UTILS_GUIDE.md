@@ -95,11 +95,11 @@ Purpose: create a consistent logger with optional uvicorn integration.
 Key pieces:
 - `create_logger(app_name="Agently", log_level="INFO")` returns `AgentlyLogger` with `raise_error` helper.
 
-### Messenger
-Purpose: convenience wrapper for event center messaging.
+### RuntimeEmitter
+Purpose: convenience wrapper for event center runtime event emission.
 
 Key method:
-- `create_messenger(module_name)` delegates to `agently.base.event_center`.
+- `create_runtime_emitter(source)` delegates to `agently.base.event_center`.
 
 ### PythonSandbox
 Purpose: execute small snippets safely with restricted builtins and whitelisted return types.
