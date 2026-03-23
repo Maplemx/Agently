@@ -3,6 +3,7 @@ import json
 
 from agently import Agently
 from agently.builtins.plugins.ModelRequester.OpenAICompatible import OpenAICompatible
+from agently.types.data import RunContext
 
 
 def _history_contents(history):
@@ -89,6 +90,53 @@ def test_session_extension_deactivate_cleans_chat_history():
 
     assert agent.activated_session is None
     assert agent.agent_prompt.get("chat_history") == []
+
+
+@pytest.mark.asyncio
+async def test_session_extension_emits_runtime_events():
+    captured = []
+
+    async def capture(event):
+        captured.append(event)
+
+    hook_name = "test_session_extension.runtime_events"
+    Agently.event_center.register_hook(capture, hook_name=hook_name)
+    try:
+        agent = Agently.create_agent()
+        agent.activate_session(session_id="session-extension-runtime-events")
+        assert agent.activated_session is not None
+
+        request_run = RunContext.create(
+            run_kind="request",
+            agent_name=agent.name,
+            session_id=agent.activated_session.id,
+        )
+        setattr(agent.settings, "_runtime_request_run_context", request_run)
+        agent.request_prompt.set("input", "hello")
+
+        await agent._session_request_prefix(agent.request_prompt, agent.settings)  # type: ignore[arg-type]
+
+        class DummyResult:
+            def __init__(self, prompt):
+                self.prompt = prompt
+
+            async def async_get_data(self):
+                return {"answer": "world"}
+
+        await agent._session_finally(DummyResult(agent.request_prompt), agent.settings)  # type: ignore[arg-type]
+        agent.deactivate_session()
+
+        event_types = [event.event_type for event in captured]
+        assert "session.activated" in event_types
+        assert "session.applied_to_request" in event_types
+        assert "session.context_appended" in event_types
+        assert "session.deactivated" in event_types
+
+        applied_event = next(event for event in captured if event.event_type == "session.applied_to_request")
+        assert applied_event.run is not None
+        assert applied_event.run.run_id == request_run.run_id
+    finally:
+        Agently.event_center.unregister_hook(hook_name)
 
 
 @pytest.mark.asyncio

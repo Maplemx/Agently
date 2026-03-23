@@ -209,6 +209,11 @@ class ModelRequest:
 
     # Response & Result
     def get_response(self, *, parent_run_context: "RunContext | None" = None):
+        agent_turn_run_context = (
+            parent_run_context
+            if parent_run_context is not None and parent_run_context.run_kind == "agent_turn"
+            else None
+        )
         response = ModelResponse(
             self.agent_name,
             self.plugin_manager,
@@ -216,6 +221,7 @@ class ModelRequest:
             self.prompt,
             self.extension_handlers,
             run_context=self._create_request_run_context(parent_run_context=parent_run_context),
+            agent_turn_run_context=agent_turn_run_context,
         )
         response.run_context.response_id = response.id
         self.prompt.clear()

@@ -87,6 +87,17 @@ def _create_request():
     )
 
 
+def _create_agent():
+    settings = Settings(name="ObservationTestAgentSettings", parent=Agently.settings)
+    plugin_manager = PluginManager(settings, parent=Agently.plugin_manager, name="ObservationTestAgentPluginManager")
+    plugin_manager.register("ModelRequester", MockObservationRequester, activate=True)
+    return Agently.AgentType(
+        plugin_manager,
+        parent_settings=settings,
+        name="observation-agent",
+    )
+
+
 @pytest.mark.asyncio
 async def test_model_request_events_include_prompt_and_child_run_lineage():
     MockObservationRequester.reset()
@@ -183,5 +194,150 @@ async def test_model_request_retry_creates_multiple_attempt_runs():
         assert retry_event.payload["next_attempt_index"] == 2
         assert retry_event.run is not None
         assert retry_event.run.run_id == response.run_context.run_id
+    finally:
+        Agently.event_center.unregister_hook(hook_name)
+
+
+@pytest.mark.asyncio
+async def test_agent_turn_wraps_request_and_model_request_runs():
+    MockObservationRequester.reset()
+    captured = []
+
+    async def capture(event):
+        captured.append(event)
+
+    hook_name = "test_model_request_observation.agent_turn_capture"
+    Agently.event_center.register_hook(capture, hook_name=hook_name)
+    try:
+        workflow_run = RunContext.create(
+            run_kind="workflow_execution",
+            agent_name="workflow-agent",
+            execution_id="execution-agent-turn",
+            meta={"flow_name": "agent-turn-flow"},
+        )
+        agent = _create_agent()
+        agent.input("Summarize the morning operations notes.")
+        agent.instruct("Focus on GPU cloud demand and operational risk.")
+
+        text = await agent.async_get_text(parent_run_context=workflow_run)
+
+        assert "Morning briefing prepared." in text
+
+        turn_events = [event for event in captured if event.run and event.run.run_kind == "agent_turn"]
+        assert [event.event_type for event in turn_events] == [
+            "agent_turn.started",
+            "agent_turn.completed",
+        ]
+
+        turn_run = turn_events[0].run
+        assert turn_run is not None
+        assert turn_run.parent_run_id == workflow_run.run_id
+
+        request_events = [
+            event for event in captured if event.run and event.run.run_kind == "request" and event.run.parent_run_id == turn_run.run_id
+        ]
+        assert [event.event_type for event in request_events if event.event_type.startswith("request.")] == [
+            "request.started",
+            "request.completed",
+        ]
+
+        model_start_event = next(event for event in captured if event.event_type == "model.request_started")
+        assert model_start_event.run is not None
+        assert model_start_event.run.parent_run_id == request_events[0].run.run_id
+    finally:
+        Agently.event_center.unregister_hook(hook_name)
+
+
+@pytest.mark.asyncio
+async def test_tool_runtime_uses_action_runs_under_request_scope():
+    MockObservationRequester.reset()
+    captured = []
+
+    async def capture(event):
+        captured.append(event)
+
+    hook_name = "test_model_request_observation.tool_action_capture"
+    Agently.event_center.register_hook(capture, hook_name=hook_name)
+    try:
+        agent = _create_agent()
+
+        agent.tool.register(
+            name="lookup_signal",
+            desc="lookup external signal",
+            kwargs={"topic": (str, "signal topic")},
+            func=lambda topic: f"signal:{ topic }",
+            tags=[f"agent-{ agent.name }"],
+        )
+
+        async def fake_plan_handler(
+            _prompt,
+            _settings,
+            _tool_list,
+            _done_plans,
+            _last_round_records,
+            round_index,
+            _max_rounds,
+            _agent_name,
+        ):
+            if round_index == 0:
+                return {
+                    "next_action": "execute",
+                    "execution_commands": [
+                        {
+                            "purpose": "gather_market_signal",
+                            "tool_name": "lookup_signal",
+                            "tool_kwargs": {"topic": "gpu"},
+                            "todo_suggestion": "respond",
+                        }
+                    ],
+                }
+            return {
+                "next_action": "response",
+                "execution_commands": [],
+            }
+
+        async def fake_execution_handler(
+            tool_commands,
+            _settings,
+            _async_call_tool,
+            _done_plans,
+            _round_index,
+            _concurrency,
+            _agent_name,
+        ):
+            return [
+                {
+                    "purpose": str(tool_commands[0].get("purpose", "unknown")),
+                    "tool_name": str(tool_commands[0].get("tool_name", "unknown")),
+                    "kwargs": tool_commands[0].get("tool_kwargs", {}),
+                    "todo_suggestion": str(tool_commands[0].get("todo_suggestion", "")),
+                    "success": True,
+                    "result": {"signal": "gpu-demand-rising"},
+                    "error": "",
+                }
+            ]
+
+        agent.register_tool_plan_analysis_handler(fake_plan_handler)
+        agent.register_tool_execution_handler(fake_execution_handler)
+        agent.tool.tag(["lookup_signal"], f"agent-{ agent.name }")
+        agent.input("Need a briefing with external signal.")
+        await agent.async_get_text()
+
+        request_run = next(event.run for event in captured if event.event_type == "request.started")
+        tool_loop_start = next(event for event in captured if event.event_type == "tool.loop_started")
+        assert tool_loop_start.run is not None
+        assert request_run is not None
+        assert tool_loop_start.run.parent_run_id == request_run.run_id
+
+        action_events = [event for event in captured if event.event_type.startswith("action.")]
+        assert [event.event_type for event in action_events] == [
+            "action.started",
+            "action.completed",
+        ]
+        action_run = action_events[0].run
+        assert action_run is not None
+        assert action_run.run_kind == "action"
+        assert action_run.parent_run_id == tool_loop_start.run.run_id
+        assert action_run.meta.get("action_type") == "tool"
     finally:
         Agently.event_center.unregister_hook(hook_name)

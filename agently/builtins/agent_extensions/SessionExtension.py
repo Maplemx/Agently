@@ -71,6 +71,10 @@ class SessionExtension(BaseAgent):
         for strategy_name, handler in self.__session_resize_handlers.items():
             session.register_resize_handler(strategy_name, handler)
 
+    @staticmethod
+    def _runtime_size(value) -> int:
+        return len(value) if hasattr(value, "__len__") else 0
+
     def _refill_agent_chat_history_with_session(self):
         if self.activated_session is None:
             return self
@@ -80,6 +84,8 @@ class SessionExtension(BaseAgent):
         return self
 
     def activate_session(self, *, session_id: str | None = None):
+        from agently.base import emit_runtime
+
         if session_id is not None and session_id in self.sessions:
             self.activated_session = self.sessions[session_id]
         else:
@@ -94,14 +100,40 @@ class SessionExtension(BaseAgent):
 
         self.__bind_session_resize_pipeline(self.activated_session)
         self.settings.set("runtime.session_id", self.activated_session.id)
+        emit_runtime(
+            {
+                "event_type": "session.activated",
+                "source": "SessionExtension",
+                "message": f"Session '{ self.activated_session.id }' activated.",
+                "payload": {
+                    "session_id": self.activated_session.id,
+                    "agent_name": self.name,
+                },
+            }
+        )
         return self._refill_agent_chat_history_with_session()
 
     def deactivate_session(self):
+        from agently.base import emit_runtime
+
+        previous_session_id = self.activated_session.id if self.activated_session is not None else None
         self.activated_session = None
         self.settings.set("runtime.session_id", None)
         if "chat_history" in self.agent_prompt:
             del self.agent_prompt["chat_history"]
         self.agent_prompt.set("chat_history", [])
+        if previous_session_id is not None:
+            emit_runtime(
+                {
+                    "event_type": "session.deactivated",
+                    "source": "SessionExtension",
+                    "message": f"Session '{ previous_session_id }' deactivated.",
+                    "payload": {
+                        "session_id": previous_session_id,
+                        "agent_name": self.name,
+                    },
+                }
+            )
         return self
 
     def reset_chat_history(self):
@@ -135,11 +167,31 @@ class SessionExtension(BaseAgent):
         return self._refill_agent_chat_history_with_session()
 
     async def _session_request_prefix(self, prompt: "Prompt", _settings: "Settings"):
+        from agently.base import async_emit_runtime
+
         if self.activated_session is not None:
             _settings.set("runtime.session_id", self.activated_session.id)
         Session.apply_request_prefix(prompt, self.activated_session)
+        if self.activated_session is not None:
+            memo = self.activated_session.memo
+            memo_size = self._runtime_size(memo)
+            await async_emit_runtime(
+                {
+                    "event_type": "session.applied_to_request",
+                    "source": "SessionExtension",
+                    "message": f"Session '{ self.activated_session.id }' applied to request.",
+                    "payload": {
+                        "session_id": self.activated_session.id,
+                        "context_window_size": self._runtime_size(self.activated_session.context_window),
+                        "memo_size": memo_size,
+                    },
+                    "run": getattr(_settings, "_runtime_request_run_context", None),
+                }
+            )
 
     async def _session_finally(self, result: "ModelResponseResult", settings: "Settings"):
+        from agently.base import async_emit_runtime
+
         if self.activated_session is None:
             return
 
@@ -153,3 +205,18 @@ class SessionExtension(BaseAgent):
             self.add_chat_history({"role": "user", "content": user_content})
         if assistant_content is not None and assistant_content != "":
             self.add_chat_history({"role": "assistant", "content": assistant_content})
+        if (user_content is not None and user_content != "") or (assistant_content is not None and assistant_content != ""):
+            await async_emit_runtime(
+                {
+                    "event_type": "session.context_appended",
+                    "source": "SessionExtension",
+                    "message": f"Session '{ self.activated_session.id }' appended new context.",
+                    "payload": {
+                        "session_id": self.activated_session.id,
+                        "has_user_content": bool(user_content),
+                        "has_assistant_content": bool(assistant_content),
+                        "context_window_size": self._runtime_size(self.activated_session.context_window),
+                    },
+                    "run": getattr(settings, "_runtime_request_run_context", None),
+                }
+            )

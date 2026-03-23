@@ -89,6 +89,7 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
         self._runtime_started_emitted = False
         self._runtime_completed_emitted = False
         self._runtime_failed_emitted = False
+        self._runtime_result_set_emitted = False
 
         # Settings
         self.settings = Settings(
@@ -809,6 +810,14 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
         if not _skip_contract_validation:
             stream_item = cast(StreamT, self._trigger_flow._contract.validate_stream_item(stream_item))
         await self._runtime_stream_queue.put(stream_item)
+        await self._emit_runtime_event(
+            "workflow.stream_item_emitted",
+            message=f"Workflow execution '{ self.id }' emitted a stream item.",
+            payload={
+                "item": self._to_serializable_value(stream_item),
+                "item_type": type(stream_item).__name__,
+            },
+        )
 
     async def async_stop_stream(self):
         await self._runtime_stream_queue.put(RUNTIME_STREAM_STOP)
@@ -890,6 +899,20 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
         if isinstance(result_ready, asyncio.Event):
             result_ready.set()
         self._set_status(TRIGGER_FLOW_STATUS_COMPLETED)
+        if not self._runtime_result_set_emitted:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop is not None:
+                self._runtime_result_set_emitted = True
+                loop.create_task(
+                    self._emit_runtime_event(
+                        "workflow.result_set",
+                        message=f"Workflow execution '{ self.id }' set a result.",
+                        payload={"result": self._to_serializable_value(result)},
+                    )
+                )
         if not self._runtime_completed_emitted:
             try:
                 loop = asyncio.get_running_loop()
@@ -911,6 +934,13 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
             if isinstance(result_ready, asyncio.Event):
                 await result_ready.wait()
             self._result = self._system_runtime_data.get("result")
+            if self._status == TRIGGER_FLOW_STATUS_COMPLETED and not self._runtime_result_set_emitted:
+                self._runtime_result_set_emitted = True
+                await self._emit_runtime_event(
+                    "workflow.result_set",
+                    message=f"Workflow execution '{ self.id }' set a result.",
+                    payload={"result": self._to_serializable_value(self._result)},
+                )
             if self._status == TRIGGER_FLOW_STATUS_COMPLETED and not self._runtime_completed_emitted:
                 self._runtime_completed_emitted = True
                 await self._emit_runtime_event(
@@ -925,6 +955,13 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
                 if isinstance(result_ready, asyncio.Event):
                     await asyncio.wait_for(result_ready.wait(), timeout=timeout)
                 self._result = self._system_runtime_data.get("result")
+                if self._status == TRIGGER_FLOW_STATUS_COMPLETED and not self._runtime_result_set_emitted:
+                    self._runtime_result_set_emitted = True
+                    await self._emit_runtime_event(
+                        "workflow.result_set",
+                        message=f"Workflow execution '{ self.id }' set a result.",
+                        payload={"result": self._to_serializable_value(self._result)},
+                    )
                 if self._status == TRIGGER_FLOW_STATUS_COMPLETED and not self._runtime_completed_emitted:
                     self._runtime_completed_emitted = True
                     await self._emit_runtime_event(

@@ -226,6 +226,7 @@ class Tool:
     ) -> "ToolPlanDecision":
         from agently.core import ModelRequest
 
+        parent_run_context = getattr(settings, "_runtime_tool_phase_run_context", None)
         tool_plan_request = ModelRequest(
             self.plugin_manager,
             parent_settings=settings,
@@ -266,7 +267,7 @@ class Tool:
                 ],
             }
         )
-        tool_plan_response = tool_plan_request.get_response()
+        tool_plan_response = tool_plan_request.get_response(parent_run_context=parent_run_context)
         async for instant in tool_plan_response.get_async_generator(type="instant"):
             if not instant.is_complete:
                 continue
@@ -601,6 +602,7 @@ class Tool:
         settings: "Settings",
         tool_list: list[dict[str, Any]],
         agent_name: str = "Manual",
+        parent_run_context=None,
         plan_analysis_handler: "ToolPlanAnalysisHandler | None" = None,
         tool_execution_handler: "ToolExecutionHandler | None" = None,
         max_rounds: int | None = None,
@@ -643,9 +645,10 @@ class Tool:
 
         tool_loop_run = RunContext.create(
             run_kind="tool_loop",
+            parent=parent_run_context,
             agent_name=agent_name,
             session_id=str(settings.get("runtime.session_id")) if settings.get("runtime.session_id", None) else None,
-            meta={"tool_count": len(tool_list)},
+            meta={"tool_count": len(tool_list), "action_type": "tool_loop"},
         )
         await async_emit_runtime(
             {
@@ -720,6 +723,38 @@ class Tool:
             if not isinstance(done_plans, list):
                 done_plans = []
 
+            action_runs = []
+            for command_index, command in enumerate(tool_commands):
+                tool_name = str(command.get("tool_name", "unknown"))
+                purpose = str(command.get("purpose", f"tool_call_{ command_index + 1 }"))
+                action_run = tool_loop_run.create_child(
+                    run_kind="action",
+                    meta={
+                        "action_type": "tool",
+                        "action_name": tool_name,
+                        "purpose": purpose,
+                        "round_index": round_index,
+                        "command_index": command_index,
+                    },
+                )
+                action_runs.append(action_run)
+                await async_emit_runtime(
+                    {
+                        "event_type": "action.started",
+                        "source": "Tool",
+                        "message": f"Action '{ tool_name }' started.",
+                        "payload": {
+                            "agent_name": agent_name,
+                            "round_index": round_index,
+                            "command_index": command_index,
+                            "action_type": "tool",
+                            "action_name": tool_name,
+                            "command": command,
+                        },
+                        "run": action_run,
+                    }
+                )
+
             records = self._normalize_execution_records(
                 await standard_execution_handler(
                     tool_commands,
@@ -736,22 +771,34 @@ class Tool:
             for record_index, record in enumerate(records):
                 tool_name = record.get("tool_name", "unknown")
                 success = bool(record.get("success"))
+                action_run = (
+                    action_runs[record_index]
+                    if record_index < len(action_runs)
+                    else tool_loop_run.create_child(
+                        run_kind="action",
+                        meta={
+                            "action_type": "tool",
+                            "action_name": str(tool_name),
+                            "round_index": round_index,
+                            "command_index": record_index,
+                        },
+                    )
+                )
                 await async_emit_runtime(
                     {
-                        "event_type": "tool.call_completed" if success else "tool.call_failed",
+                        "event_type": "action.completed" if success else "action.failed",
                         "source": "Tool",
                         "level": "INFO" if success else "WARNING",
-                        "message": f"Tool '{ tool_name }' {'completed' if success else 'failed'}.",
+                        "message": f"Action '{ tool_name }' {'completed' if success else 'failed'}.",
                         "payload": {
                             "agent_name": agent_name,
                             "round_index": round_index,
                             "record_index": record_index,
+                            "action_type": "tool",
+                            "action_name": str(tool_name),
                             "record": record,
                         },
-                        "run": tool_loop_run.create_child(
-                            run_kind="tool_call",
-                            meta={"round_index": round_index, "tool_name": str(tool_name)},
-                        ),
+                        "run": action_run,
                     }
                 )
 
@@ -767,6 +814,8 @@ class Tool:
         flow.when("EXECUTE").to(execute_step)
         flow.when("DONE").to(lambda data: data.value).end()
 
+        previous_tool_phase_run_context = getattr(settings, "_runtime_tool_phase_run_context", None)
+        setattr(settings, "_runtime_tool_phase_run_context", tool_loop_run)
         execution = flow.create_execution(parent_run_context=tool_loop_run)
         try:
             result = await execution.async_start(
@@ -786,6 +835,8 @@ class Tool:
                 }
             )
             raise
+        finally:
+            setattr(settings, "_runtime_tool_phase_run_context", previous_tool_phase_run_context)
         if not isinstance(result, list):
             return []
         normalized = [self._normalize_execution_record(record, None, index) for index, record in enumerate(result)]

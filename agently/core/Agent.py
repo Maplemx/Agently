@@ -14,14 +14,14 @@
 
 import uuid
 
-from typing import Any, Sequence, TYPE_CHECKING
+from typing import Any, Sequence, TYPE_CHECKING, Literal, cast
 
 from agently.core import Prompt, ExtensionHandlers, ModelRequest
 from agently.utils import Settings
 
 if TYPE_CHECKING:
     from agently.core import PluginManager
-    from agently.types.data import PromptStandardSlot, ChatMessage, ChatMessageDict
+    from agently.types.data import PromptStandardSlot, ChatMessage, ChatMessageDict, RunContext
 
 
 class BaseAgent:
@@ -68,22 +68,6 @@ class BaseAgent:
         self.set_settings = self.settings.set_settings
         self.load_settings = self.settings.load
 
-        self.get_response = self.request.get_response
-        self.get_result = self.request.get_result
-        self.get_meta = self.request.get_meta
-        self.async_get_meta = self.request.async_get_meta
-        self.get_text = self.request.get_text
-        self.async_get_text = self.request.async_get_text
-        self.get_data = self.request.get_data
-        self.async_get_data = self.request.async_get_data
-        self.get_data_object = self.request.get_data_object
-        self.async_get_data_object = self.request.async_get_data_object
-        self.get_generator = self.request.get_generator
-        self.get_async_generator = self.request.get_async_generator
-
-        self.start = self.get_data
-        self.async_start = self.async_get_data
-
     # Create Request
     def create_request(
         self,
@@ -116,6 +100,215 @@ class BaseAgent:
             name=f"{ self.name }-Temp-{ uuid.uuid4().hex }",
             inherit_agent_prompt=False,
             inherit_extension_handlers=False,
+        )
+
+    def _create_agent_turn_run_context(
+        self,
+        *,
+        parent_run_context: "RunContext | None" = None,
+    ):
+        from agently.types.data import RunContext
+
+        session_id = self.settings.get("runtime.session_id", None)
+        if session_id is not None:
+            session_id = str(session_id)
+        return RunContext.create(
+            run_kind="agent_turn",
+            parent=parent_run_context,
+            agent_id=self.id,
+            agent_name=self.name,
+            session_id=session_id,
+            meta={"entrypoint": "agent"},
+        )
+
+    def _emit_agent_turn_started(self, turn_run_context: "RunContext"):
+        from agently.base import emit_runtime
+
+        emit_runtime(
+            {
+                "event_type": "agent_turn.started",
+                "source": "BaseAgent",
+                "message": f"Agent turn started for '{ self.name }'.",
+                "payload": {
+                    "agent_id": self.id,
+                    "agent_name": self.name,
+                },
+                "run": turn_run_context,
+            }
+        )
+
+    async def _async_emit_agent_turn_started(self, turn_run_context: "RunContext"):
+        from agently.base import async_emit_runtime
+
+        await async_emit_runtime(
+            {
+                "event_type": "agent_turn.started",
+                "source": "BaseAgent",
+                "message": f"Agent turn started for '{ self.name }'.",
+                "payload": {
+                    "agent_id": self.id,
+                    "agent_name": self.name,
+                },
+                "run": turn_run_context,
+            }
+        )
+
+    def get_response(self, *, parent_run_context: "RunContext | None" = None):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        self._emit_agent_turn_started(turn_run_context)
+        return self.request.get_response(parent_run_context=turn_run_context)
+
+    def get_result(self, *, parent_run_context: "RunContext | None" = None):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        self._emit_agent_turn_started(turn_run_context)
+        return self.request.get_result(parent_run_context=turn_run_context)
+
+    def get_meta(self, *, parent_run_context: "RunContext | None" = None):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        self._emit_agent_turn_started(turn_run_context)
+        return self.request.get_meta(parent_run_context=turn_run_context)
+
+    async def async_get_meta(self, *, parent_run_context: "RunContext | None" = None):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        await self._async_emit_agent_turn_started(turn_run_context)
+        return await self.request.async_get_meta(parent_run_context=turn_run_context)
+
+    def get_text(self, *, parent_run_context: "RunContext | None" = None):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        self._emit_agent_turn_started(turn_run_context)
+        return self.request.get_text(parent_run_context=turn_run_context)
+
+    async def async_get_text(self, *, parent_run_context: "RunContext | None" = None):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        await self._async_emit_agent_turn_started(turn_run_context)
+        return await self.request.async_get_text(parent_run_context=turn_run_context)
+
+    def get_data(
+        self,
+        *,
+        type: Literal['original', 'parsed', 'all'] = "parsed",
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        parent_run_context: "RunContext | None" = None,
+    ):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        self._emit_agent_turn_started(turn_run_context)
+        return self.request.get_data(
+            type=type,
+            ensure_keys=ensure_keys,
+            key_style=key_style,
+            max_retries=max_retries,
+            raise_ensure_failure=raise_ensure_failure,
+            parent_run_context=turn_run_context,
+        )
+
+    async def async_get_data(
+        self,
+        *,
+        type: Literal['original', 'parsed', 'all'] = "parsed",
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        parent_run_context: "RunContext | None" = None,
+    ):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        await self._async_emit_agent_turn_started(turn_run_context)
+        return await self.request.async_get_data(
+            type=type,
+            ensure_keys=ensure_keys,
+            key_style=key_style,
+            max_retries=max_retries,
+            raise_ensure_failure=raise_ensure_failure,
+            parent_run_context=turn_run_context,
+        )
+
+    def get_data_object(
+        self,
+        *,
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        parent_run_context: "RunContext | None" = None,
+    ):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        self._emit_agent_turn_started(turn_run_context)
+        return self.request.get_data_object(
+            ensure_keys=ensure_keys,
+            key_style=key_style,
+            max_retries=max_retries,
+            raise_ensure_failure=raise_ensure_failure,
+            parent_run_context=turn_run_context,
+        )
+
+    async def async_get_data_object(
+        self,
+        *,
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        parent_run_context: "RunContext | None" = None,
+    ):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        await self._async_emit_agent_turn_started(turn_run_context)
+        return await self.request.async_get_data_object(
+            ensure_keys=ensure_keys,
+            key_style=key_style,
+            max_retries=max_retries,
+            raise_ensure_failure=raise_ensure_failure,
+            parent_run_context=turn_run_context,
+        )
+
+    def get_generator(self, *args, parent_run_context: "RunContext | None" = None, **kwargs):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        self._emit_agent_turn_started(turn_run_context)
+        return cast(Any, self.request).get_generator(*args, parent_run_context=turn_run_context, **kwargs)
+
+    def get_async_generator(self, *args, parent_run_context: "RunContext | None" = None, **kwargs):
+        turn_run_context = self._create_agent_turn_run_context(parent_run_context=parent_run_context)
+        self._emit_agent_turn_started(turn_run_context)
+        return cast(Any, self.request).get_async_generator(*args, parent_run_context=turn_run_context, **kwargs)
+
+    def start(
+        self,
+        *,
+        type: Literal['original', 'parsed', 'all'] = "parsed",
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        parent_run_context: "RunContext | None" = None,
+    ):
+        return self.get_data(
+            type=type,
+            ensure_keys=ensure_keys,
+            key_style=key_style,
+            max_retries=max_retries,
+            raise_ensure_failure=raise_ensure_failure,
+            parent_run_context=parent_run_context,
+        )
+
+    async def async_start(
+        self,
+        *,
+        type: Literal['original', 'parsed', 'all'] = "parsed",
+        ensure_keys: list[str] | None = None,
+        key_style: Literal["dot", "slash"] = "dot",
+        max_retries: int = 3,
+        raise_ensure_failure: bool = True,
+        parent_run_context: "RunContext | None" = None,
+    ):
+        return await self.async_get_data(
+            type=type,
+            ensure_keys=ensure_keys,
+            key_style=key_style,
+            max_retries=max_retries,
+            raise_ensure_failure=raise_ensure_failure,
+            parent_run_context=parent_run_context,
         )
 
     # Basic Methods

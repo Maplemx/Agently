@@ -211,9 +211,10 @@ class ToolExtension(BaseAgent):
             max_rounds=max_rounds,
         )
 
-    async def __request_prefix(self, prompt: "Prompt", _):
+    async def __request_prefix(self, prompt: "Prompt", _settings):
+        settings = _settings if _settings is not None else self.settings
         self.__tool_logs = []
-        if self.settings.get("tool.loop.enabled", True) is not True:
+        if settings.get("tool.loop.enabled", True) is not True:
             return
 
         tool_list = self.tool.get_tool_list(tags=[f"agent-{ self.name }"])
@@ -222,12 +223,13 @@ class ToolExtension(BaseAgent):
 
         records = await self.tool.async_plan_and_execute(
             prompt=prompt,
-            settings=self.settings,
+            settings=settings,
             tool_list=tool_list,
             agent_name=self.name,
-            max_rounds=self.settings.get("tool.loop.max_rounds", 5),  # type: ignore
-            concurrency=self.settings.get("tool.loop.concurrency", None),  # type: ignore
-            timeout=self.settings.get("tool.loop.timeout", None),  # type: ignore
+            parent_run_context=getattr(settings, "_runtime_request_run_context", None),
+            max_rounds=settings.get("tool.loop.max_rounds", 5),  # type: ignore
+            concurrency=settings.get("tool.loop.concurrency", None),  # type: ignore
+            timeout=settings.get("tool.loop.timeout", None),  # type: ignore
         )
 
         if len(records) > 0:

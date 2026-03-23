@@ -41,6 +41,7 @@ class ModelResponse:
         *,
         run_context: "RunContext | None" = None,
         parent_run_context: "RunContext | None" = None,
+        agent_turn_run_context: "RunContext | None" = None,
         attempt_index: int = 1,
     ):
         self.agent_name = agent_name
@@ -62,6 +63,7 @@ class ModelResponse:
         if self.request_run_context.agent_name is None:
             self.request_run_context.agent_name = self.agent_name
         self.run_context = self.request_run_context
+        self.agent_turn_run_context = agent_turn_run_context
         self.model_run_context = self.request_run_context.create_child(
             run_kind="model_request",
             response_id=self.id,
@@ -73,6 +75,9 @@ class ModelResponse:
         settings_snapshot = settings.get()
         self.settings = Settings(settings_snapshot if isinstance(settings_snapshot, dict) else {})
         self.settings.set("$log.cancel_logs", False)
+        setattr(self.settings, "_runtime_request_run_context", self.request_run_context)
+        setattr(self.settings, "_runtime_model_run_context", self.model_run_context)
+        setattr(self.settings, "_runtime_agent_turn_run_context", self.agent_turn_run_context)
         prompt_snapshot = prompt.get()
         self.prompt = Prompt(
             self.plugin_manager,
@@ -302,6 +307,21 @@ class ModelResponse:
                     "run": self.request_run_context,
                 }
             )
+            if self.agent_turn_run_context is not None:
+                await async_emit_runtime(
+                    {
+                        "event_type": "agent_turn.completed",
+                        "source": "ModelResponse",
+                        "message": f"Agent turn completed for '{ self.agent_name }'.",
+                        "payload": {
+                            "agent_name": self.agent_name,
+                            "response_id": self.id,
+                            "request_run_id": self.request_run_context.run_id,
+                            "attempt_count": self.attempt_index,
+                        },
+                        "run": self.agent_turn_run_context,
+                    }
+                )
         except Exception as error:
             await async_emit_runtime(
                 {
@@ -334,4 +354,21 @@ class ModelResponse:
                     "run": self.request_run_context,
                 }
             )
+            if self.agent_turn_run_context is not None:
+                await async_emit_runtime(
+                    {
+                        "event_type": "agent_turn.failed",
+                        "source": "ModelResponse",
+                        "level": "ERROR",
+                        "message": f"Agent turn failed for '{ self.agent_name }'.",
+                        "payload": {
+                            "agent_name": self.agent_name,
+                            "response_id": self.id,
+                            "request_run_id": self.request_run_context.run_id,
+                            "attempt_count": self.attempt_index,
+                        },
+                        "error": error,
+                        "run": self.agent_turn_run_context,
+                    }
+                )
             raise

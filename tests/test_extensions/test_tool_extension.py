@@ -159,7 +159,8 @@ async def test_tool_extension_plan_handler_instant_response_short_circuit(monkey
             _ = (args, kwargs)
             return self
 
-        def get_response(self):
+        def get_response(self, *, parent_run_context=None):
+            _ = parent_run_context
             return FakeResponse()
 
     import agently.core as core_module
