@@ -194,6 +194,16 @@ async def test_model_request_retry_creates_multiple_attempt_runs():
         assert retry_event.payload["next_attempt_index"] == 2
         assert retry_event.run is not None
         assert retry_event.run.run_id == response.run_context.run_id
+
+        completed_events = [event for event in captured if event.event_type == "model.completed"]
+        assert len(completed_events) == 2
+        final_completed_event = completed_events[-1]
+        assert final_completed_event.payload["result"] == {
+            "summary": "all good",
+            "reply": "done",
+        }
+        assert final_completed_event.payload["raw_text"] == '{"summary": "all good", "reply": "done"}'
+        assert final_completed_event.payload["cleaned_text"] == '{"summary": "all good", "reply": "done"}'
     finally:
         Agently.event_center.unregister_hook(hook_name)
 

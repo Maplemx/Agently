@@ -25,6 +25,7 @@ from agently.types.plugins import ResponseParser
 from agently.types.data import StreamingData
 from agently.utils import (
     DataPathBuilder,
+    DataFormatter,
     StateDataNamespace,
     GeneratorConsumer,
     DataLocator,
@@ -196,7 +197,9 @@ class AgentlyResponseParser(ResponseParser):
                                         "payload": {
                                             "agent_name": self.agent_name,
                                             "response_id": self.response_id,
-                                            "result": data,
+                                            "result": DataFormatter.sanitize(parsed),
+                                            "raw_text": str(data),
+                                            "cleaned_text": completed,
                                             "streamed_text": buffer,
                                         },
                                         "run": self.run_context,
@@ -238,7 +241,8 @@ class AgentlyResponseParser(ResponseParser):
                                         "payload": {
                                             "agent_name": self.agent_name,
                                             "response_id": self.response_id,
-                                            "result": data,
+                                            "result": DataFormatter.sanitize(data),
+                                            "raw_text": str(data),
                                             "streamed_text": buffer,
                                         },
                                         "run": self.run_context,
