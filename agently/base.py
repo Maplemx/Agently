@@ -68,6 +68,9 @@ async def async_print(content: Any, *args):
 
 settings.update_mappings(
     {
+        "path_mappings": {
+            "agently_api_key": "agently.api_key",
+        },
         "key_value_mappings": {
             "debug": {
                 True: {
@@ -159,6 +162,10 @@ class AgentlyMain(Generic[A]):
 
         self.set_settings = set_settings
         self.load_settings = load_settings
+
+    def set_api_key(self, api_key: str):
+        self.set_settings("agently.api_key", api_key)
+        return self
 
     def set_debug_console(self, debug_console_status: Literal["ON", "OFF"]):
         # Deprecated: debug console mode is retired and no longer participates in runtime.

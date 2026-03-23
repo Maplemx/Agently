@@ -10,6 +10,18 @@ async def test_settings():
     assert Agently.settings["test"] == "test"
 
 
+def test_agently_set_api_key_and_alias_mapping():
+    original_api_key = Agently.settings.get("agently.api_key", None)
+    try:
+        Agently.set_api_key("official-key")
+        assert Agently.settings["agently.api_key"] == "official-key"
+
+        Agently.set_settings("agently_api_key", "official-key-alias")
+        assert Agently.settings["agently.api_key"] == "official-key-alias"
+    finally:
+        Agently.set_settings("agently.api_key", original_api_key)
+
+
 def test_agently_load_settings_file(tmp_path, monkeypatch):
     config_path = tmp_path / "settings.yaml"
     env_path = tmp_path / ".env"
