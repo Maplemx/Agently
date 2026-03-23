@@ -59,12 +59,17 @@ class ModelResponseResult:
         settings: "Settings",
         extension_handlers: "ExtensionHandlers",
         *,
-        run_context: "RunContext | None" = None,
+        request_run_context: "RunContext | None" = None,
+        model_run_context: "RunContext | None" = None,
+        attempt_index: int = 1,
     ):
         self.agent_name = agent_name
         self.plugin_manager = plugin_manager
         self.settings = settings
-        self.run_context = run_context
+        self.request_run_context = request_run_context
+        self.model_run_context = model_run_context
+        self.run_context = request_run_context
+        self.attempt_index = attempt_index
         ResponseParser = cast(
             type["ResponseParser"],
             self.plugin_manager.get_plugin(
@@ -80,7 +85,7 @@ class ModelResponseResult:
             prompt,
             response_generator,
             self.settings,
-            run_context=self.run_context,
+            run_context=self.model_run_context,
         )
         self._finally_handlers_ran = False
         self._finally_handlers_lock = asyncio.Lock()
@@ -183,11 +188,14 @@ class ModelResponseResult:
                             "agent_name": self.agent_name,
                             "response_id": self._response_id,
                             "retry_count": _retry_count,
+                            "attempt_index": self.attempt_index,
+                            "next_attempt_index": self.attempt_index + 1,
+                            "model_run_id": self.model_run_context.run_id if self.model_run_context is not None else None,
                             "response_text": await self._response_parser.async_get_text(),
                             "ensure_keys": ensure_keys,
                             "key_style": key_style,
                         },
-                        "run": self.run_context,
+                        "run": self.request_run_context,
                     }
                 )
 
@@ -198,7 +206,8 @@ class ModelResponseResult:
                         self.settings,
                         self.prompt,
                         self._extension_handlers,
-                        parent_run_context=self.run_context,
+                        run_context=self.request_run_context,
+                        attempt_index=self.attempt_index + 1,
                     ).result.async_get_data(
                         type=type,
                         ensure_keys=ensure_keys,

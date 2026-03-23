@@ -115,6 +115,7 @@ class AgentlyResponseParser(ResponseParser):
         from agently.base import async_emit_runtime
 
         buffer = ""
+        stream_chunk_index = 0
         try:
             async for item in self.response_generator:
                 try:
@@ -128,6 +129,7 @@ class AgentlyResponseParser(ResponseParser):
                         self.full_result_data["original_delta"].append(data)
                     case "delta":
                         buffer += str(data)
+                        stream_chunk_index += 1
                         if self.settings.get("$log.cancel_logs") is not True:
                             await async_emit_runtime(
                                 {
@@ -139,6 +141,7 @@ class AgentlyResponseParser(ResponseParser):
                                         "agent_name": self.agent_name,
                                         "response_id": self.response_id,
                                         "delta": str(data),
+                                        "chunk_index": stream_chunk_index,
                                     },
                                     "run": self.run_context,
                                 }
@@ -194,6 +197,7 @@ class AgentlyResponseParser(ResponseParser):
                                             "agent_name": self.agent_name,
                                             "response_id": self.response_id,
                                             "result": data,
+                                            "streamed_text": buffer,
                                         },
                                         "run": self.run_context,
                                     }
@@ -211,6 +215,7 @@ class AgentlyResponseParser(ResponseParser):
                                             "agent_name": self.agent_name,
                                             "response_id": self.response_id,
                                             "result": str(data),
+                                            "streamed_text": buffer,
                                         },
                                         "run": self.run_context,
                                     }
@@ -234,6 +239,7 @@ class AgentlyResponseParser(ResponseParser):
                                             "agent_name": self.agent_name,
                                             "response_id": self.response_id,
                                             "result": data,
+                                            "streamed_text": buffer,
                                         },
                                         "run": self.run_context,
                                     }
@@ -241,9 +247,36 @@ class AgentlyResponseParser(ResponseParser):
                     case "meta":
                         if isinstance(data, Mapping):
                             self.full_result_data["meta"].update(dict(data))
+                            await async_emit_runtime(
+                                {
+                                    "event_type": "model.meta",
+                                    "source": "AgentlyResponseParser",
+                                    "message": "Model response meta updated.",
+                                    "payload": {
+                                        "agent_name": self.agent_name,
+                                        "response_id": self.response_id,
+                                        "meta": dict(data),
+                                    },
+                                    "run": self.run_context,
+                                }
+                            )
                     case "error":
                         if isinstance(data, Exception):
                             self.full_result_data["errors"].append(data)
+                            await async_emit_runtime(
+                                {
+                                    "event_type": "model.failed",
+                                    "source": "AgentlyResponseParser",
+                                    "level": "ERROR",
+                                    "message": "Model response stream emitted an error.",
+                                    "payload": {
+                                        "agent_name": self.agent_name,
+                                        "response_id": self.response_id,
+                                    },
+                                    "error": data,
+                                    "run": self.run_context,
+                                }
+                            )
         finally:
             if hasattr(self.response_generator, "aclose"):
                 with contextlib.suppress(RuntimeError):

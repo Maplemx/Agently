@@ -22,7 +22,7 @@ from typing_extensions import TypedDict
 
 RuntimeEventLevel: TypeAlias = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
-RunKind: TypeAlias = Literal["request", "workflow_execution", "tool_loop", "tool_call"] | str
+RunKind: TypeAlias = Literal["request", "model_request", "workflow_execution", "tool_loop", "tool_call"] | str
 
 
 class ErrorInfoDict(TypedDict, total=False):

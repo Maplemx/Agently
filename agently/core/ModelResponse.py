@@ -16,7 +16,7 @@ import inspect
 import json
 import uuid
 
-from typing import AsyncGenerator, TYPE_CHECKING, cast
+from typing import Any, AsyncGenerator, TYPE_CHECKING, cast
 
 from agently.core.Prompt import Prompt
 from agently.core.ExtensionHandlers import ExtensionHandlers
@@ -41,24 +41,34 @@ class ModelResponse:
         *,
         run_context: "RunContext | None" = None,
         parent_run_context: "RunContext | None" = None,
+        attempt_index: int = 1,
     ):
         self.agent_name = agent_name
         self.id = uuid.uuid4().hex
+        self.attempt_index = attempt_index
         if run_context is not None:
-            self.run_context = run_context
+            self.request_run_context = run_context
         else:
             from agently.types.data import RunContext
 
-            self.run_context = RunContext.create(
+            self.request_run_context = RunContext.create(
                 run_kind="request",
                 parent=parent_run_context,
                 agent_name=self.agent_name,
                 response_id=self.id,
             )
-        if self.run_context.response_id is None:
-            self.run_context.response_id = self.id
-        if self.run_context.agent_name is None:
-            self.run_context.agent_name = self.agent_name
+        if self.request_run_context.response_id is None:
+            self.request_run_context.response_id = self.id
+        if self.request_run_context.agent_name is None:
+            self.request_run_context.agent_name = self.agent_name
+        self.run_context = self.request_run_context
+        self.model_run_context = self.request_run_context.create_child(
+            run_kind="model_request",
+            response_id=self.id,
+            meta={
+                "attempt_index": self.attempt_index,
+            },
+        )
         self.plugin_manager = plugin_manager
         settings_snapshot = settings.get()
         self.settings = Settings(settings_snapshot if isinstance(settings_snapshot, dict) else {})
@@ -81,7 +91,9 @@ class ModelResponse:
             self.plugin_manager,
             self.settings,
             self.extension_handlers,
-            run_context=self.run_context,
+            request_run_context=self.request_run_context,
+            model_run_context=self.model_run_context,
+            attempt_index=self.attempt_index,
         )
         self.get_meta = self.result.get_meta
         self.async_get_meta = self.result.async_get_meta
@@ -97,6 +109,36 @@ class ModelResponse:
     def cancel_logs(self):
         self.settings.set("$log.cancel_logs", True)
 
+    def _build_prompt_payload(self) -> dict[str, Any]:
+        prompt_snapshot = self.prompt.to_serializable_prompt_data()
+        prompt_messages = self.prompt.to_messages()
+        prompt_text = self.prompt.to_text()
+        prompt_object = self.prompt.to_prompt_object()
+        return {
+            "prompt": prompt_snapshot,
+            "prompt_messages": DataFormatter.sanitize(prompt_messages),
+            "prompt_text": prompt_text,
+            "output_format": prompt_object.output_format,
+            "has_tools": bool(prompt_object.tools),
+            "chat_history_length": len(prompt_object.chat_history),
+            "attachment_count": len(prompt_object.attachment),
+        }
+
+    def _build_request_payload(self, request_data: Any):
+        request_data_dict = DataFormatter.sanitize(request_data.model_dump())
+        request_detail = {
+            "data": request_data_dict["data"] if "data" in request_data_dict else None,
+            "request_options": request_data_dict["request_options"] if "request_options" in request_data_dict else None,
+            "request_url": request_data_dict["request_url"] if "request_url" in request_data_dict else None,
+            "stream": request_data_dict["stream"] if "stream" in request_data_dict else None,
+        }
+        return {
+            "request": request_detail,
+            "request_text": json.dumps(request_detail, indent=2, ensure_ascii=False)
+            .replace("\\n", "\n")
+            .replace("\\\"", "\""),
+        }
+
     async def _get_response_generator(self) -> AsyncGenerator["AgentlyModelResponseMessage", None]:
         from agently.base import async_emit_runtime
 
@@ -108,8 +150,9 @@ class ModelResponse:
                 "payload": {
                     "agent_name": self.agent_name,
                     "response_id": self.id,
+                    "attempt_index": self.attempt_index,
                 },
-                "run": self.run_context,
+                "run": self.request_run_context,
             }
         )
         try:
@@ -126,15 +169,38 @@ class ModelResponse:
                     await prefix(self.prompt, self.settings)
                 elif inspect.isfunction(prefix):
                     prefix(self.prompt, self.settings)
+            await async_emit_runtime(
+                {
+                    "event_type": "model.request_started",
+                    "source": "ModelResponse",
+                    "message": f"Starting model request attempt #{ self.attempt_index } for agent '{ self.agent_name }'.",
+                    "payload": {
+                        "agent_name": self.agent_name,
+                        "response_id": self.id,
+                        "attempt_index": self.attempt_index,
+                        "request_run_id": self.request_run_context.run_id,
+                    },
+                    "run": self.model_run_context,
+                }
+            )
+            prompt_payload = self._build_prompt_payload()
+            await async_emit_runtime(
+                {
+                    "event_type": "prompt.built",
+                    "source": "ModelResponse",
+                    "message": f"Prompt built for model request attempt #{ self.attempt_index }.",
+                    "payload": {
+                        "agent_name": self.agent_name,
+                        "response_id": self.id,
+                        "attempt_index": self.attempt_index,
+                        **prompt_payload,
+                    },
+                    "run": self.model_run_context,
+                }
+            )
             model_requester = ModelRequester(self.prompt, self.settings)
             request_data = model_requester.generate_request_data()
-            request_data_dict = DataFormatter.sanitize(request_data.model_dump())
-            request_detail = {
-                "data": request_data_dict["data"] if "data" in request_data_dict else None,
-                "request_options": request_data_dict["request_options"] if "request_options" in request_data_dict else None,
-                "request_url": request_data_dict["request_url"] if "request_url" in request_data_dict else None,
-                "stream": request_data_dict["stream"] if "stream" in request_data_dict else None,
-            }
+            request_payload = self._build_request_payload(request_data)
             await async_emit_runtime(
                 {
                     "event_type": "model.requesting",
@@ -143,12 +209,11 @@ class ModelResponse:
                     "payload": {
                         "agent_name": self.agent_name,
                         "response_id": self.id,
-                        "request": request_detail,
-                        "request_text": json.dumps(request_detail, indent=2, ensure_ascii=False)
-                        .replace("\\n", "\n")
-                        .replace("\\\"", "\""),
+                        "attempt_index": self.attempt_index,
+                        "request_run_id": self.request_run_context.run_id,
+                        **request_payload,
                     },
-                    "run": self.run_context,
+                    "run": self.model_run_context,
                 }
             )
             response_generator = model_requester.request_model(request_data)
@@ -232,11 +297,28 @@ class ModelResponse:
                     "payload": {
                         "agent_name": self.agent_name,
                         "response_id": self.id,
+                        "attempt_index": self.attempt_index,
                     },
-                    "run": self.run_context,
+                    "run": self.request_run_context,
                 }
             )
         except Exception as error:
+            await async_emit_runtime(
+                {
+                    "event_type": "model.request_failed",
+                    "source": "ModelResponse",
+                    "level": "ERROR",
+                    "message": f"Model request failed for agent '{ self.agent_name }'.",
+                    "payload": {
+                        "agent_name": self.agent_name,
+                        "response_id": self.id,
+                        "attempt_index": self.attempt_index,
+                        "request_run_id": self.request_run_context.run_id,
+                    },
+                    "error": error,
+                    "run": self.model_run_context,
+                }
+            )
             await async_emit_runtime(
                 {
                     "event_type": "request.failed",
@@ -246,9 +328,10 @@ class ModelResponse:
                     "payload": {
                         "agent_name": self.agent_name,
                         "response_id": self.id,
+                        "attempt_index": self.attempt_index,
                     },
                     "error": error,
-                    "run": self.run_context,
+                    "run": self.request_run_context,
                 }
             )
             raise

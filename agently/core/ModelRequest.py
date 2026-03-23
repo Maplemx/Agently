@@ -89,7 +89,12 @@ class ModelRequest:
         self.start = self.get_data
         self.async_start = self.async_get_data
 
-    def _create_request_run_context(self, response_id: str | None = None) -> "RunContext":
+    def _create_request_run_context(
+        self,
+        response_id: str | None = None,
+        *,
+        parent_run_context: "RunContext | None" = None,
+    ) -> "RunContext":
         from agently.types.data import RunContext
 
         session_id = self.settings.get("runtime.session_id", None)
@@ -97,6 +102,7 @@ class ModelRequest:
             session_id = str(session_id)
         return RunContext.create(
             run_kind="request",
+            parent=parent_run_context,
             agent_id=self.agent_id,
             agent_name=self.agent_name,
             session_id=session_id,
@@ -202,27 +208,27 @@ class ModelRequest:
         return self
 
     # Response & Result
-    def get_response(self):
+    def get_response(self, *, parent_run_context: "RunContext | None" = None):
         response = ModelResponse(
             self.agent_name,
             self.plugin_manager,
             self.settings,
             self.prompt,
             self.extension_handlers,
-            run_context=self._create_request_run_context(),
+            run_context=self._create_request_run_context(parent_run_context=parent_run_context),
         )
         response.run_context.response_id = response.id
         self.prompt.clear()
         return response
 
-    def get_result(self):
-        return self.get_response().result
+    def get_result(self, *, parent_run_context: "RunContext | None" = None):
+        return self.get_response(parent_run_context=parent_run_context).result
 
-    async def async_get_meta(self):
-        return await self.get_response().async_get_meta()
+    async def async_get_meta(self, *, parent_run_context: "RunContext | None" = None):
+        return await self.get_response(parent_run_context=parent_run_context).async_get_meta()
 
-    async def async_get_text(self):
-        return await self.get_response().async_get_text()
+    async def async_get_text(self, *, parent_run_context: "RunContext | None" = None):
+        return await self.get_response(parent_run_context=parent_run_context).async_get_text()
 
     async def async_get_data(
         self,
@@ -232,8 +238,9 @@ class ModelRequest:
         key_style: Literal["dot", "slash"] = "dot",
         max_retries: int = 3,
         raise_ensure_failure: bool = True,
+        parent_run_context: "RunContext | None" = None,
     ):
-        response = self.get_response()
+        response = self.get_response(parent_run_context=parent_run_context)
         return await response.async_get_data(
             type=type,
             ensure_keys=ensure_keys,
@@ -249,8 +256,9 @@ class ModelRequest:
         key_style: Literal["dot", "slash"] = "dot",
         max_retries: int = 3,
         raise_ensure_failure: bool = True,
+        parent_run_context: "RunContext | None" = None,
     ):
-        response = self.get_response()
+        response = self.get_response(parent_run_context=parent_run_context)
         return await response.async_get_data_object(
             ensure_keys=ensure_keys,
             key_style=key_style,
@@ -296,8 +304,9 @@ class ModelRequest:
         content: "ResponseContentType | None" = None,
         *,
         specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
+        parent_run_context: "RunContext | None" = None,
     ) -> Generator:
-        return self.get_response().get_generator(
+        return self.get_response(parent_run_context=parent_run_context).get_generator(
             type=type,
             content=content,
             specific=specific,
@@ -341,8 +350,9 @@ class ModelRequest:
         content: "ResponseContentType | None" = None,
         *,
         specific: "SpecificEvents" = DEFAULT_SPECIFIC_EVENTS,
+        parent_run_context: "RunContext | None" = None,
     ) -> AsyncGenerator:
-        return self.get_response().get_async_generator(
+        return self.get_response(parent_run_context=parent_run_context).get_async_generator(
             type=type,
             content=content,
             specific=specific,
