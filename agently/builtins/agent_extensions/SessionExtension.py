@@ -93,10 +93,12 @@ class SessionExtension(BaseAgent):
             self.sessions[session_id] = self.activated_session
 
         self.__bind_session_resize_pipeline(self.activated_session)
+        self.settings.set("runtime.session_id", self.activated_session.id)
         return self._refill_agent_chat_history_with_session()
 
     def deactivate_session(self):
         self.activated_session = None
+        self.settings.set("runtime.session_id", None)
         if "chat_history" in self.agent_prompt:
             del self.agent_prompt["chat_history"]
         self.agent_prompt.set("chat_history", [])
@@ -133,6 +135,8 @@ class SessionExtension(BaseAgent):
         return self._refill_agent_chat_history_with_session()
 
     async def _session_request_prefix(self, prompt: "Prompt", _settings: "Settings"):
+        if self.activated_session is not None:
+            _settings.set("runtime.session_id", self.activated_session.id)
         Session.apply_request_prefix(prompt, self.activated_session)
 
     async def _session_finally(self, result: "ModelResponseResult", settings: "Settings"):

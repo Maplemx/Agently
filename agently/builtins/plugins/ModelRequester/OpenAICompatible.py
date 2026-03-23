@@ -147,7 +147,7 @@ class OpenAICompatible(ModelRequester):
         self.settings = settings
         self.plugin_settings = SettingsNamespace(self.settings, f"plugins.ModelRequester.{ self.name }")
         self.model_type = cast(str, self.plugin_settings.get("model_type"))
-        self._messenger = event_center.create_messenger(self.name)
+        self._emitter = event_center.create_emitter(self.name)
 
         # check if has attachment prompt
         if self.prompt["attachment"]:
@@ -212,11 +212,8 @@ class OpenAICompatible(ModelRequester):
                         )
                     }
             case _:
-                self._messenger.error(
-                    TypeError(
-                        f"Plugin Name: { self.name }\n" f"Error: Cannot support model type: '{ self.model_type }'"
-                    ),
-                    status="FAILED",
+                raise TypeError(
+                    f"Plugin Name: { self.name }\n" f"Error: Cannot support model type: '{ self.model_type }'"
                 )
                 request_data = {}
         ## set
@@ -416,9 +413,10 @@ class OpenAICompatible(ModelRequester):
                             f"Detail: { response.text }\n"
                             f"Request Data: {full_request_data}"
                         )
-                        self._messenger.error(
+                        await self._emitter.async_error(
                             e,
-                            status="FAILED",
+                            event_type="model.requester.error",
+                            payload={"request_data": full_request_data},
                         )
                         yield "error", e
                     else:
@@ -432,37 +430,42 @@ class OpenAICompatible(ModelRequester):
                             error = error_json["error"]
                             error_title = f"{ error['code'] if 'code' in error else 'unknown_code' } - { error['type'] if 'type' in error else 'unknown_type' }"
                             error_detail = error["message"] if "message" in error else ""
-                            self._messenger.error(
+                            await self._emitter.async_error(
                                 f"Error: { error_title }\n"
                                 f"Detail: {error_detail }\n"
                                 f"Request Data: {full_request_data}",
-                                status="FAILED",
+                                event_type="model.requester.error",
+                                payload={"request_data": full_request_data},
                             )
                             yield "error", error_detail
                         else:
-                            self._messenger.error(
+                            await self._emitter.async_error(
                                 "Error: SSE Error\n" f"Detail: {e}\n" f"Request Data: {full_request_data}",
-                                status="FAILED",
+                                event_type="model.requester.error",
+                                payload={"request_data": full_request_data},
                             )
                             yield "error", e
                 except HTTPStatusError as e:
-                    self._messenger.error(
+                    await self._emitter.async_error(
                         "Error: HTTP Status Error\n"
                         f"Detail: { e.response.status_code } - { e.response.text }\n"
                         f"Request Data: { full_request_data }",
-                        status="FAILED",
+                        event_type="model.requester.error",
+                        payload={"request_data": full_request_data},
                     )
                     yield "error", e
                 except RequestError as e:
-                    self._messenger.error(
+                    await self._emitter.async_error(
                         "Error: Request Error\n" f"Detail: { e }\n" f"Request Data: { full_request_data }",
-                        status="FAILED",
+                        event_type="model.requester.error",
+                        payload={"request_data": full_request_data},
                     )
                     yield "error", e
                 except Exception as e:
-                    self._messenger.error(
+                    await self._emitter.async_error(
                         "Error: Unknown Error\n" f"Detail: { e }\n" f"Request Data: { full_request_data }",
-                        status="FAILED",
+                        event_type="model.requester.error",
+                        payload={"request_data": full_request_data},
                     )
                     yield "error", e
                 finally:
@@ -488,32 +491,36 @@ class OpenAICompatible(ModelRequester):
                             f"Detail: { response.text }\n"
                             f"Request Data: {full_request_data}"
                         )
-                        self._messenger.error(
+                        await self._emitter.async_error(
                             e,
-                            status="FAILED",
+                            event_type="model.requester.error",
+                            payload={"request_data": full_request_data},
                         )
                         yield "error", e
                     else:
                         yield "message", response.content.decode()
                         yield "message", "[DONE]"
                 except HTTPStatusError as e:
-                    self._messenger.error(
+                    await self._emitter.async_error(
                         "Error: HTTP Status Error\n"
                         f"Detail: { e.response.status_code } - { e.response.text }\n"
                         f"Request Data: { full_request_data }",
-                        status="FAILED",
+                        event_type="model.requester.error",
+                        payload={"request_data": full_request_data},
                     )
                     yield "error", e
                 except RequestError as e:
-                    self._messenger.error(
+                    await self._emitter.async_error(
                         "Error: Request Error\n" f"Detail: { e }\n" f"Request Data: { full_request_data }",
-                        status="FAILED",
+                        event_type="model.requester.error",
+                        payload={"request_data": full_request_data},
                     )
                     yield "error", e
                 except Exception as e:
-                    self._messenger.error(
+                    await self._emitter.async_error(
                         "Error: Unknown Error\n" f"Detail: { e }\n" f"Request Data: { full_request_data }",
-                        status="FAILED",
+                        event_type="model.requester.error",
+                        payload={"request_data": full_request_data},
                     )
                     yield "error", e
                 finally:

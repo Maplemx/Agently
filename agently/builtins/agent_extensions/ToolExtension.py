@@ -34,7 +34,6 @@ R = TypeVar("R")
 class ToolExtension(BaseAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        from agently.base import async_system_message
 
         self.tool = tool
         self.tool_func = self.tool.tool_func
@@ -51,8 +50,6 @@ class ToolExtension(BaseAgent):
 
         self.extension_handlers.append("request_prefixes", self.__request_prefix)
         self.extension_handlers.append("broadcast_prefixes", self.__broadcast_prefix)
-
-        self.async_system_message = async_system_message
 
     def register_tool(
         self,
@@ -256,12 +253,4 @@ class ToolExtension(BaseAgent):
             and isinstance(full_result_data["extra"]["tool_logs"], list)
         ):
             full_result_data["extra"]["tool_logs"].extend(self.__tool_logs)
-        if self.settings.get("runtime.show_tool_logs"):
-            for tool_log in self.__tool_logs:
-                await self.async_system_message(
-                    "TOOL",
-                    "\n".join(
-                        [f"{ key }: { value }" for key, value in tool_log.items()],
-                    ),
-                )
         self.__tool_logs = []

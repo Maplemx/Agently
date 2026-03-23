@@ -15,12 +15,12 @@
 import logging
 from typing import Any, Literal, Type, TYPE_CHECKING, TypeVar, Generic, cast
 
-from agently.utils import Settings, create_logger, FunctionShifter, DataFormatter
+from agently.utils import Settings, create_logger
 from agently.core import PluginManager, EventCenter, Tool, Prompt, ModelRequest, BaseAgent
 from agently._default_init import _load_default_settings, _load_default_plugins, _hook_default_event_handlers
 
 if TYPE_CHECKING:
-    from agently.types.data import MessageLevel, SerializableValue
+    from agently.types.data import RuntimeEventLevel, SerializableValue
 
 # Basic Initialize
 
@@ -35,25 +35,24 @@ plugin_manager = PluginManager(
 _load_default_plugins(plugin_manager)
 event_center = EventCenter()
 _hook_default_event_handlers(event_center)
-async_system_message = event_center.async_system_message
-system_message = event_center.system_message
+async_emit_runtime = event_center.async_emit
+emit_runtime = event_center.emit
 logger = create_logger()
 httpx_level_name = settings.get("runtime.httpx_log_level", "WARNING")
 httpx_level = getattr(logging, str(httpx_level_name).upper(), logging.WARNING)
 logging.getLogger("httpx").setLevel(httpx_level)
 logging.getLogger("httpcore").setLevel(httpx_level)
 tool = Tool(plugin_manager, settings)
-_agently_messenger = event_center.create_messenger("Agently")
+_agently_emitter = event_center.create_emitter("Agently")
 
 
 def print_(content: Any, *args):
-    message_sync = FunctionShifter.syncify(_agently_messenger.message)
     contents = [str(content)]
     if args:
         for arg in args:
             contents.append(str(arg))
     content_text = " ".join(contents)
-    message_sync(content_text, event="log")
+    _agently_emitter.info(content_text, event_type="runtime.print")
 
 
 async def async_print(content: Any, *args):
@@ -62,7 +61,7 @@ async def async_print(content: Any, *args):
         for arg in args:
             contents.append(str(arg))
     content_text = " ".join(contents)
-    await _agently_messenger.async_message(content_text, event="log")
+    await _agently_emitter.async_info(content_text, event_type="runtime.print")
 
 
 # Settings Mappings
@@ -121,6 +120,8 @@ class AgentlyMain(Generic[A]):
         self.settings = settings
         self.plugin_manager = plugin_manager
         self.event_center = event_center
+        self.emit_runtime = emit_runtime
+        self.async_emit_runtime = async_emit_runtime
         self.logger = logger
         self.print = print_
         self.async_print = async_print
@@ -165,7 +166,7 @@ class AgentlyMain(Generic[A]):
             self.logger.warning("`set_debug_console(\"ON\")` is deprecated and has no effect.")
         return self
 
-    def set_log_level(self, log_level: "MessageLevel"):
+    def set_log_level(self, log_level: "RuntimeEventLevel"):
         self.logger.setLevel(log_level)
         return self
 

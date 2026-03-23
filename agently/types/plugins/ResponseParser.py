@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         AgentlyResponseGenerator,
         InstantStreamingContentType,
         ResponseContentType,
+        RunContext,
         SerializableMapping,
         SpecificEvents,
         StreamingData,
@@ -51,6 +52,7 @@ class ResponseParser(AgentlyPlugin, Protocol):
         prompt: "Prompt",
         response_generator: "AgentlyResponseGenerator",
         settings: "Settings",
+        run_context: "RunContext | None" = None,
     ): ...
 
     @staticmethod

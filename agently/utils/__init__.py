@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .Logger import create_logger
-from .Messenger import create_messenger
+from .RuntimeEmitter import create_runtime_emitter
 from .StateData import StateData, StateDataNamespace
 from .SerializableStateData import SerializableStateData, SerializableStateDataNamespace
 from .Settings import Settings, SettingsNamespace

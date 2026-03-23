@@ -16,12 +16,12 @@ from typing import TYPE_CHECKING, Protocol
 from agently.types.plugins import AgentlyPlugin
 
 if TYPE_CHECKING:
-    from agently.types.data.event import AgentlyEvent, EventMessage
+    from agently.types.data import RuntimeEvent
 
 
 class EventHooker(AgentlyPlugin, Protocol):
     name: str
-    events: list["AgentlyEvent"]
+    event_types: list[str] | None
 
     @staticmethod
     def _on_register(): ...
@@ -30,4 +30,4 @@ class EventHooker(AgentlyPlugin, Protocol):
     def _on_unregister(): ...
 
     @staticmethod
-    async def handler(message: "EventMessage"): ...
+    async def handler(event: "RuntimeEvent"): ...

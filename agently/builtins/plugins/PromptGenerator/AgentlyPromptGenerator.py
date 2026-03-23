@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import warnings
 import yaml
 from enum import Enum
 
@@ -98,7 +99,7 @@ class AgentlyPromptGenerator(PromptGenerator):
         self.prompt = prompt
         self.settings = settings
         self.plugin_settings = SettingsNamespace(self.settings, f"plugins.PromptGenerator.{ self.name }")
-        self._messenger = event_center.create_messenger(self.name)
+        self._emitter = event_center.create_emitter(self.name)
 
     @staticmethod
     def _on_register():
@@ -125,10 +126,8 @@ class AgentlyPromptGenerator(PromptGenerator):
         fields_to_check = ["input", "info", "instruct", "output", "attachment"]
         all_empty = all(getattr(prompt_object, field) in (None, "", [], {}) for field in fields_to_check)
         if all_empty:
-            self._messenger.error(
-                KeyError(
-                    "Prompt requires at least one of 'input', 'info', 'instruct', 'output', 'attachment' or customize extra prompt keys to be provided."
-                )
+            raise KeyError(
+                "Prompt requires at least one of 'input', 'info', 'instruct', 'output', 'attachment' or customize extra prompt keys to be provided."
             )
 
     def _generate_json_output_prompt(
@@ -407,9 +406,10 @@ class AgentlyPromptGenerator(PromptGenerator):
                         if one_content.type == "text":
                             chat_history_lines.append(f"[{ role }]:{ str(one_content.text) }")
                         else:
-                            self._messenger.warning(
+                            warnings.warn(
                                 f"Skipped content: unable to convert type '{one_content.type}' to text. "
                                 f"Content: {one_content.model_dump()}",
+                                stacklevel=2,
                             )
                 else:
                     chat_history_lines.append(f"[{ role }]:{ DataFormatter.sanitize(content) }")
@@ -544,9 +544,10 @@ class AgentlyPromptGenerator(PromptGenerator):
                             if "type" in one_content and one_content["type"] == "text":
                                 content.append(one_content["text"])
                             elif "type" in one_content:
-                                self._messenger.warning(
+                                warnings.warn(
                                     f"Skipped content: unable to convert type '{ one_content['type'] }' to chat message when `rich_content` == False. "
                                     f"Content: {one_content}",
+                                    stacklevel=2,
                                 )
 
                     content = "\n\n".join(content)
@@ -600,9 +601,10 @@ class AgentlyPromptGenerator(PromptGenerator):
                             }
                         )
                     else:
-                        self._messenger.warning(
+                        warnings.warn(
                             f"Skipped content: unable to put attachment content into prompt messages when `rich_content` == False\n"
-                            f"Content: {str(one_content.model_dump())}"
+                            f"Content: {str(one_content.model_dump())}",
+                            stacklevel=2,
                         )
         else:
             role = merged_role_mapping["user"] if "user" in merged_role_mapping else "user"
@@ -640,9 +642,10 @@ class AgentlyPromptGenerator(PromptGenerator):
                                 }
                             )
                         else:
-                            self._messenger.warning(
+                            warnings.warn(
                                 f"Skipped content: unable to put attachment content into prompt messages when `rich_content` == False\n"
-                                f"Content: {str(one_content.model_dump())}"
+                                f"Content: {str(one_content.model_dump())}",
+                                stacklevel=2,
                             )
                 prompt_messages.append(
                     {"role": role, "content": _prepend_current_time_text("\n".join(user_message_content))}
@@ -804,9 +807,7 @@ class AgentlyPromptGenerator(PromptGenerator):
         output_prompt = prompt_object.output
 
         if not isinstance(output_prompt, (Mapping, Sequence)) or isinstance(output_prompt, str):
-            self._messenger.error(
-                TypeError(f"Unable to generator output model because the output is not a structure data.")
-            )
+            raise TypeError("Unable to generator output model because the output is not a structure data.")
 
         if isinstance(output_prompt, Mapping):
             return self._generate_output_model(

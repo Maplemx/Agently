@@ -52,10 +52,10 @@ def _load_default_settings(settings: "Settings"):
 
 
 def _hook_default_event_handlers(event_center: "EventCenter"):
-    from agently.builtins.hookers.SystemMessageHooker import SystemMessageHooker
+    from agently.builtins.hookers.RuntimeConsoleSinkHooker import RuntimeConsoleSinkHooker
 
-    event_center.register_hooker_plugin(SystemMessageHooker)
+    event_center.register_hooker_plugin(RuntimeConsoleSinkHooker)
 
-    from agently.builtins.hookers.PureLoggerHooker import PureLoggerHooker
+    from agently.builtins.hookers.RuntimeStorageSinkHooker import RuntimeStorageSinkHooker
 
-    event_center.register_hooker_plugin(PureLoggerHooker)
+    event_center.register_hooker_plugin(RuntimeStorageSinkHooker)

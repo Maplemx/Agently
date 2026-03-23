@@ -735,6 +735,7 @@ class TriggerFlowBluePrint:
 
             sub_flow_execution = isolated_sub_flow.create_execution(
                 concurrency=concurrency,
+                parent_run_context=data.execution.run_context,
             )
             captured_runtime_data = capture_target.build_runtime_data()
             if captured_runtime_data:
@@ -1487,6 +1488,7 @@ class TriggerFlowBluePrint:
         execution_id: str | None = None,
         skip_exceptions: bool = False,
         concurrency: int | None = None,
+        run_context=None,
     ):
         handlers_snapshot: TriggerFlowAllHandlers = {
             "event": {k: v.copy() for k, v in self._handlers["event"].items()},
@@ -1499,6 +1501,7 @@ class TriggerFlowBluePrint:
             id=execution_id,
             skip_exceptions=skip_exceptions,
             concurrency=concurrency,
+            run_context=run_context,
         )
 
     def copy(self, *, name: str | None = None):

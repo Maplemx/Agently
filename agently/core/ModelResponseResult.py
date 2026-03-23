@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         AgentlyModelResponseMessage,
         InstantStreamingContentType,
         ResponseContentType,
+        RunContext,
         SpecificEvents,
         StreamingData,
     )
@@ -57,10 +58,13 @@ class ModelResponseResult:
         plugin_manager: "PluginManager",
         settings: "Settings",
         extension_handlers: "ExtensionHandlers",
+        *,
+        run_context: "RunContext | None" = None,
     ):
         self.agent_name = agent_name
         self.plugin_manager = plugin_manager
         self.settings = settings
+        self.run_context = run_context
         ResponseParser = cast(
             type["ResponseParser"],
             self.plugin_manager.get_plugin(
@@ -70,7 +74,14 @@ class ModelResponseResult:
         )
         self._response_id = response_id
         self._extension_handlers = extension_handlers
-        self._response_parser = ResponseParser(agent_name, response_id, prompt, response_generator, self.settings)
+        self._response_parser = ResponseParser(
+            agent_name,
+            response_id,
+            prompt,
+            response_generator,
+            self.settings,
+            run_context=self.run_context,
+        )
         self._finally_handlers_ran = False
         self._finally_handlers_lock = asyncio.Lock()
         self._run_finally_handlers_once_sync = FunctionShifter.syncify(self._run_finally_handlers_once)
@@ -159,21 +170,25 @@ class ModelResponseResult:
                 await self._run_finally_handlers_once()
                 return data
             except:
-                from agently.base import async_system_message
+                from agently.base import async_emit_runtime
                 from agently.core.ModelResponse import ModelResponse
 
-                await async_system_message(
-                    "MODEL_REQUEST",
+                await async_emit_runtime(
                     {
-                        "agent_name": self.agent_name,
-                        "response_id": self._response_id,
-                        "content": {
-                            "stage": "No Target Data in Response, Preparing Retry",
-                            "detail": f"\n[Response]: { await self._response_parser.async_get_text() }\n"
-                            f"[Retried Times]: { _retry_count }",
+                        "event_type": "model.retrying",
+                        "source": "ModelResponseResult",
+                        "level": "WARNING",
+                        "message": "No target data in response. Preparing retry.",
+                        "payload": {
+                            "agent_name": self.agent_name,
+                            "response_id": self._response_id,
+                            "retry_count": _retry_count,
+                            "response_text": await self._response_parser.async_get_text(),
+                            "ensure_keys": ensure_keys,
+                            "key_style": key_style,
                         },
-                    },
-                    self.settings,
+                        "run": self.run_context,
+                    }
                 )
 
                 if _retry_count < max_retries:
@@ -183,6 +198,7 @@ class ModelResponseResult:
                         self.settings,
                         self.prompt,
                         self._extension_handlers,
+                        parent_run_context=self.run_context,
                     ).result.async_get_data(
                         type=type,
                         ensure_keys=ensure_keys,

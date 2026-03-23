@@ -35,7 +35,7 @@ from agently.utils import (
 
 if TYPE_CHECKING:
     from agently.core import Prompt
-    from agently.types.data import AgentlyModelResult, AgentlyResponseGenerator, SerializableMapping, SpecificEvents
+    from agently.types.data import AgentlyModelResult, AgentlyResponseGenerator, RunContext, SerializableMapping, SpecificEvents
     from agently.utils import Settings
 
 DEFAULT_SPECIFIC_EVENTS = cast(
@@ -62,11 +62,13 @@ class AgentlyResponseParser(ResponseParser):
         prompt: "Prompt",
         response_generator: "AgentlyResponseGenerator",
         settings: "Settings",
+        run_context: "RunContext | None" = None,
     ):
         self.agent_name = agent_name
         self.response_id = response_id
         self.response_generator = response_generator
         self.settings = settings
+        self.run_context = run_context
         self.plugin_settings = StateDataNamespace(self.settings, f"plugins.ResponseParser.{ self.name }")
         self.full_result_data: AgentlyModelResult = {
             "result_consumer": None,
@@ -110,7 +112,7 @@ class AgentlyResponseParser(ResponseParser):
                     self._response_consumer = GeneratorConsumer(self._extract())
 
     async def _extract(self):
-        from agently.base import async_system_message
+        from agently.base import async_emit_runtime
 
         buffer = ""
         try:
@@ -127,32 +129,33 @@ class AgentlyResponseParser(ResponseParser):
                     case "delta":
                         buffer += str(data)
                         if self.settings.get("$log.cancel_logs") is not True:
-                            await async_system_message(
-                                "MODEL_REQUEST",
+                            await async_emit_runtime(
                                 {
-                                    "agent_name": self.agent_name,
-                                    "response_id": self.response_id,
-                                    "content": {
-                                        "stage": "Streaming",
-                                        "detail": str(data),
-                                        "delta": True,
+                                    "event_type": "model.streaming",
+                                    "source": "AgentlyResponseParser",
+                                    "level": "DEBUG",
+                                    "message": str(data),
+                                    "payload": {
+                                        "agent_name": self.agent_name,
+                                        "response_id": self.response_id,
+                                        "delta": str(data),
                                     },
-                                },
-                                self.settings,
+                                    "run": self.run_context,
+                                }
                             )
                         elif self._streaming_canceled is False:
-                            await async_system_message(
-                                "MODEL_REQUEST",
+                            await async_emit_runtime(
                                 {
-                                    "agent_name": self.agent_name,
-                                    "response_id": self.response_id,
-                                    "content": {
-                                        "stage": "Streaming",
-                                        "detail": f"(🟥 [Agent-{ self.agent_name }] - [Response-{ self.response_id }] logging canceled...)\n",
-                                        "delta": True,
+                                    "event_type": "model.streaming_canceled",
+                                    "source": "AgentlyResponseParser",
+                                    "level": "INFO",
+                                    "message": f"Streaming logs canceled for response '{ self.response_id }'.",
+                                    "payload": {
+                                        "agent_name": self.agent_name,
+                                        "response_id": self.response_id,
                                     },
-                                },
-                                self.settings,
+                                    "run": self.run_context,
+                                }
                             )
                             self._streaming_canceled = True
                     case "original_done":
@@ -182,32 +185,35 @@ class AgentlyResponseParser(ResponseParser):
                                 self.full_result_data["cleaned_result"] = completed
                                 self.full_result_data["parsed_result"] = parsed
                                 self.full_result_data["result_object"] = result_object
-                                await async_system_message(
-                                    "MODEL_REQUEST",
+                                await async_emit_runtime(
                                     {
-                                        "agent_name": self.agent_name,
-                                        "response_id": self.response_id,
-                                        "content": {
-                                            "stage": "Done",
-                                            "detail": str(data),
+                                        "event_type": "model.completed",
+                                        "source": "AgentlyResponseParser",
+                                        "message": "Model response parsed as JSON output.",
+                                        "payload": {
+                                            "agent_name": self.agent_name,
+                                            "response_id": self.response_id,
+                                            "result": data,
                                         },
-                                    },
-                                    self.settings,
+                                        "run": self.run_context,
+                                    }
                                 )
                             else:
                                 self.full_result_data["cleaned_result"] = None
                                 self.full_result_data["parsed_result"] = None
-                                await async_system_message(
-                                    "MODEL_REQUEST",
+                                await async_emit_runtime(
                                     {
-                                        "agent_name": self.agent_name,
-                                        "response_id": self.response_id,
-                                        "content": {
-                                            "stage": "Done",
-                                            "detail": "❌ Can not parse this result!",
+                                        "event_type": "model.parse_failed",
+                                        "source": "AgentlyResponseParser",
+                                        "level": "WARNING",
+                                        "message": "Can not parse JSON output from model response.",
+                                        "payload": {
+                                            "agent_name": self.agent_name,
+                                            "response_id": self.response_id,
+                                            "result": str(data),
                                         },
-                                    },
-                                    self.settings,
+                                        "run": self.run_context,
+                                    }
                                 )
                         else:
                             if (
@@ -219,17 +225,18 @@ class AgentlyResponseParser(ResponseParser):
                                 data = [item["embedding"] for item in data]
                             self.full_result_data["parsed_result"] = data
                             if self.settings.get("$log.cancel_logs") is not True:
-                                await async_system_message(
-                                    "MODEL_REQUEST",
+                                await async_emit_runtime(
                                     {
-                                        "agent_name": self.agent_name,
-                                        "response_id": self.response_id,
-                                        "content": {
-                                            "stage": "Done",
-                                            "detail": str(data),
+                                        "event_type": "model.completed",
+                                        "source": "AgentlyResponseParser",
+                                        "message": "Model response parsing completed.",
+                                        "payload": {
+                                            "agent_name": self.agent_name,
+                                            "response_id": self.response_id,
+                                            "result": data,
                                         },
-                                    },
-                                    self.settings,
+                                        "run": self.run_context,
+                                    }
                                 )
                     case "meta":
                         if isinstance(data, Mapping):

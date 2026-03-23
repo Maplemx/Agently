@@ -607,6 +607,9 @@ class Tool:
         concurrency: int | None = None,
         timeout: float | None = None,
     ) -> list["ToolExecutionRecord"]:
+        from agently.base import async_emit_runtime
+        from agently.types.data import RunContext
+
         if len(tool_list) == 0:
             return []
 
@@ -637,6 +640,25 @@ class Tool:
             concurrency = None
         if not isinstance(timeout, (int, float)) or timeout <= 0:
             timeout = None
+
+        tool_loop_run = RunContext.create(
+            run_kind="tool_loop",
+            agent_name=agent_name,
+            session_id=str(settings.get("runtime.session_id")) if settings.get("runtime.session_id", None) else None,
+            meta={"tool_count": len(tool_list)},
+        )
+        await async_emit_runtime(
+            {
+                "event_type": "tool.loop_started",
+                "source": "Tool",
+                "message": f"Tool loop started for agent '{ agent_name }'.",
+                "payload": {
+                    "agent_name": agent_name,
+                    "tool_count": len(tool_list),
+                },
+                "run": tool_loop_run,
+            }
+        )
 
         flow = TriggerFlow(name=f"tool-loop-{ agent_name }")
 
@@ -670,6 +692,19 @@ class Tool:
                     agent_name,
                 )
             )
+            await async_emit_runtime(
+                {
+                    "event_type": "tool.plan_ready",
+                    "source": "Tool",
+                    "message": f"Tool plan ready for round { round_index }.",
+                    "payload": {
+                        "agent_name": agent_name,
+                        "round_index": round_index,
+                        "decision": decision,
+                    },
+                    "run": tool_loop_run,
+                }
+            )
             if self._should_continue(decision, round_index=round_index, max_rounds=max_rounds):
                 await data.async_emit("EXECUTE", decision.get("tool_commands", []))
             else:
@@ -698,6 +733,28 @@ class Tool:
                 tool_commands,
             )
 
+            for record_index, record in enumerate(records):
+                tool_name = record.get("tool_name", "unknown")
+                success = bool(record.get("success"))
+                await async_emit_runtime(
+                    {
+                        "event_type": "tool.call_completed" if success else "tool.call_failed",
+                        "source": "Tool",
+                        "level": "INFO" if success else "WARNING",
+                        "message": f"Tool '{ tool_name }' {'completed' if success else 'failed'}.",
+                        "payload": {
+                            "agent_name": agent_name,
+                            "round_index": round_index,
+                            "record_index": record_index,
+                            "record": record,
+                        },
+                        "run": tool_loop_run.create_child(
+                            run_kind="tool_call",
+                            meta={"round_index": round_index, "tool_name": str(tool_name)},
+                        ),
+                    }
+                )
+
             done_plans.extend(records)
             data.set_runtime_data("done_plans", done_plans)
             data.set_runtime_data("last_round_records", records)
@@ -710,10 +767,38 @@ class Tool:
         flow.when("EXECUTE").to(execute_step)
         flow.when("DONE").to(lambda data: data.value).end()
 
-        result = await flow.async_start(
-            wait_for_result=True,
-            timeout=timeout,
-        )
+        execution = flow.create_execution(parent_run_context=tool_loop_run)
+        try:
+            result = await execution.async_start(
+                wait_for_result=True,
+                timeout=timeout,
+            )
+        except Exception as error:
+            await async_emit_runtime(
+                {
+                    "event_type": "tool.loop_failed",
+                    "source": "Tool",
+                    "level": "ERROR",
+                    "message": f"Tool loop failed for agent '{ agent_name }'.",
+                    "payload": {"agent_name": agent_name},
+                    "error": error,
+                    "run": tool_loop_run,
+                }
+            )
+            raise
         if not isinstance(result, list):
             return []
-        return [self._normalize_execution_record(record, None, index) for index, record in enumerate(result)]
+        normalized = [self._normalize_execution_record(record, None, index) for index, record in enumerate(result)]
+        await async_emit_runtime(
+            {
+                "event_type": "tool.loop_completed",
+                "source": "Tool",
+                "message": f"Tool loop completed for agent '{ agent_name }'.",
+                "payload": {
+                    "agent_name": agent_name,
+                    "record_count": len(normalized),
+                },
+                "run": tool_loop_run,
+            }
+        )
+        return normalized

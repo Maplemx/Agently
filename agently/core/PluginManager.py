@@ -18,7 +18,6 @@ from agently.utils import (
     Settings,
 )
 from agently.types.plugins import AgentlyPlugin, AgentlyPluginType
-from agently.utils import create_messenger
 
 
 class PluginManager:
@@ -77,17 +76,16 @@ class PluginManager:
         plugin_type: AgentlyPluginType,
         plugin_class: type[AgentlyPlugin] | str,
     ):
-        _messenger = create_messenger("PluginManager")
         if plugin_type not in self.plugins:
-            _messenger.error(ValueError(f"Plugin type '{ plugin_type }' is not in plugin information."), meta={})
+            raise ValueError(f"Plugin type '{ plugin_type }' is not in plugin information.")
         if isinstance(plugin_class, str):
             if plugin_class not in self.plugins[plugin_type]:
-                _messenger.error(ValueError(f"Plugin class '{ plugin_class }' is not in plugin information."))
+                raise ValueError(f"Plugin class '{ plugin_class }' is not in plugin information.")
             plugin_class_name = plugin_class
             plugin_class = cast(type[AgentlyPlugin], self.plugins[plugin_type][plugin_class_name])
         else:
             if plugin_class.name not in self.plugins[plugin_type]:
-                _messenger.error(ValueError(f"Plugin class '{ plugin_class.name }' is not in plugin information."))
+                raise ValueError(f"Plugin class '{ plugin_class.name }' is not in plugin information.")
             plugin_class_name = plugin_class.name
             plugin_class = cast(type[AgentlyPlugin], plugin_class)
 

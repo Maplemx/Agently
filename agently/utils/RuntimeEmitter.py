@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-def create_messenger(module_name: str):
+def create_runtime_emitter(source: str | None = None):
     from agently.base import event_center
 
-    return event_center.create_messenger(module_name)
+    return event_center.create_emitter(source)

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
         InstantStreamingContentType,
         PromptStandardSlot,
         ResponseContentType,
+        RunContext,
         SpecificEvents,
         StreamingData,
     )
@@ -49,11 +50,13 @@ class ModelRequest:
         plugin_manager: "PluginManager",
         *,
         agent_name: str | None = None,
+        agent_id: str | None = None,
         parent_settings: Settings | None = None,
         parent_prompt: Prompt | None = None,
         parent_extension_handlers: ExtensionHandlers | None = None,
     ):
         self.agent_name = agent_name if agent_name is not None else "Directly Request"
+        self.agent_id = agent_id
         self.plugin_manager = plugin_manager
         self.settings = Settings(
             name="Request-Settings",
@@ -85,6 +88,20 @@ class ModelRequest:
 
         self.start = self.get_data
         self.async_start = self.async_get_data
+
+    def _create_request_run_context(self, response_id: str | None = None) -> "RunContext":
+        from agently.types.data import RunContext
+
+        session_id = self.settings.get("runtime.session_id", None)
+        if session_id is not None:
+            session_id = str(session_id)
+        return RunContext.create(
+            run_kind="request",
+            agent_id=self.agent_id,
+            agent_name=self.agent_name,
+            session_id=session_id,
+            response_id=response_id,
+        )
 
     def set_prompt(
         self,
@@ -192,7 +209,9 @@ class ModelRequest:
             self.settings,
             self.prompt,
             self.extension_handlers,
+            run_context=self._create_request_run_context(),
         )
+        response.run_context.response_id = response.id
         self.prompt.clear()
         return response
 

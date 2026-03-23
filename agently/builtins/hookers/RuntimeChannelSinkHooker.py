@@ -12,34 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
 from typing import TYPE_CHECKING
 
 from agently.types.plugins import EventHooker
 
 if TYPE_CHECKING:
-    from agently.types.data.event import EventMessage
+    from agently.types.data import RuntimeEvent
 
-
-_DEPRECATION_MESSAGE = (
-    "ConsoleHooker is deprecated and no longer active. " "Use default logger/system-message hooks instead."
-)
-
-
-class ConsoleHooker(EventHooker):
-    """Deprecated no-op hooker kept for backward compatibility."""
-
-    name = "ConsoleHooker"
-    events = []
+class RuntimeChannelSinkHooker(EventHooker):
+    name = "RuntimeChannelSinkHooker"
+    event_types = None
+    _buffer: list["RuntimeEvent"] = []
 
     @staticmethod
     def _on_register():
-        warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=3)
+        RuntimeChannelSinkHooker._buffer.clear()
 
     @staticmethod
     def _on_unregister():
-        return
+        RuntimeChannelSinkHooker._buffer.clear()
 
     @staticmethod
-    async def handler(message: "EventMessage"):
-        return
+    def read_buffer():
+        return list(RuntimeChannelSinkHooker._buffer)
+
+    @staticmethod
+    def drain_buffer():
+        buffered = list(RuntimeChannelSinkHooker._buffer)
+        RuntimeChannelSinkHooker._buffer.clear()
+        return buffered
+
+    @staticmethod
+    async def handler(event: "RuntimeEvent"):
+        RuntimeChannelSinkHooker._buffer.append(event.model_copy(deep=True))

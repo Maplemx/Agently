@@ -56,6 +56,7 @@ class BaseAgent:
         )
         self.request = ModelRequest(
             agent_name=self.name,
+            agent_id=self.id,
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
             parent_prompt=self.agent_prompt,
@@ -103,6 +104,7 @@ class BaseAgent:
         """
         return ModelRequest(
             agent_name=name if name is not None else self.name,
+            agent_id=self.id,
             plugin_manager=self.plugin_manager,
             parent_settings=self.settings,
             parent_prompt=self.agent_prompt if inherit_agent_prompt else None,

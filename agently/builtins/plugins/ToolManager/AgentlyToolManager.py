@@ -55,7 +55,7 @@ class AgentlyToolManager(ToolManager):
 
         self.settings = settings
         self.plugin_settings = SettingsNamespace(self.settings, f"plugins.ToolManager.{ self.name }")
-        self._messenger = event_center.create_messenger(self.name)
+        self._emitter = event_center.create_emitter(self.name)
 
         self.tool_funcs: dict[str, Callable] = {}
         self.tool_info: dict[str, dict[str, Any]] = {}
@@ -115,7 +115,7 @@ class AgentlyToolManager(ToolManager):
                         self.tag_mappings.update({tag: set()})
                     self.tag_mappings[tag].add(tool_name)
             else:
-                self._messenger.error(f"Cannot find tool named '{ tool_name }'")
+                raise ValueError(f"Cannot find tool named '{ tool_name }'")
 
     def tool_func(self, func: Callable[P, R]) -> Callable[P, R]:
         tool_name = func.__name__

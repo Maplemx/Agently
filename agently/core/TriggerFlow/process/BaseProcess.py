@@ -674,7 +674,7 @@ class TriggerFlowBaseProcess:
         if log_info or print_info or show_value:
 
             async def runtime_output(data: "TriggerFlowRuntimeData"):
-                from agently.base import async_system_message
+                from agently.base import async_emit_runtime
 
                 message = {}
                 annotations = list(args) if args else []
@@ -684,10 +684,18 @@ class TriggerFlowBaseProcess:
                 if show_value:
                     message["VALUE"] = data.value
                 if log_info:
-                    await async_system_message(
-                        "TRIGGER_FLOW",
-                        message,
-                        data.settings,
+                    await async_emit_runtime(
+                        {
+                            "event_type": "trigger_flow.annotation",
+                            "source": "TriggerFlowProcess",
+                            "level": "INFO",
+                            "message": "TriggerFlow runtime annotation emitted.",
+                            "payload": message,
+                            "run": data.execution.run_context,
+                            "meta": {
+                                "process_id": getattr(self._flow_chunk, "id", self.trigger_event),
+                            },
+                        }
                     )
                 if print_info:
                     print(*message.values())

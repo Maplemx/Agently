@@ -13,344 +13,290 @@
 # limitations under the License.
 
 import asyncio
+import inspect
+from pathlib import Path
 
-import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 
-from agently.types.data import SerializableData, EventMessage
+from agently.types.data import ErrorInfo, RuntimeEvent
 from agently.utils import FunctionShifter
 
 if TYPE_CHECKING:
-    from agently.types.data import (
-        AgentlyEvent,
-        AgentlySystemEvent,
-        EventMessageDict,
-        EventMessage,
-        MessageLevel,
-        EventStatus,
-        EventHook,
-    )
+    from agently.types.data import EventHook, RunContext, RuntimeEventLevel
     from agently.types.plugins import EventHooker
-    from agently.utils import Settings
+
+
+_INTERNAL_SOURCE_MODULES = {
+    "agently.core.EventCenter",
+    "agently.utils.RuntimeEmitter",
+}
+
+
+def _infer_runtime_source() -> str:
+    frame = inspect.currentframe()
+    try:
+        current = frame.f_back if frame is not None else None
+        while current is not None:
+            module_name = str(current.f_globals.get("__name__", ""))
+            if module_name in _INTERNAL_SOURCE_MODULES:
+                current = current.f_back
+                continue
+
+            source_instance = current.f_locals.get("self")
+            if source_instance is not None:
+                source_name = getattr(source_instance, "name", None)
+                if isinstance(source_name, str) and source_name:
+                    return source_name
+                class_name = getattr(source_instance.__class__, "__name__", None)
+                if isinstance(class_name, str) and class_name:
+                    return class_name
+
+            source_class = current.f_locals.get("cls")
+            class_name = getattr(source_class, "__name__", None)
+            if isinstance(class_name, str) and class_name:
+                return class_name
+
+            if module_name and module_name != "__main__":
+                return module_name.rsplit(".", 1)[-1]
+
+            file_name = current.f_code.co_filename
+            if file_name:
+                return Path(file_name).stem
+
+            current = current.f_back
+    finally:
+        del frame
+    return "Agently"
 
 
 class EventCenter:
     def __init__(self):
-        self._hooks: dict[AgentlyEvent, dict[str, "EventHook"]] = {}
-        self._hookers: dict[str, type[EventHooker]] = {}
+        self._hooks: dict[str, tuple[set[str] | None, "EventHook"]] = {}
+        self._hookers: dict[str, type["EventHooker"]] = {}
         self.emit = FunctionShifter.syncify(self.async_emit)
-        self.system_message = FunctionShifter.syncify(self.async_system_message)
 
     def register_hook(
         self,
-        event: "AgentlyEvent",
         callback: "EventHook",
         *,
+        event_types: str | list[str] | None = None,
         hook_name: str | None = None,
     ):
         if hook_name is None:
             hook_name = callback.__name__
-        if event not in self._hooks:
-            self._hooks.update({event: {}})
-        self._hooks[event].update({hook_name: callback})
+        normalized_event_types: set[str] | None = None
+        if event_types is not None:
+            normalized_event_types = {event_types} if isinstance(event_types, str) else set(event_types)
+        self._hooks[hook_name] = (normalized_event_types, callback)
 
-    def unregister_hook(
-        self,
-        event: "AgentlyEvent",
-        hook_name: str,
-    ):
-        if event in self._hooks and hook_name in self._hooks[event]:
-            del self._hooks[event][hook_name]
+    def unregister_hook(self, hook_name: str):
+        if hook_name in self._hooks:
+            del self._hooks[hook_name]
 
     def register_hooker_plugin(self, hooker: type["EventHooker"]):
         if hasattr(hooker, "_on_register"):
             hooker._on_register()
-        for event in hooker.events:
-            self.register_hook(event, hooker.handler, hook_name=hooker.name)
-        self._hookers.update({hooker.name: hooker})
+        self.register_hook(hooker.handler, event_types=hooker.event_types, hook_name=hooker.name)
+        self._hookers[hooker.name] = hooker
 
     def unregister_hooker_plugin(self, hooker: str | type["EventHooker"]):
         if isinstance(hooker, str):
-            if hooker in self._hookers:
-                hooker = self._hookers[hooker]
-            else:
+            if hooker not in self._hookers:
                 return
-        for event in hooker.events:
-            self.unregister_hook(event, hook_name=hooker.name)
+            hooker = self._hookers[hooker]
+        self.unregister_hook(hooker.name)
         if hasattr(hooker, "_on_unregister"):
             hooker._on_unregister()
         del self._hookers[hooker.name]
 
-    async def async_emit(
-        self,
-        event: "AgentlyEvent",
-        message: "EventMessageDict | EventMessage",
-    ):
-        if message is EventMessage:
-            message_object = message
+    async def async_emit(self, event: "Mapping[str, Any] | RuntimeEvent"):
+        if isinstance(event, RuntimeEvent):
+            event_object = event
         else:
-            message_dict = dict(message).copy()
-            message_dict.update({"event": event})
-            message_object = EventMessage(**message_dict)
-
+            event_data: dict[str, Any] = dict(event)
+            if not event_data.get("source"):
+                event_data["source"] = _infer_runtime_source()
+            event_object = RuntimeEvent.model_validate(event_data)
         tasks = []
-
-        if event in self._hooks:
-            for callback in self._hooks[event].values():
-                coro = FunctionShifter.asyncify(callback)
-                tasks.append(
-                    asyncio.create_task(coro(message_object)),
-                )
+        for event_types, callback in self._hooks.values():
+            if event_types is not None and event_object.event_type not in event_types:
+                continue
+            coro = FunctionShifter.asyncify(callback)
+            tasks.append(asyncio.create_task(coro(event_object)))
+        if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
-        if event == "log" and len(tasks) == 0:
-            print(*message_object.content if isinstance(message_object.content, list) else message_object.content)
 
-    async def async_system_message(
+    def create_emitter(
         self,
-        message_type: "AgentlySystemEvent",
-        message_data: Any,
-        settings: "Settings | None" = None,
+        source: str | None = None,
+        *,
+        base_meta: dict[str, Any] | None = None,
+        base_run: "RunContext | None" = None,
     ):
-        if settings is None:
-            from agently.base import settings as default_settings
-
-            settings = default_settings
-
-        await self.async_emit(
-            "AGENTLY_SYS",
-            {
-                "module_name": "Agently",
-                "content": {
-                    "type": message_type,
-                    "data": message_data,
-                    "settings": settings,
-                },
-            },
-        )
-
-    def create_messenger(self, module_name: str, *, base_meta: dict[str, Any] | None = None):
-        if base_meta is None:
-            base_meta = {}
-        return EventCenterMessenger(
+        return RuntimeEventEmitter(
             self,
-            module_name,
+            source if source is not None else _infer_runtime_source(),
             base_meta=base_meta,
+            base_run=base_run,
         )
 
 
-class EventCenterMessenger:
+class RuntimeEventEmitter:
     def __init__(
         self,
         event_center: EventCenter,
-        module_name: str,
+        source: str,
         *,
         base_meta: dict[str, Any] | None = None,
+        base_run: "RunContext | None" = None,
     ):
         self._event_center = event_center
-        self._module_name = module_name
+        self._source = source
         self._base_meta = base_meta if base_meta is not None else {}
+        self._base_run = base_run
 
-        self.message = FunctionShifter.syncify(self.async_message)
+        self.emit = FunctionShifter.syncify(self.async_emit)
         self.debug = FunctionShifter.syncify(self.async_debug)
         self.info = FunctionShifter.syncify(self.async_info)
         self.warning = FunctionShifter.syncify(self.async_warning)
         self.error = FunctionShifter.syncify(self.async_error)
         self.critical = FunctionShifter.syncify(self.async_critical)
-        self.to_console = FunctionShifter.syncify(self.async_to_console)
-        self.to_data = FunctionShifter.syncify(self.async_to_data)
 
     def update_base_meta(self, update_dict: dict[str, Any]):
         self._base_meta.update(update_dict)
 
-    async def async_message(
+    async def async_emit(
         self,
-        content: str,
+        event_type: str,
         *,
-        event: "AgentlyEvent" = "message",
-        status: "EventStatus" = "",
-        exception: Exception | None = None,
-        level: "MessageLevel" = "INFO",
+        level: "RuntimeEventLevel" = "INFO",
+        message: str | None = None,
+        payload: Any = None,
+        error: ErrorInfo | Exception | None = None,
+        run: "RunContext | None" = None,
         meta: dict[str, Any] | None = None,
     ):
-        if meta is None:
-            meta = {}
         final_meta = self._base_meta.copy()
-        final_meta.update(meta)
+        if meta is not None:
+            final_meta.update(meta)
+        final_error: ErrorInfo | None = None
+        if isinstance(error, Exception):
+            final_error = ErrorInfo.from_exception(error)
+        else:
+            final_error = error
         await self._event_center.async_emit(
-            event,
-            {
-                "module_name": self._module_name,
-                "status": status,
-                "content": content,
-                "exception": exception,
-                "level": level,
-                "meta": final_meta,
-            },
+            RuntimeEvent(
+                event_type=event_type,
+                source=self._source,
+                level=level,
+                message=message,
+                payload=payload,
+                error=final_error,
+                run=run if run is not None else self._base_run,
+                meta=final_meta,
+            )
         )
 
     async def async_debug(
         self,
-        content: str,
+        message: Any,
         *,
-        status: "EventStatus" = "",
+        event_type: str = "runtime.debug",
+        payload: Any = None,
+        run: "RunContext | None" = None,
         meta: dict[str, Any] | None = None,
     ):
-        if meta is None:
-            meta = {}
-        final_meta = self._base_meta.copy()
-        final_meta.update(meta)
-        await self._event_center.async_emit(
-            "log",
-            {
-                "module_name": self._module_name,
-                "status": status,
-                "content": content,
-                "level": "DEBUG",
-                "meta": final_meta,
-            },
+        await self.async_emit(
+            event_type,
+            level="DEBUG",
+            message=str(message),
+            payload=payload,
+            run=run,
+            meta=meta,
         )
 
     async def async_info(
         self,
-        content: str,
+        message: Any,
         *,
-        status: "EventStatus" = "",
+        event_type: str = "runtime.info",
+        payload: Any = None,
+        run: "RunContext | None" = None,
         meta: dict[str, Any] | None = None,
     ):
-        if meta is None:
-            meta = {}
-        final_meta = self._base_meta.copy()
-        final_meta.update(meta)
-        await self._event_center.async_emit(
-            "log",
-            {
-                "module_name": self._module_name,
-                "status": status,
-                "content": content,
-                "level": "INFO",
-                "meta": final_meta,
-            },
+        await self.async_emit(
+            event_type,
+            level="INFO",
+            message=str(message),
+            payload=payload,
+            run=run,
+            meta=meta,
         )
 
     async def async_warning(
         self,
-        content: str,
+        message: Any,
         *,
-        status: "EventStatus" = "",
+        event_type: str = "runtime.warning",
+        payload: Any = None,
+        run: "RunContext | None" = None,
         meta: dict[str, Any] | None = None,
     ):
-        if meta is None:
-            meta = {}
-        final_meta = self._base_meta.copy()
-        final_meta.update(meta)
-        await self._event_center.async_emit(
-            "log",
-            {
-                "module_name": self._module_name,
-                "status": status,
-                "content": content,
-                "level": "WARNING",
-                "meta": final_meta,
-            },
+        await self.async_emit(
+            event_type,
+            level="WARNING",
+            message=str(message),
+            payload=payload,
+            run=run,
+            meta=meta,
         )
 
     async def async_error(
         self,
         error: str | Exception,
         *,
-        status: "EventStatus" = "",
+        event_type: str = "runtime.error",
+        message: str | None = None,
+        payload: Any = None,
+        run: "RunContext | None" = None,
         meta: dict[str, Any] | None = None,
     ):
-        if meta is None:
-            meta = {}
-        final_meta = self._base_meta.copy()
-        final_meta.update(meta)
-        error = error if isinstance(error, Exception) else RuntimeError(error)
-        await self._event_center.async_emit(
-            "log",
-            {
-                "module_name": self._module_name,
-                "status": status,
-                "content": str(error),
-                "exception": error,
-                "level": "ERROR",
-                "meta": final_meta,
-            },
+        final_error = error if isinstance(error, Exception) else RuntimeError(error)
+        await self.async_emit(
+            event_type,
+            level="ERROR",
+            message=message if message is not None else str(final_error),
+            payload=payload,
+            error=final_error,
+            run=run,
+            meta=meta,
         )
-
         from agently.base import settings
 
         if settings.get("runtime.raise_error"):
-            raise error
+            raise final_error
 
     async def async_critical(
         self,
         critical: str | Exception,
         *,
-        status: "EventStatus" = "",
+        event_type: str = "runtime.critical",
+        message: str | None = None,
+        payload: Any = None,
+        run: "RunContext | None" = None,
         meta: dict[str, Any] | None = None,
     ):
-        if meta is None:
-            meta = {}
-        final_meta = self._base_meta.copy()
-        final_meta.update(meta)
-        critical = critical if isinstance(critical, Exception) else RuntimeError(critical)
-        await self._event_center.async_emit(
-            "log",
-            {
-                "module_name": self._module_name,
-                "status": status,
-                "content": str(critical),
-                "exception": critical,
-                "level": "CRITICAL",
-                "meta": final_meta,
-            },
+        final_critical = critical if isinstance(critical, Exception) else RuntimeError(critical)
+        await self.async_emit(
+            event_type,
+            level="CRITICAL",
+            message=message if message is not None else str(final_critical),
+            payload=payload,
+            error=final_critical,
+            run=run,
+            meta=meta,
         )
-
         from agently.base import settings
 
         if settings.get("runtime.raise_critical"):
-            raise critical
-
-    async def async_to_console(
-        self,
-        content: Any,
-        *,
-        status: "EventStatus" = "",
-        table_name: str | None = None,
-        row_id: int | str | None = None,
-    ):
-        final_meta = {}
-        final_meta.update(self._base_meta)
-        if table_name is not None:
-            final_meta.update({"table_name": table_name})
-        if row_id is not None:
-            final_meta.update({"row_id": row_id})
-        await self._event_center.async_emit(
-            "console",
-            {
-                "module_name": self._module_name,
-                "status": status,
-                "content": content,
-                "meta": final_meta,
-            },
-        )
-
-    async def async_to_data(
-        self,
-        data: SerializableData,
-        *,
-        status: "EventStatus" = "",
-        meta: dict[str, Any],
-    ):
-        final_meta = self._base_meta
-        final_meta.update(meta)
-        await self._event_center.async_emit(
-            "data",
-            {
-                "module_name": self._module_name,
-                "status": status,
-                "content": json.dumps(data),
-                "meta": final_meta,
-            },
-        )
+            raise final_critical

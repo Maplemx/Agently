@@ -21,13 +21,14 @@ from typing import Callable, Any, Literal, TYPE_CHECKING, overload, AsyncGenerat
 if TYPE_CHECKING:
     from .Execution import TriggerFlowExecution
     from .Chunk import TriggerFlowHandler
-    from agently.types.data import SerializableValue
+    from agently.types.data import RunContext, SerializableValue
 
 from agently.types.trigger_flow import (
     TriggerFlowBlockData,
     TriggerFlowContractMetadata,
     TriggerFlowInterruptEvent,
 )
+from agently.types.data import RunContext
 from agently.utils import Settings, StateData, FunctionShifter
 from .BluePrint import TriggerFlowBluePrint
 from .Process import TriggerFlowProcess
@@ -138,14 +139,31 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         skip_exceptions: bool | None = None,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> "TriggerFlowExecution[InputT, StreamT, ResultT]":
         execution_id = uuid.uuid4().hex
         skip_exceptions = skip_exceptions if skip_exceptions is not None else self._skip_exceptions
+        execution_run_context = run_context
+        if execution_run_context is None:
+            if parent_run_context is not None:
+                execution_run_context = parent_run_context.create_child(
+                    run_kind="workflow_execution",
+                    execution_id=execution_id,
+                    meta={"flow_name": self.name},
+                )
+            else:
+                execution_run_context = RunContext.create(
+                    run_kind="workflow_execution",
+                    execution_id=execution_id,
+                    meta={"flow_name": self.name},
+                )
         execution = self._blue_print.create_execution(
             self,
             execution_id=execution_id,
             skip_exceptions=skip_exceptions,
             concurrency=concurrency,
+            run_context=execution_run_context,
         )
         if runtime_resources:
             execution.update_runtime_resources(runtime_resources)
@@ -285,10 +303,14 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         wait_for_result: bool = False,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> "TriggerFlowExecution[InputT, StreamT, ResultT]":
         execution = self.create_execution(
             concurrency=concurrency,
             runtime_resources=runtime_resources,
+            run_context=run_context,
+            parent_run_context=parent_run_context,
         )
         await execution.async_start(initial_value, wait_for_result=wait_for_result)
         return execution
@@ -365,6 +387,8 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> ResultT: ...
 
     @overload
@@ -376,6 +400,8 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> None: ...
 
     def start(
@@ -386,6 +412,8 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> ResultT | None:
         return FunctionShifter.syncify(self.async_start)(
             initial_value,
@@ -393,6 +421,8 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
             timeout=timeout,
             concurrency=concurrency,
             runtime_resources=runtime_resources,
+            run_context=run_context,
+            parent_run_context=parent_run_context,
         )
 
     @overload
@@ -404,6 +434,8 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> ResultT: ...
 
     @overload
@@ -415,6 +447,8 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> None: ...
 
     async def async_start(
@@ -425,11 +459,15 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> ResultT | None:
         execution = await self.async_start_execution(
             initial_value,
             concurrency=concurrency,
             runtime_resources=runtime_resources,
+            run_context=run_context,
+            parent_run_context=parent_run_context,
         )
         if wait_for_result:
             return await execution.async_get_result(timeout=timeout)
@@ -441,10 +479,14 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> AsyncGenerator[StreamT | TriggerFlowInterruptEvent, None]:
         execution = self.create_execution(
             concurrency=concurrency,
             runtime_resources=runtime_resources,
+            run_context=run_context,
+            parent_run_context=parent_run_context,
         )
         return execution.get_async_runtime_stream(
             initial_value,
@@ -458,10 +500,14 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         timeout: float | None = 10.0,
         concurrency: int | None = None,
         runtime_resources: dict[str, Any] | None = None,
+        run_context: "RunContext | None" = None,
+        parent_run_context: "RunContext | None" = None,
     ) -> Generator[StreamT | TriggerFlowInterruptEvent, None, None]:
         execution = self.create_execution(
             concurrency=concurrency,
             runtime_resources=runtime_resources,
+            run_context=run_context,
+            parent_run_context=parent_run_context,
         )
         return execution.get_runtime_stream(
             initial_value,
