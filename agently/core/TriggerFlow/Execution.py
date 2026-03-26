@@ -182,6 +182,30 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
         except KeyError:
             return None
 
+    def _serialize_operator_signals(self, signals: Any):
+        if not isinstance(signals, list):
+            return []
+        serialized: list[dict[str, Any]] = []
+        for signal in signals:
+            if not isinstance(signal, dict):
+                continue
+            trigger_event = signal.get("trigger_event")
+            trigger_type = signal.get("trigger_type")
+            if not isinstance(trigger_event, str) or not isinstance(trigger_type, str):
+                continue
+            serialized_signal: dict[str, Any] = {
+                "trigger_event": trigger_event,
+                "trigger_type": trigger_type,
+            }
+            role = signal.get("role")
+            if isinstance(role, str):
+                serialized_signal["role"] = role
+            signal_id = signal.get("id")
+            if isinstance(signal_id, str):
+                serialized_signal["id"] = signal_id
+            serialized.append(serialized_signal)
+        return serialized
+
     def _create_chunk_run_context(self, operator: dict[str, Any], signal: TriggerFlowSignal):
         operator_kind = str(operator.get("kind", "chunk"))
         operator_name = str(operator.get("name") or operator_kind)
@@ -200,6 +224,8 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
                 "group_kind": operator.get("group_kind"),
                 "parent_group_id": operator.get("parent_group_id"),
                 "parent_group_kind": operator.get("parent_group_kind"),
+                "listen_signals": self._serialize_operator_signals(operator.get("listen_signals")),
+                "emit_signals": self._serialize_operator_signals(operator.get("emit_signals")),
             },
         )
 

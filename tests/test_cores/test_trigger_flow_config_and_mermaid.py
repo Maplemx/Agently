@@ -569,6 +569,13 @@ async def test_trigger_flow_sub_flow_inherits_parent_run_lineage():
     assert sub_flow_chunk_event.run.parent_run_id == root_event.run.run_id
     assert sub_flow_chunk_event.run.meta["chunk_name"] == "child-lineage-flow"
     assert sub_flow_chunk_event.run.meta["operator_kind"] == "sub_flow"
+    assert len(sub_flow_chunk_event.run.meta["listen_signals"]) == 1
+    assert sub_flow_chunk_event.run.meta["listen_signals"][0]["trigger_type"] == "event"
+    assert sub_flow_chunk_event.run.meta["listen_signals"][0]["trigger_event"].startswith("Chunk[<lambda>]-")
+    assert any(
+        isinstance(signal.get("trigger_event"), str) and signal["trigger_event"].startswith("SubFlow-")
+        for signal in sub_flow_chunk_event.run.meta["emit_signals"]
+    )
     assert child_event.run.meta["flow_name"] == "child-lineage-flow"
     assert child_event.run.root_run_id == root_event.run.root_run_id
     assert child_event.run.parent_run_id == sub_flow_chunk_event.run.run_id
