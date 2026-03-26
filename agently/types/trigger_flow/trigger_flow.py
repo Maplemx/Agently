@@ -22,6 +22,7 @@ from agently.types.data import AVOID_COPY
 if TYPE_CHECKING:
     from agently.core import TriggerFlowExecution
     from agently.core.TriggerFlow.Signal import TriggerFlowSignal
+    from agently.types.data import RunContext
 
 from agently.utils import StateData
 
@@ -248,6 +249,7 @@ class TriggerFlowRuntimeData(Generic[ValueT, StreamT, ResultT]):
         execution: "TriggerFlowExecution",
         _layer_marks: list[str] | None = None,
         signal: "TriggerFlowSignal | None" = None,
+        chunk_run_context: "RunContext | None" = None,
     ):
         self.trigger_event = trigger_event
         self.trigger_type: Literal["event", "runtime_data", "flow_data", "collect"] = trigger_type
@@ -271,6 +273,7 @@ class TriggerFlowRuntimeData(Generic[ValueT, StreamT, ResultT]):
             signal_source=self.signal_source,
             signal_meta=self.signal_meta.copy(),
         )
+        self.chunk_run_context = chunk_run_context
 
         self.get_flow_data = execution.get_flow_data
         self.set_flow_data = execution.set_flow_data
@@ -315,10 +318,26 @@ class TriggerFlowRuntimeData(Generic[ValueT, StreamT, ResultT]):
         self.emit = execution.emit
         self.async_emit = execution.async_emit
 
-        self.put = execution.put_into_stream
-        self.async_put = execution.async_put_into_stream
-        self.put_into_stream = execution.put_into_stream
-        self.async_put_into_stream = execution.async_put_into_stream
+        def _origin_chunk_payload():
+            if self.chunk_run_context is None:
+                return None
+            return {
+                "run_id": self.chunk_run_context.run_id,
+                "chunk_id": self.chunk_run_context.meta.get("chunk_id"),
+                "chunk_name": self.chunk_run_context.meta.get("chunk_name"),
+                "operator_kind": self.chunk_run_context.meta.get("operator_kind"),
+            }
+
+        self.put = lambda stream_item: execution.put_into_stream(
+            stream_item,
+            _origin_chunk=_origin_chunk_payload(),
+        )
+        self.async_put = lambda stream_item: execution.async_put_into_stream(
+            stream_item,
+            _origin_chunk=_origin_chunk_payload(),
+        )
+        self.put_into_stream = self.put
+        self.async_put_into_stream = self.async_put
         self.stop_stream = execution.stop_stream
         self.async_stop_stream = execution.async_stop_stream
 
@@ -331,7 +350,10 @@ class TriggerFlowRuntimeData(Generic[ValueT, StreamT, ResultT]):
         self.get_interrupt = execution.get_interrupt
         self.get_pending_interrupts = execution.get_pending_interrupts
 
-        self.set_result = execution.set_result
+        self.set_result = lambda result: execution.set_result(
+            result,
+            _origin_chunk=_origin_chunk_payload(),
+        )
         self.get_result = execution.get_result
         self.get_last_signal = execution.get_last_signal
 

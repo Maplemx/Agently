@@ -231,6 +231,39 @@ def test_trigger_flow_mermaid_allows_lambda_condition_but_export_rejects_it():
         flow.get_flow_config()
 
 
+@pytest.mark.asyncio
+async def test_trigger_flow_stream_and_result_events_include_origin_chunk():
+    captured = []
+
+    async def capture(event):
+        if event.event_type in {"workflow.stream_item_emitted", "workflow.result_set"}:
+            captured.append(event)
+
+    hook_name = "test_trigger_flow_config_and_mermaid.origin_chunk_capture"
+    Agently.event_center.register_hook(capture, hook_name=hook_name)
+    try:
+        flow = TriggerFlow(name="origin-chunk-flow")
+
+        async def emit_and_complete(data: TriggerFlowRuntimeData):
+            data.put({"stage": "working"})
+            data.set_result({"answer": data.value})
+
+        flow.to(emit_and_complete).end()
+
+        result = await flow.async_start("done")
+        assert result == {"answer": "done"}
+
+        stream_event = next(event for event in captured if event.event_type == "workflow.stream_item_emitted")
+        result_event = next(event for event in captured if event.event_type == "workflow.result_set")
+
+        assert stream_event.payload["origin_chunk"]["chunk_name"] == "emit_and_complete"
+        assert stream_event.payload["origin_chunk"]["operator_kind"] == "chunk"
+        assert result_event.payload["origin_chunk"]["chunk_name"] == "emit_and_complete"
+        assert result_event.payload["origin_chunk"]["run_id"] == stream_event.payload["origin_chunk"]["run_id"]
+    finally:
+        Agently.event_center.unregister_hook(hook_name)
+
+
 def test_trigger_flow_mermaid_shows_external_signal_and_declared_emit():
     flow = TriggerFlow(name="mermaid-signals")
 
