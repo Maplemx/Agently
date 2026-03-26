@@ -217,6 +217,15 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
             "operator_kind": chunk_run_context.meta.get("operator_kind"),
         }
 
+    def _serialize_runtime_value(self, value: Any):
+        try:
+            return self._to_serializable_value(value)
+        except Exception:
+            return {
+                "__repr__": repr(value),
+                "__type__": type(value).__name__,
+            }
+
     def _create_chunk_run_context(self, operator: dict[str, Any], signal: TriggerFlowSignal):
         operator_kind = str(operator.get("kind", "chunk"))
         operator_name = str(operator.get("name") or operator_kind)
@@ -633,6 +642,12 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
                                 operator=operator,
                                 signal=signal,
                                 message=f"Chunk '{ chunk_run_context.meta.get('chunk_name', chunk_run_context.run_id) }' started.",
+                                payload={
+                                    "status": "running",
+                                    "input": self._serialize_runtime_value(signal.value),
+                                    "signal_source": signal.source,
+                                    "signal_meta": self._serialize_runtime_value(signal.meta),
+                                },
                             )
                         try:
                             with bind_runtime_context(
@@ -651,7 +666,12 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
                                     message=(
                                         f"Chunk '{ chunk_run_context.meta.get('chunk_name', chunk_run_context.run_id) }' failed."
                                     ),
-                                    payload={"status": "failed"},
+                                    payload={
+                                        "status": "failed",
+                                        "input": self._serialize_runtime_value(signal.value),
+                                        "signal_source": signal.source,
+                                        "signal_meta": self._serialize_runtime_value(signal.meta),
+                                    },
                                     error=error,
                                 )
                             raise
@@ -680,6 +700,10 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
                             payload={
                                 "status": "waiting" if self.is_waiting() else "completed",
                                 "returned_pause_signal": isinstance(result, TriggerFlowPauseSignal),
+                                "input": self._serialize_runtime_value(signal.value),
+                                "signal_source": signal.source,
+                                "signal_meta": self._serialize_runtime_value(signal.meta),
+                                "output": None if isinstance(result, TriggerFlowPauseSignal) else self._serialize_runtime_value(result),
                             },
                         )
                     return result

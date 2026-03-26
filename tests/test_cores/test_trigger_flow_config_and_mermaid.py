@@ -614,6 +614,57 @@ async def test_trigger_flow_sub_flow_inherits_parent_run_lineage():
     assert child_event.run.parent_run_id == sub_flow_chunk_event.run.run_id
 
 
+@pytest.mark.asyncio
+async def test_trigger_flow_chunk_runtime_events_include_input_output_and_origin_data():
+    flow = TriggerFlow(name="chunk-runtime-payloads")
+
+    async def compute(data: TriggerFlowRuntimeData):
+        await data.async_put_into_stream({"preview": data.value})
+        data.set_result({"final": data.value * 2})
+        return {"echo": data.value}
+
+    flow.to(compute).end()
+
+    captured = []
+
+    async def capture(event):
+        captured.append(event)
+
+    hook_name = "test_trigger_flow_chunk_runtime_events_include_input_output_and_origin_data.capture"
+    Agently.event_center.register_hook(capture, hook_name=hook_name)
+    try:
+        result = await flow.async_start(7)
+    finally:
+        Agently.event_center.unregister_hook(hook_name)
+
+    assert result == {"final": 14}
+
+    chunk_started = next(
+        event
+        for event in captured
+        if event.event_type == "chunk.started"
+        and event.run is not None
+        and event.run.meta.get("chunk_name") == "compute"
+    )
+    chunk_completed = next(
+        event
+        for event in captured
+        if event.event_type == "chunk.completed"
+        and event.run is not None
+        and event.run.meta.get("chunk_name") == "compute"
+    )
+    stream_event = next(event for event in captured if event.event_type == "workflow.stream_item_emitted")
+    result_event = next(event for event in captured if event.event_type == "workflow.result_set")
+
+    assert chunk_started.payload["input"] == 7
+    assert chunk_started.payload["status"] == "running"
+    assert chunk_completed.payload["input"] == 7
+    assert chunk_completed.payload["output"] == {"echo": 7}
+    assert chunk_completed.payload["returned_pause_signal"] is False
+    assert stream_event.payload["origin_chunk"]["run_id"] == chunk_started.run.run_id
+    assert result_event.payload["origin_chunk"]["run_id"] == chunk_started.run.run_id
+
+
 def test_trigger_flow_sub_flow_rejects_invalid_capture_and_write_back_specs():
     child_flow = TriggerFlow(name="child-invalid-spec")
 
