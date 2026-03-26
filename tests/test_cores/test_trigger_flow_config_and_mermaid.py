@@ -539,24 +539,39 @@ async def test_trigger_flow_sub_flow_inherits_parent_run_lineage():
     captured = []
 
     async def capture(event):
-        if event.event_type == "workflow.execution_started" and event.run is not None:
+        if event.event_type in {"workflow.execution_started", "chunk.started"} and event.run is not None:
             captured.append(event)
 
     hook_name = "test_trigger_flow_sub_flow_inherits_parent_run_lineage.capture"
-    Agently.event_center.register_hook(capture, event_types="workflow.execution_started", hook_name=hook_name)
+    Agently.event_center.register_hook(
+        capture,
+        event_types=["workflow.execution_started", "chunk.started"],
+        hook_name=hook_name,
+    )
     try:
         assert await parent_flow.async_start(2) == 3
     finally:
         Agently.event_center.unregister_hook(hook_name)
 
-    assert len(captured) == 2
+    workflow_events = [event for event in captured if event.event_type == "workflow.execution_started"]
+    chunk_events = [event for event in captured if event.event_type == "chunk.started"]
+
+    assert len(workflow_events) == 2
     root_event = next(event for event in captured if event.run.parent_run_id is None)
-    child_event = next(event for event in captured if event.run.parent_run_id == root_event.run.run_id)
+    sub_flow_chunk_event = next(
+        event
+        for event in chunk_events
+        if event.run.meta.get("operator_kind") == "sub_flow"
+    )
+    child_event = next(event for event in workflow_events if event.run.parent_run_id == sub_flow_chunk_event.run.run_id)
 
     assert root_event.run.meta["flow_name"] == "parent-lineage-flow"
+    assert sub_flow_chunk_event.run.parent_run_id == root_event.run.run_id
+    assert sub_flow_chunk_event.run.meta["chunk_name"] == "child-lineage-flow"
+    assert sub_flow_chunk_event.run.meta["operator_kind"] == "sub_flow"
     assert child_event.run.meta["flow_name"] == "child-lineage-flow"
     assert child_event.run.root_run_id == root_event.run.root_run_id
-    assert child_event.run.parent_run_id == root_event.run.run_id
+    assert child_event.run.parent_run_id == sub_flow_chunk_event.run.run_id
 
 
 def test_trigger_flow_sub_flow_rejects_invalid_capture_and_write_back_specs():

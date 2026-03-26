@@ -389,14 +389,25 @@ async def test_trigger_flow_runtime_context_auto_inherits_parent_run_for_agent_a
         workflow_run = workflow_start.run
         assert workflow_run is not None
 
+        chunk_start = next(
+            event
+            for event in captured
+            if event.event_type == "chunk.started"
+            and event.run is not None
+            and event.run.meta.get("chunk_name") == "run_inside_flow"
+        )
+        chunk_run = chunk_start.run
+        assert chunk_run is not None
+        assert chunk_run.parent_run_id == workflow_run.run_id
+
         agent_turn_start = next(event for event in captured if event.event_type == "agent_turn.started")
         assert agent_turn_start.run is not None
-        assert agent_turn_start.run.parent_run_id == workflow_run.run_id
+        assert agent_turn_start.run.parent_run_id == chunk_run.run_id
 
         request_starts = [event for event in captured if event.event_type == "request.started"]
         assert len(request_starts) >= 2
         parent_ids = {event.run.parent_run_id for event in request_starts if event.run is not None}
-        assert workflow_run.run_id in parent_ids
+        assert chunk_run.run_id in parent_ids
         assert agent_turn_start.run.run_id in parent_ids
     finally:
         Agently.event_center.unregister_hook(hook_name)

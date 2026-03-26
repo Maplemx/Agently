@@ -103,6 +103,7 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             self.trigger_type,
             self.trigger_event,
             match_case,
+            id=route_operator_id,
         )
         self._blue_print.definition.add_operator(
             id=route_operator_id,
@@ -247,6 +248,8 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
             branch_ends.append(self.trigger_event)
             definition_branch_ends.extend(copy.deepcopy(self._definition_signals))
 
+        collect_operator_id = f"match-collect-{ match_id }"
+
         async def collect_branch_result(data: "TriggerFlowRuntimeData"):
             match_results = data._system_runtime_data.get(f"match_results.{ data.upper_layer_mark }")
             if match_results:
@@ -272,10 +275,10 @@ class TriggerFlowMatchCaseProcess(TriggerFlowBaseProcess):
                 )
 
         for trigger in branch_ends:
-            self._blue_print.add_event_handler(trigger, collect_branch_result)
+            self._blue_print.add_event_handler(trigger, collect_branch_result, id=collect_operator_id)
 
         self._blue_print.definition.add_operator(
-            id=f"match-collect-{ match_id }",
+            id=collect_operator_id,
             kind="match_collect",
             name=f"match_result:{ match_id }",
             listen_signals=definition_branch_ends,

@@ -249,6 +249,7 @@ class TriggerFlowBaseProcess:
 
         when_id = uuid.uuid4().hex
         when_trigger = f"When-{ when_id }"
+        when_operator_id = f"when-{ when_id }"
         values_template = copy.deepcopy(values)
 
         async def wait_trigger(data: "TriggerFlowRuntimeData"):
@@ -289,10 +290,11 @@ class TriggerFlowBaseProcess:
                     trigger_type,  # type: ignore[arg-type]
                     trigger_event,
                     wait_trigger,
+                    id=when_operator_id,
                 )
 
         self._blue_print.definition.add_operator(
-            id=f"when-{ when_id }",
+            id=when_operator_id,
             kind="signal_gate",
             name=f"when:{ when_id }",
             listen_signals=definition_signals,
@@ -344,6 +346,7 @@ class TriggerFlowBaseProcess:
             self.trigger_type,
             self.trigger_event,
             chunk.async_call,
+            id=chunk.id,
         )
         self._blue_print.attach_chunk(
             chunk,
@@ -419,6 +422,7 @@ class TriggerFlowBaseProcess:
     ):
         batch_id = uuid.uuid4().hex
         batch_trigger = f"Batch-{ batch_id }"
+        batch_collect_operator_id = f"batch-collect-{ batch_id }"
         results_template: dict[str, Any] = {}
         triggers_template: dict[str, bool] = {}
         trigger_to_chunk_name = {}
@@ -492,8 +496,13 @@ class TriggerFlowBaseProcess:
                 self.trigger_type,
                 self.trigger_event,
                 handler,
+                id=typed_chunk.id,
             )
-            self._blue_print.add_event_handler(typed_chunk.trigger, wait_all_chunks)
+            self._blue_print.add_event_handler(
+                typed_chunk.trigger,
+                wait_all_chunks,
+                id=batch_collect_operator_id,
+            )
             self._blue_print.attach_chunk(
                 typed_chunk,
                 [branch_input_signal],
@@ -516,7 +525,7 @@ class TriggerFlowBaseProcess:
             parent_group_kind=self._definition_group_kind,
         )
         self._blue_print.definition.add_operator(
-            id=f"batch-collect-{ batch_id }",
+            id=batch_collect_operator_id,
             kind="batch_collect",
             name=f"batch_collect:{ batch_id }",
             listen_signals=branch_output_signals,
@@ -587,13 +596,14 @@ class TriggerFlowBaseProcess:
             if mode == "filled_then_empty":
                 del data._system_runtime_data[state_key]
 
+        operator_id = f"collect-{ collect_id }-{ branch_id }"
         self._blue_print.add_handler(
             self.trigger_type,
             self.trigger_event,
             collect_branches,
+            id=operator_id,
         )
 
-        operator_id = f"collect-{ collect_id }-{ branch_id }"
         self._blue_print.definition.add_operator(
             id=operator_id,
             kind="collect_branch",
@@ -637,13 +647,15 @@ class TriggerFlowBaseProcess:
                 if isinstance(result_ready, Event):
                     result_ready.set()
 
+        operator_id = f"result-{ uuid.uuid4().hex }"
         self._blue_print.add_handler(
             self.trigger_type,
             self.trigger_event,
             set_default_result,
+            id=operator_id,
         )
         self._blue_print.definition.add_operator(
-            id=f"result-{ uuid.uuid4().hex }",
+            id=operator_id,
             kind="result_sink",
             name="result",
             listen_signals=self._definition_signals,

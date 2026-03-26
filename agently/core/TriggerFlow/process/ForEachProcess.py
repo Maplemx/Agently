@@ -33,6 +33,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             },
         )
         send_item_trigger = f"ForEach-{ for_each_id }-Send"
+        split_operator_id = f"for_each-split-{ for_each_id }"
 
         async def send_items(data: "TriggerFlowRuntimeData"):
             data.layer_in()
@@ -84,9 +85,10 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             self.trigger_type,
             self.trigger_event,
             send_items,
+            id=split_operator_id,
         )
         self._blue_print.definition.add_operator(
-            id=f"for_each-split-{ for_each_id }",
+            id=split_operator_id,
             kind="for_each_split",
             name=f"for_each:{ for_each_id }",
             listen_signals=self._definition_signals,
@@ -114,6 +116,7 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
 
         for_each_id = self._block_data.data["for_each_id"]
         end_for_each_trigger = f"ForEach-{ for_each_id }-End"
+        collect_operator_id = f"for_each-collect-{ for_each_id }"
 
         async def collect_results(data: "TriggerFlowRuntimeData"):
             for_each_instance_id = data.upper_layer_mark
@@ -143,9 +146,10 @@ class TriggerFlowForEachProcess(TriggerFlowBaseProcess):
             self.trigger_type,
             self.trigger_event,
             collect_results,
+            id=collect_operator_id,
         )
         self._blue_print.definition.add_operator(
-            id=f"for_each-collect-{ for_each_id }",
+            id=collect_operator_id,
             kind="for_each_collect",
             name=f"for_each_collect:{ for_each_id }",
             listen_signals=self._definition_signals,

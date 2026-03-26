@@ -176,6 +176,74 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
             }
         )
 
+    def _get_handler_operator(self, handler_id: str):
+        try:
+            return self._trigger_flow._blue_print.definition.get_operator(handler_id)
+        except KeyError:
+            return None
+
+    def _create_chunk_run_context(self, operator: dict[str, Any], signal: TriggerFlowSignal):
+        operator_kind = str(operator.get("kind", "chunk"))
+        operator_name = str(operator.get("name") or operator_kind)
+        return self.run_context.create_child(
+            run_kind="chunk_execution",
+            execution_id=self.id,
+            meta={
+                "flow_name": self._trigger_flow.name,
+                "chunk_id": str(operator.get("id", "")),
+                "chunk_name": operator_name,
+                "operator_kind": operator_kind,
+                "trigger_event": signal.trigger_event,
+                "trigger_type": signal.trigger_type,
+                "signal_id": signal.id,
+                "group_id": operator.get("group_id"),
+                "group_kind": operator.get("group_kind"),
+                "parent_group_id": operator.get("parent_group_id"),
+                "parent_group_kind": operator.get("parent_group_kind"),
+            },
+        )
+
+    async def _emit_chunk_runtime_event(
+        self,
+        event_type: str,
+        chunk_run_context: RunContext,
+        *,
+        operator: dict[str, Any],
+        signal: TriggerFlowSignal,
+        level: str = "INFO",
+        message: str | None = None,
+        payload: Any = None,
+        error: Exception | None = None,
+    ):
+        from agently.base import async_emit_runtime
+
+        operator_kind = str(operator.get("kind", "chunk"))
+        operator_name = str(operator.get("name") or operator_kind)
+        base_payload = {
+            "chunk_id": str(operator.get("id", "")),
+            "chunk_name": operator_name,
+            "operator_kind": operator_kind,
+            "trigger_event": signal.trigger_event,
+            "trigger_type": signal.trigger_type,
+            "signal_id": signal.id,
+        }
+        if isinstance(payload, dict):
+            base_payload.update(payload)
+        elif payload is not None:
+            base_payload["value"] = payload
+        await async_emit_runtime(
+            {
+                "event_type": event_type,
+                "source": "TriggerFlowExecution",
+                "level": level,
+                "message": message,
+                "payload": base_payload,
+                "error": error,
+                "run": chunk_run_context,
+                "meta": {"execution_id": self.id},
+            }
+        )
+
     def get_status(self):
         return self._status
 
@@ -517,19 +585,68 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
                 }
             )
 
-                async def run_handler(handler_func):
-                    with bind_runtime_context(parent_run_context=self.run_context):
-                        if self._concurrency_semaphore is None:
-                            return await handler_func
+                async def run_handler(handler_func, *, handler_id: str):
+                    operator = self._get_handler_operator(handler_id)
+                    chunk_run_context = self._create_chunk_run_context(operator, signal) if operator is not None else None
+
+                    async def execute_handler():
+                        if operator is not None and chunk_run_context is not None:
+                            await self._emit_chunk_runtime_event(
+                                "chunk.started",
+                                chunk_run_context,
+                                operator=operator,
+                                signal=signal,
+                                message=f"Chunk '{ chunk_run_context.meta.get('chunk_name', chunk_run_context.run_id) }' started.",
+                            )
+                        try:
+                            with bind_runtime_context(
+                                parent_run_context=chunk_run_context if chunk_run_context is not None else self.run_context,
+                                chunk_run_context=chunk_run_context,
+                            ):
+                                return await handler_func
+                        except Exception as error:
+                            if operator is not None and chunk_run_context is not None:
+                                await self._emit_chunk_runtime_event(
+                                    "chunk.failed",
+                                    chunk_run_context,
+                                    operator=operator,
+                                    signal=signal,
+                                    level="ERROR",
+                                    message=(
+                                        f"Chunk '{ chunk_run_context.meta.get('chunk_name', chunk_run_context.run_id) }' failed."
+                                    ),
+                                    payload={"status": "failed"},
+                                    error=error,
+                                )
+                            raise
+
+                    if self._concurrency_semaphore is None:
+                        result = await execute_handler()
+                    else:
                         depth = self._concurrency_depth.get()
                         token = self._concurrency_depth.set(depth + 1)
                         try:
                             if depth > 0:
-                                return await handler_func
-                            async with self._concurrency_semaphore:
-                                return await handler_func
+                                result = await execute_handler()
+                            else:
+                                async with self._concurrency_semaphore:
+                                    result = await execute_handler()
                         finally:
                             self._concurrency_depth.reset(token)
+
+                    if operator is not None and chunk_run_context is not None:
+                        await self._emit_chunk_runtime_event(
+                            "chunk.completed",
+                            chunk_run_context,
+                            operator=operator,
+                            signal=signal,
+                            message=f"Chunk '{ chunk_run_context.meta.get('chunk_name', chunk_run_context.run_id) }' completed.",
+                            payload={
+                                "status": "waiting" if self.is_waiting() else "completed",
+                                "returned_pause_signal": isinstance(result, TriggerFlowPauseSignal),
+                            },
+                        )
+                    return result
 
                 handler_task = FunctionShifter.asyncify(handler)(
                     TriggerFlowRuntimeData(
@@ -541,7 +658,7 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
                         signal=signal,
                     )
                 )
-                tasks.append(asyncio.ensure_future(run_handler(handler_task)))
+                tasks.append(asyncio.ensure_future(run_handler(handler_task, handler_id=handler_id)))
 
         if tasks:
             try:

@@ -30,6 +30,7 @@ from agently.types.trigger_flow import (
 )
 from agently.types.data import RunContext
 from agently.utils import Settings, StateData, FunctionShifter
+from agently.core.runtime_context import resolve_parent_run_context
 from .BluePrint import TriggerFlowBluePrint
 from .Process import TriggerFlowProcess
 from .Chunk import TriggerFlowChunk
@@ -144,6 +145,7 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
     ) -> "TriggerFlowExecution[InputT, StreamT, ResultT]":
         execution_id = uuid.uuid4().hex
         skip_exceptions = skip_exceptions if skip_exceptions is not None else self._skip_exceptions
+        parent_run_context = resolve_parent_run_context(parent_run_context)
         execution_run_context = run_context
         if execution_run_context is None:
             if parent_run_context is not None:

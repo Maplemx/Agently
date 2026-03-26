@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 from agently.types.data import EMPTY, SerializableMapping
 from agently.types.trigger_flow import RUNTIME_STREAM_STOP
 from agently.utils import StateData, StateDataNamespace
+from agently.core.runtime_context import resolve_parent_run_context
 from .Chunk import TriggerFlowChunk
 from .Execution import TriggerFlowExecution
 from .Definition import (
@@ -735,7 +736,7 @@ class TriggerFlowBluePrint:
 
             sub_flow_execution = isolated_sub_flow.create_execution(
                 concurrency=concurrency,
-                parent_run_context=data.execution.run_context,
+                parent_run_context=resolve_parent_run_context() or data.execution.run_context,
             )
             captured_runtime_data = capture_target.build_runtime_data()
             if captured_runtime_data:
@@ -785,6 +786,7 @@ class TriggerFlowBluePrint:
                 signal["trigger_type"],
                 signal["trigger_event"],
                 call_sub_flow,
+                id=operator["id"],
             )
 
     def attach_sub_flow(
@@ -967,6 +969,7 @@ class TriggerFlowBluePrint:
                 signal["trigger_type"],
                 signal["trigger_event"],
                 chunk.async_call,
+                id=operator["id"],
             )
 
     def _compile_signal_gate_operator(self, operator: dict[str, Any]):
@@ -1013,6 +1016,7 @@ class TriggerFlowBluePrint:
                 signal["trigger_type"],
                 signal["trigger_event"],
                 wait_trigger,
+                id=operator["id"],
             )
 
     def _compile_batch_fanout_operator(self, operator: dict[str, Any]):
@@ -1042,7 +1046,7 @@ class TriggerFlowBluePrint:
             await asyncio.gather(*[emit_branch(signal) for signal in operator["emit_signals"]])
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], send_to_branches)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], send_to_branches, id=operator["id"])
 
     def _compile_batch_collect_operator(self, operator: dict[str, Any]):
         emit_signal = operator["emit_signals"][0]
@@ -1077,7 +1081,7 @@ class TriggerFlowBluePrint:
             del data._system_runtime_data[state_key]
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], wait_all_chunks)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], wait_all_chunks, id=operator["id"])
 
     def _compile_for_each_split_operator(self, operator: dict[str, Any]):
         emit_signal = operator["emit_signals"][0]
@@ -1129,7 +1133,7 @@ class TriggerFlowBluePrint:
                 await emit_item(item_value, layer_marks)
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], send_items)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], send_items, id=operator["id"])
 
     def _compile_for_each_collect_operator(self, operator: dict[str, Any]):
         emit_signal = operator["emit_signals"][0]
@@ -1154,7 +1158,7 @@ class TriggerFlowBluePrint:
                 for_each_results.delete(for_each_instance_id)
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], collect_results)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], collect_results, id=operator["id"])
 
     def _compile_match_route_operator(self, operator: dict[str, Any]):
         emit_signal = operator["emit_signals"][0]
@@ -1226,7 +1230,7 @@ class TriggerFlowBluePrint:
                     )
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], match_case)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], match_case, id=operator["id"])
 
     def _compile_match_case_operator(self, operator: dict[str, Any]):
         emit_signal = operator["emit_signals"][0]
@@ -1239,7 +1243,7 @@ class TriggerFlowBluePrint:
             )
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], pass_case)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], pass_case, id=operator["id"])
 
     def _compile_match_collect_operator(self, operator: dict[str, Any]):
         emit_signal = operator["emit_signals"][0]
@@ -1269,7 +1273,7 @@ class TriggerFlowBluePrint:
                 )
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], collect_branch_result)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], collect_branch_result, id=operator["id"])
 
     def _compile_collect_branch_operator(self, operator: dict[str, Any]):
         emit_signal = operator["emit_signals"][0]
@@ -1301,7 +1305,7 @@ class TriggerFlowBluePrint:
                 del data._system_runtime_data[state_key]
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], collect_branches)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], collect_branches, id=operator["id"])
 
     def _compile_result_sink_operator(self, operator: dict[str, Any]):
         async def set_default_result(data):
@@ -1314,7 +1318,7 @@ class TriggerFlowBluePrint:
                     result_ready.set()
 
         for signal in operator["listen_signals"]:
-            self.add_handler(signal["trigger_type"], signal["trigger_event"], set_default_result)
+            self.add_handler(signal["trigger_type"], signal["trigger_event"], set_default_result, id=operator["id"])
 
     def _compile_operator(self, operator: dict[str, Any]):
         kind = operator["kind"]

@@ -40,6 +40,10 @@ _current_agent_turn_run_context: ContextVar["RunContext | None"] = ContextVar(
     "agently_current_agent_turn_run_context",
     default=None,
 )
+_current_chunk_run_context: ContextVar["RunContext | None"] = ContextVar(
+    "agently_current_chunk_run_context",
+    default=None,
+)
 _current_tool_phase_run_context: ContextVar["RunContext | None"] = ContextVar(
     "agently_current_tool_phase_run_context",
     default=None,
@@ -53,6 +57,7 @@ def bind_runtime_context(
     request_run_context: "RunContext | None | object" = _MISSING,
     model_run_context: "RunContext | None | object" = _MISSING,
     agent_turn_run_context: "RunContext | None | object" = _MISSING,
+    chunk_run_context: "RunContext | None | object" = _MISSING,
     tool_phase_run_context: "RunContext | None | object" = _MISSING,
 ) -> Iterator[None]:
     tokens = []
@@ -85,6 +90,13 @@ def bind_runtime_context(
                     _current_agent_turn_run_context.set(cast("RunContext | None", agent_turn_run_context)),
                 )
             )
+        if chunk_run_context is not _MISSING:
+            tokens.append(
+                (
+                    _current_chunk_run_context,
+                    _current_chunk_run_context.set(cast("RunContext | None", chunk_run_context)),
+                )
+            )
         if tool_phase_run_context is not _MISSING:
             tokens.append(
                 (
@@ -114,6 +126,10 @@ def get_current_agent_turn_run_context():
     return _current_agent_turn_run_context.get()
 
 
+def get_current_chunk_run_context():
+    return _current_chunk_run_context.get()
+
+
 def get_current_tool_phase_run_context():
     return _current_tool_phase_run_context.get()
 
@@ -124,4 +140,7 @@ def resolve_parent_run_context(parent_run_context: "RunContext | None" = None):
     tool_phase_run_context = get_current_tool_phase_run_context()
     if tool_phase_run_context is not None:
         return tool_phase_run_context
+    chunk_run_context = get_current_chunk_run_context()
+    if chunk_run_context is not None:
+        return chunk_run_context
     return get_current_parent_run_context()
