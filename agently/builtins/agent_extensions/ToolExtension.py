@@ -36,7 +36,6 @@ class ToolExtension(BaseAgent):
         super().__init__(*args, **kwargs)
 
         self.tool = tool
-        self.tool_func = self.tool.tool_func
 
         self.use_tool = self.use_tools
         self.use_mcp = FunctionShifter.syncify(self.async_use_mcp)

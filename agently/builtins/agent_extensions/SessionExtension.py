@@ -76,6 +76,15 @@ class SessionExtension(BaseAgent):
     def _runtime_size(value) -> int:
         return len(value) if hasattr(value, "__len__") else 0
 
+    @staticmethod
+    def _get_runtime_request_run_context(settings: "Settings | None" = None):
+        run_context = get_current_request_run_context()
+        if run_context is not None:
+            return run_context
+        if settings is not None:
+            return getattr(settings, "_runtime_request_run_context", None)
+        return None
+
     def _refill_agent_chat_history_with_session(self):
         if self.activated_session is None:
             return self
@@ -186,7 +195,7 @@ class SessionExtension(BaseAgent):
                         "context_window_size": self._runtime_size(self.activated_session.context_window),
                         "memo_size": memo_size,
                     },
-                    "run": get_current_request_run_context(),
+                    "run": self._get_runtime_request_run_context(_settings),
                 }
             )
 
@@ -218,6 +227,6 @@ class SessionExtension(BaseAgent):
                         "has_assistant_content": bool(assistant_content),
                         "context_window_size": self._runtime_size(self.activated_session.context_window),
                     },
-                    "run": get_current_request_run_context(),
+                    "run": self._get_runtime_request_run_context(settings),
                 }
             )

@@ -60,6 +60,7 @@ class AgentlyToolManager(ToolManager):
         self.tool_funcs: dict[str, Callable] = {}
         self.tool_info: dict[str, dict[str, Any]] = {}
         self.tag_mappings: dict[str, set[str]] = {}
+        self.tool_tags: dict[str, set[str]] = {}
 
         self.use_mcp = FunctionShifter.syncify(self.async_use_mcp)
 
@@ -97,6 +98,7 @@ class AgentlyToolManager(ToolManager):
             tags = []
         if isinstance(tags, str):
             tags = [tags]
+        self.tool_tags[name] = set(tags)
         for tag in tags:
             if tag not in self.tag_mappings:
                 self.tag_mappings.update({tag: set()})
@@ -114,6 +116,9 @@ class AgentlyToolManager(ToolManager):
                     if tag not in self.tag_mappings:
                         self.tag_mappings.update({tag: set()})
                     self.tag_mappings[tag].add(tool_name)
+                    if tool_name not in self.tool_tags:
+                        self.tool_tags[tool_name] = set()
+                    self.tool_tags[tool_name].add(tag)
             else:
                 raise ValueError(f"Cannot find tool named '{ tool_name }'")
 
@@ -147,7 +152,11 @@ class AgentlyToolManager(ToolManager):
 
     def get_tool_info(self, tags: str | list[str] | None = None) -> dict[str, dict[str, Any]]:
         if tags is None:
-            return self.tool_info
+            return {
+                name: info
+                for name, info in self.tool_info.items()
+                if not any(tag.startswith("agent-") for tag in self.tool_tags.get(name, set()))
+            }
         if isinstance(tags, str):
             tags = [tags]
         tool_info: dict[str, dict[str, Any]] = {}
