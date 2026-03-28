@@ -1355,9 +1355,9 @@ class TriggerFlowBluePrint:
             self._compile_operator(operator)
         return self
 
-    def get_flow_config(self, *, name: str | None = None):
+    def get_flow_config(self, *, name: str | None = None, validate_serializable: bool = True):
         return self.definition.to_dict(
-            validate_serializable=True,
+            validate_serializable=validate_serializable,
             name=name if name is not None else self.name,
         )
 

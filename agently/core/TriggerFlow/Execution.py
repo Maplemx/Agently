@@ -91,6 +91,7 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
         self._runtime_completed_emitted = False
         self._runtime_failed_emitted = False
         self._runtime_result_set_emitted = False
+        self._runtime_definition_emitted = False
 
         # Settings
         self.settings = Settings(
@@ -174,6 +175,21 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
                 "run": self.run_context,
                 "meta": {"execution_id": self.id},
             }
+        )
+
+    async def _emit_runtime_definition_event(self):
+        if self._runtime_definition_emitted:
+            return
+        self._runtime_definition_emitted = True
+        await self._emit_runtime_event(
+            "workflow.definition_declared",
+            message=f"Workflow definition declared for execution '{ self.id }'.",
+            payload={
+                "flow_name": self._trigger_flow.name,
+                "definition": self._to_serializable_value(
+                    self._trigger_flow.get_flow_config(validate_serializable=False)
+                ),
+            },
         )
 
     def _get_handler_operator(self, handler_id: str):
@@ -862,6 +878,7 @@ class TriggerFlowExecution(Generic[InputT, StreamT, ResultT]):
             if self._status not in {TRIGGER_FLOW_STATUS_COMPLETED, TRIGGER_FLOW_STATUS_FAILED, TRIGGER_FLOW_STATUS_CANCELLED}:
                 self._set_status(TRIGGER_FLOW_STATUS_RUNNING)
             if not self._runtime_started_emitted:
+                await self._emit_runtime_definition_event()
                 self._runtime_started_emitted = True
                 await self._emit_runtime_event(
                     "workflow.execution_started",

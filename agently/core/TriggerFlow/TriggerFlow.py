@@ -527,8 +527,8 @@ class TriggerFlow(Generic[InputT, StreamT, ResultT]):
         self._bind_start_process()
         return self
 
-    def get_flow_config(self):
-        return self._blue_print.get_flow_config(name=self.name)
+    def get_flow_config(self, *, validate_serializable: bool = True):
+        return self._blue_print.get_flow_config(name=self.name, validate_serializable=validate_serializable)
 
     def get_json_flow(
         self,

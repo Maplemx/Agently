@@ -615,6 +615,40 @@ async def test_trigger_flow_sub_flow_inherits_parent_run_lineage():
 
 
 @pytest.mark.asyncio
+async def test_trigger_flow_emits_definition_runtime_event():
+    flow = TriggerFlow(name="definition-runtime-flow")
+    flow.to(lambda data: data.value + 1).end()
+
+    captured = []
+
+    async def capture(event):
+        if event.event_type in {"workflow.definition_declared", "workflow.execution_started"}:
+            captured.append(event)
+
+    hook_name = "test_trigger_flow_emits_definition_runtime_event.capture"
+    Agently.event_center.register_hook(
+        capture,
+        event_types=["workflow.definition_declared", "workflow.execution_started"],
+        hook_name=hook_name,
+    )
+    try:
+        assert await flow.async_start(2) == 3
+    finally:
+        Agently.event_center.unregister_hook(hook_name)
+
+    definition_event = next(event for event in captured if event.event_type == "workflow.definition_declared")
+    start_event = next(event for event in captured if event.event_type == "workflow.execution_started")
+
+    assert definition_event.run is not None
+    assert start_event.run is not None
+    assert definition_event.run.run_id == start_event.run.run_id
+    assert definition_event.run.meta["flow_name"] == "definition-runtime-flow"
+    assert definition_event.payload["flow_name"] == "definition-runtime-flow"
+    assert definition_event.payload["definition"]["name"] == "definition-runtime-flow"
+    assert any(operator["kind"] == "result_sink" for operator in definition_event.payload["definition"]["operators"])
+
+
+@pytest.mark.asyncio
 async def test_trigger_flow_chunk_runtime_events_include_input_output_and_origin_data():
     flow = TriggerFlow(name="chunk-runtime-payloads")
 
