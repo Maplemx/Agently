@@ -411,3 +411,96 @@ async def test_trigger_flow_runtime_context_auto_inherits_parent_run_for_agent_a
         assert agent_turn_start.run.run_id in parent_ids
     finally:
         Agently.event_center.unregister_hook(hook_name)
+
+
+@pytest.mark.asyncio
+async def test_nested_subflow_helper_calls_auto_inherit_runtime_context():
+    MockObservationRequester.reset()
+    captured = []
+
+    async def capture(event):
+        captured.append(event)
+
+    hook_name = "test_model_request_observation.nested_subflow_capture"
+    Agently.event_center.register_hook(capture, hook_name=hook_name)
+    try:
+        sub_flow = TriggerFlow(name="daily-news-summary-sub-flow")
+
+        async def summarize_candidate(data: TriggerFlowRuntimeData):
+            async def helper():
+                agent = _create_agent()
+                agent.input("Summarize candidate news.")
+                request = _create_request()
+                request.input("Summarize direct request in subflow.")
+                agent_text = await agent.async_get_text()
+                request_text = await request.async_get_text()
+                return {
+                    "agent_text": agent_text,
+                    "request_text": request_text,
+                }
+
+            return await helper()
+
+        sub_flow.to(summarize_candidate).end()
+
+        flow = TriggerFlow(name="daily-news-root-flow")
+        flow.to_sub_flow(sub_flow, capture={"input": "value"}, write_back={"value": "result"}).end()
+
+        result = await flow.async_start("topic")
+
+        assert "Morning briefing prepared." in result["agent_text"]
+        assert "Morning briefing prepared." in result["request_text"]
+
+        workflow_runs = [
+            event.run
+            for event in captured
+            if event.event_type == "workflow.execution_started" and event.run is not None
+        ]
+
+        root_workflow_run = next(run for run in workflow_runs if run.meta.get("flow_name") == "daily-news-root-flow")
+        subflow_workflow_run = next(
+            run for run in workflow_runs if run.meta.get("flow_name") == "daily-news-summary-sub-flow"
+        )
+
+        subflow_parent_chunk = next(
+            event.run
+            for event in captured
+            if event.event_type == "chunk.started"
+            and event.run is not None
+            and event.run.run_id == subflow_workflow_run.parent_run_id
+        )
+        assert subflow_parent_chunk is not None
+        assert subflow_parent_chunk.parent_run_id == root_workflow_run.run_id
+
+        summarize_chunk = next(
+            event.run
+            for event in captured
+            if event.event_type == "chunk.started"
+            and event.run is not None
+            and event.run.meta.get("chunk_name") == "summarize_candidate"
+        )
+        assert summarize_chunk is not None
+        assert summarize_chunk.parent_run_id == subflow_workflow_run.run_id
+
+        agent_turn_run = next(
+            event.run
+            for event in captured
+            if event.event_type == "agent_turn.started" and event.run is not None
+        )
+        assert agent_turn_run is not None
+        assert agent_turn_run.parent_run_id == summarize_chunk.run_id
+
+        request_starts = [event.run for event in captured if event.event_type == "request.started" and event.run is not None]
+        parent_ids = {run.parent_run_id for run in request_starts}
+        assert summarize_chunk.run_id in parent_ids
+        assert agent_turn_run.run_id in parent_ids
+
+        model_request_runs = [
+            event.run
+            for event in captured
+            if event.event_type == "model.request_started" and event.run is not None
+        ]
+        assert len(model_request_runs) >= 2
+        assert all(run.parent_run_id in {request.run_id for request in request_starts} for run in model_request_runs)
+    finally:
+        Agently.event_center.unregister_hook(hook_name)

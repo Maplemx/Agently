@@ -54,6 +54,17 @@ Agently 官方可安装 skills 已正式发布：
 - **官方 Agently Skills 仓库**: https://github.com/AgentEra/Agently-Skills
 - **安装 Agently Skills**: `npx skills add AgentEra/Agently-Skills`
 
+## 可选配套包：Agently Devtools
+
+`agently-devtools` 是独立的运行时观测与开发者工具配套包。
+
+- 安装：`pip install agently-devtools`
+- 依赖方向：`agently-devtools -> agently`
+- 兼容线：`agently-devtools 0.1.x` 对应 `agently >=4.0.8.7,<4.1.0`
+- 接入入口：`ObservationBridge` 与 `create_local_observation_app`
+
+这个 DevTools 包是可选能力，不会让 `agently` 反向依赖 `agently-devtools`。
+
 ## 🤔 为什么需要 Agently？
 
 很多 GenAI POC 难以落地投产，问题往往不在模型“聪明与否”，而在**工程可控性不足**：

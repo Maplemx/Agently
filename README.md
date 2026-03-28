@@ -54,6 +54,17 @@ What you get after installing:
 - **Official Agently Skills**: https://github.com/AgentEra/Agently-Skills
 - **Install Agently Skills**: `npx skills add AgentEra/Agently-Skills`
 
+## Optional Companion Package: Agently Devtools
+
+`agently-devtools` is a separate companion package for runtime observation and developer tooling.
+
+- Install: `pip install agently-devtools`
+- Dependency direction: `agently-devtools -> agently`
+- Compatibility line: `agently-devtools 0.1.x` targets `agently >=4.0.8.7,<4.1.0`
+- Integration entrypoints: `ObservationBridge` and `create_local_observation_app`
+
+The DevTools package is optional and does not add a reverse dependency from `agently` back to `agently-devtools`.
+
 ## 🤔 Why Agently?
 
 Many GenAI POCs fail in production not because models are weak, but because **engineering control is missing**:
